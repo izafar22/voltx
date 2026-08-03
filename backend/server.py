@@ -7,7 +7,7 @@ import logging
 import uuid
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime, timezone, timedelta
 import httpx
 
@@ -67,7 +67,7 @@ class SubscribeRequest(BaseModel):
 
 
 class QuoteDecision(BaseModel):
-    decision: str  # approved / declined
+    decision: Literal["approved", "declined"]
 
 
 class LeadUpdate(BaseModel):
@@ -213,7 +213,9 @@ async def admin_leads(admin: User = Depends(require_admin)):
 
 @api_router.patch("/admin/leads/{lead_id}")
 async def update_lead(lead_id: str, payload: LeadUpdate, admin: User = Depends(require_admin)):
-    await db.leads.update_one({"id": lead_id}, {"$set": {"status": payload.status}})
+    res = await db.leads.update_one({"id": lead_id}, {"$set": {"status": payload.status}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Lead not found")
     return {"ok": True}
 
 
@@ -252,7 +254,9 @@ async def admin_bookings(admin: User = Depends(require_admin)):
 async def update_booking(booking_id: str, payload: BookingAssign, admin: User = Depends(require_admin)):
     upd = {k: v for k, v in payload.model_dump().items() if v is not None}
     if upd:
-        await db.bookings.update_one({"id": booking_id}, {"$set": upd})
+        res = await db.bookings.update_one({"id": booking_id}, {"$set": upd})
+        if res.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Booking not found")
     return {"ok": True}
 
 
@@ -431,8 +435,8 @@ async def seed():
     else:
         for p in SEED_PRODUCTS:
             await db.products.update_one({"slug": p["slug"]}, {"$set": p}, upsert=True)
-    await db.amc_plans.delete_many({})
-    await db.amc_plans.insert_many([dict(p) for p in SEED_PLANS])
+    for p in SEED_PLANS:
+        await db.amc_plans.update_one({"id": p["id"]}, {"$set": p}, upsert=True)
     # ensure admin user exists
     await db.users.update_one({"email": ADMIN_EMAIL}, {"$setOnInsert": {
         "user_id": new_id("user"), "email": ADMIN_EMAIL, "name": "RUSHX Admin",

@@ -17,7 +17,7 @@ import { Inbox, Users, CalendarCheck, ShieldCheck, IndianRupee, MessageSquare, T
 
 const leadStatuses = ["New", "Contacted", "Quoted", "Won", "Lost"];
 const bookingStatuses = ["Requested", "Scheduled", "In Progress", "Completed"];
-const badge = { New: "bg-amber-500/15 text-amber-600", Contacted: "bg-sky-500/15 text-sky-600", Quoted: "bg-blue-500/15 text-blue-600", Won: "bg-emerald-500/15 text-emerald-600", Lost: "bg-red-500/15 text-red-600", Requested: "bg-amber-500/15 text-amber-600", Scheduled: "bg-sky-500/15 text-sky-600", "In Progress": "bg-blue-500/15 text-blue-600", Completed: "bg-emerald-500/15 text-emerald-600", active: "bg-emerald-500/15 text-emerald-600", cancelled: "bg-red-500/15 text-red-600" };
+const badge = { New: "bg-amber-500/15 text-amber-600 dark:text-amber-400", Contacted: "bg-sky-500/15 text-sky-600 dark:text-sky-400", Quoted: "bg-blue-500/15 text-blue-600 dark:text-blue-400", Won: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", Lost: "bg-red-500/15 text-red-600 dark:text-red-400", Requested: "bg-amber-500/15 text-amber-600 dark:text-amber-400", Scheduled: "bg-sky-500/15 text-sky-600 dark:text-sky-400", "In Progress": "bg-blue-500/15 text-blue-600 dark:text-blue-400", Completed: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", active: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400", cancelled: "bg-red-500/15 text-red-600 dark:text-red-400" };
 
 const KPI = ({ icon: Icon, label, value }) => (
   <Card className="rounded-2xl"><CardContent className="p-5"><div className="flex items-center justify-between"><span className="text-sm text-muted-foreground">{label}</span><Icon className="h-5 w-5 text-primary" /></div><p className="font-display text-3xl font-extrabold mt-2">{value}</p></CardContent></Card>
@@ -74,7 +74,7 @@ export default function Admin() {
       <h1 className="font-display text-3xl font-extrabold tracking-tight">Admin dashboard</h1>
       <p className="text-muted-foreground">Operations overview — leads, bookings, AMC and payments.</p>
 
-      <div className="mt-8 grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <KPI icon={Inbox} label="Total leads" value={stats.leads ?? 0} />
         <KPI icon={TrendingUp} label="New leads" value={stats.new_leads ?? 0} />
         <KPI icon={CalendarCheck} label="Bookings" value={stats.bookings ?? 0} />
