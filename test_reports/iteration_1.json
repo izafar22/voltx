@@ -1,0 +1,50 @@
+{
+  "summary": "First full-stack test run of RUSHX (EV charging/BESS/Solar) MVP. Backend: created pytest suite (50 tests) covering public catalog, leads + mocked WhatsApp log, Emergent session auth (cookie/Bearer), bookings, AMC subscriptions/invoices (mocked Razorpay), quotes, admin RBAC + overview. All 50 passed (100%). Frontend: Playwright E2E on the public URL covering marketing pages (home hero/counters/product grid, products, product detail, services, why-rushx, segments, contact), light/dark theme toggle, mobile nav, quote dialog + contact lead submission (verified persisted in MongoDB), auth-gated customer portal (AMC subscribe -> invoice, cancel, booking dialog with slot select, quotes approve), admin dashboard (KPIs, recharts pipeline, lead status change, send-quote, technician assign, booking status, AMC/customers/WhatsApp tabs), RBAC denial for customer on /admin, logout and unauthenticated redirect to /login. No blocking bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "startup seed", "issue": "seed() runs db.amc_plans.delete_many({}) + insert_many on every boot — any admin/DB edit to AMC plans is wiped on restart. Prefer idempotent upsert by id."},
+      {"endpoint": "PATCH /api/admin/leads/{id}, PATCH /api/admin/bookings/{id}", "issue": "Returns 200 {ok:true} even when the id does not exist (no matched_count check) — should 404 on unknown id."},
+      {"endpoint": "PATCH /api/quotes/{id}", "issue": "decision value is not validated (any string is stored as status, e.g. 'foo'). Use Literal['approved','declined']."},
+      {"endpoint": "POST /api/bookings, POST /api/subscriptions", "issue": "Mocked WhatsApp message 'to' field is set to user.email rather than a phone number, unlike /api/leads which uses phone. Inconsistent data in the WhatsApp log."},
+      {"endpoint": "GET /api/subscriptions/me", "issue": "Returns {} (empty object, 200) when no active sub instead of null/404 — works with current FE but is an unusual contract."},
+      {"endpoint": "app lifecycle", "issue": "@app.on_event('startup'/'shutdown') is deprecated in current FastAPI; migrate to lifespan handler."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Portal > Book a service dialog", "issues": ["Date field uses the native browser date picker (<Input type=\"date\">) instead of the shadcn Calendar/Popover component used elsewhere in the design system — inconsistent with premium look and inconsistent across browsers", "No past-date validation: a booking can be created for a date in the past"]},
+      {"screen": "Admin dashboard", "issues": ["Status badge color map (Admin.jsx line 20) has no dark: variants (e.g. text-amber-600 / text-emerald-600) unlike Portal's statusColors which do — slightly lower contrast on dark background", "KPI grid is 4-column so the 6 KPIs wrap to a ragged 4+2 row with empty space; consider 3 or 6 columns", "react-query calls have no loading/error UI — tables briefly render 'No leads yet.' empty state while fetching"]},
+      {"screen": "Login page", "issues": ["Large empty vertical space in the right sign-in column at 1920x1080; the split panel content is not vertically balanced"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Make AMC plan seeding idempotent (upsert by id) instead of delete_many on every startup",
+    "Return 404 from PATCH /api/admin/leads/{id} and PATCH /api/admin/bookings/{id} when the document is not found",
+    "Validate quote decision with Literal['approved','declined'] in QuoteDecision",
+    "Use the shadcn Calendar component (not native type=date) for the booking date and block past dates",
+    "Add dark: text variants to Admin.jsx badge color map; add loading/error states to admin & portal react-query views",
+    "Store a phone number (not email) in the mocked WhatsApp 'to' field for bookings/subscriptions"
+  ],
+  "critical_code_review_comments": [
+    "server.py update endpoints ignore Mongo update_one result — silent no-ops for invalid ids.",
+    "seed() unconditionally wipes the amc_plans collection on every backend restart; destructive.",
+    "No pagination/limits are exposed on admin list endpoints (hard-coded 500/300 to_list caps) — will silently truncate at scale.",
+    "Portal.jsx subscribe/cancel/decideQuote use qc.invalidateQueries() with no key, refetching every query; cancelSub/decideQuote have no try/catch so a failure shows no error toast."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py", "/app/backend/tests/conftest.py"],
+  "success_rate": {"backend": "100% (50/50 pytest)", "frontend": "100% of tested flows (no functional failures)"},
+  "seed_data_creation": "Created and then deleted: a TEST customer user + session, TEST leads (quote dialog + contact form), 1 booking, 1 Standard AMC subscription + invoice, 1 admin-sent quote, mocked WhatsApp messages, plus a temporary admin session token. All TEST_ data cleaned from MongoDB; only the pre-existing seed data (6 products, 3 AMC plans, admin user, 1 pre-existing lead) remains.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Emergent Google auth only. Admin crazycoder4192@gmail.com is auto-seeded with role=admin. For automated tests, conftest.py auto-creates a customer user + user_sessions doc in MongoDB (test_database) and reuses the seeded admin's user_id for an admin session token; tokens are sent as Authorization: Bearer and as the session_token cookie in Playwright.",
+  "context_for_next_testing_agent": "Backend regression suite lives at /app/backend/tests/backend_test.py with fixtures in conftest.py (customer_session/admin_session create + tear down Mongo sessions automatically; run with `cd /app/backend && python -m pytest tests/ -v`). For UI auth testing, add a Playwright cookie {name: session_token, domain: green-ops-6.preview.emergentagent.com, path: /, secure: True, sameSite: None} with a session_token created in Mongo. Routes: /why-rushx (NOT /why-us), /portal, /admin. Portal/Admin testids: subscribe-{PlanName}, amc-plan-{PlanName}, approve-quote-{id}, lead-status-{id}, tech-input-{id}, booking-status-{id}. All flows listed in the review request were verified working end-to-end; remaining items are the minor backend contract and design polish issues listed above.",
+  "rca_of_the_issue": "No functional defects reproduced. Console 401s on public pages are expected (AuthContext /auth/me probe for anonymous visitors) and are handled gracefully. Reported minor issues are contract/robustness gaps (unchecked Mongo update results, destructive plan re-seed, unvalidated quote decision) and design-system inconsistencies (native date picker, missing dark variants, no loading states)."
+}
