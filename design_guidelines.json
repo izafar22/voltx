@@ -1,0 +1,149 @@
+{
+  "theme": "light_and_dark",
+  "typography": {
+    "headings": {
+      "family": "Manrope",
+      "weights": ["400", "700", "800"],
+      "tracking": "tracking-tight",
+      "usage": "Use Manrope for all headings. Never use Inter or generic sans for headings."
+    },
+    "body": {
+      "family": "Inter",
+      "weights": ["400", "500", "600"],
+      "usage": "Use Inter for body text, data tables, form inputs, and dashboard density."
+    },
+    "hierarchy": {
+      "h1": "text-5xl sm:text-6xl font-extrabold tracking-tighter",
+      "h2": "text-3xl sm:text-4xl font-bold tracking-tight",
+      "h3": "text-xl sm:text-2xl font-semibold",
+      "body": "text-base leading-relaxed text-slate-600 dark:text-slate-300",
+      "small_labels": "text-xs font-semibold uppercase tracking-[0.2em]"
+    }
+  },
+  "colors": {
+    "primary": {
+      "DEFAULT": "#16A34A",
+      "hover": "#15803D",
+      "foreground": "#FFFFFF",
+      "description": "Emerald Green - Used for primary actions, success states, brand highlights, and energy charts."
+    },
+    "secondary": {
+      "DEFAULT": "#38BDF8",
+      "hover": "#0284C7",
+      "foreground": "#FFFFFF",
+      "description": "Electric Blue - Used for tech elements, interactive states, and secondary CTAs."
+    },
+    "accent": {
+      "DEFAULT": "#F59E0B",
+      "hover": "#D97706",
+      "description": "Amber - Used for warnings, active states, and solar energy highlights."
+    },
+    "background": {
+      "light": "#FFFFFF",
+      "dark": "#0F172A",
+      "muted_light": "#F8FAFC",
+      "muted_dark": "#1E293B",
+      "description": "Deep Navy for dark mode, pure white for light mode."
+    },
+    "surface": {
+      "light": "#FFFFFF",
+      "dark": "#1E293B",
+      "border_light": "#E2E8F0",
+      "border_dark": "#334155"
+    }
+  },
+  "visual_enhancers": {
+    "corners": "rounded-xl to rounded-2xl (12px to 16px) for cards and modals. Buttons rounded-lg or pill-shaped.",
+    "shadows": "Subtle ambient shadows. Light mode: shadow-[0_8px_30px_rgb(0,0,0,0.04)]. Dark mode: no shadow, rely on 1px borders.",
+    "surfaces": "Use Glassmorphism (backdrop-blur-xl bg-white/70 or bg-slate-900/70) for sticky headers and hero overlay cards. Dashboard cards should be flat solid with 1px borders.",
+    "borders": "1px delicate inner stroke on glass surfaces (border-white/20 light, border-white/10 dark)."
+  },
+  "layouts": {
+    "marketing": {
+      "hero": "Split layout or full-width with heavy glassmorphism card overlapping the image. Generous spacing (py-24).",
+      "bento_grid": "For features/services. Asymmetrical grid (grid-cols-1 md:grid-cols-12), wide gaps (gap-8).",
+      "spacing": "Generous. Use p-8, p-12, py-24."
+    },
+    "dashboard": {
+      "structure": "Overview-first, role-based layout. Collapsible left sidebar, top header with global search/actions.",
+      "grid": "High density grid. Base grid-cols-1 md:grid-cols-3 lg:grid-cols-4. Tight gaps (gap-4 or gap-6).",
+      "widgets": "Top row KPI cards (col-span-1), Main chart (col-span-2 or 3), supporting lists (col-span-1)."
+    }
+  },
+  "motion": {
+    "marketing": "Use framer-motion for scroll-triggered reveals (staggered fade-up), animated stat counters, and hover lifts.",
+    "dashboard": "Minimalist. Micro-interactions for feedback. Hover lifts (-translate-y-1) for interactive cards.",
+    "transitions": "Specific transitions like transition-colors duration-200, transition-transform duration-300. Do NOT use transition-all."
+  },
+  "components": {
+    "buttons": "Modern pill-shaped or rounded-lg. Use explicit hover text colors (e.g., hover:bg-green-700 hover:text-white).",
+    "cards": "Cardless or 1px bordered containers for dashboard. For marketing, use overlapping layers.",
+    "forms": "Use customized Shadcn UI forms. Input height h-12 for marketing, h-10 for dashboard.",
+    "charts": "Use Recharts or Shadcn charts. Ensure tooltips have backdrop blur. Primary chart line color should use #16A34A."
+  },
+  "accessibility": {
+    "contrast": "Ensure text contrast meets WCAG AA standards. Don't use complete transparent backgrounds behind text.",
+    "testing": "All interactive elements MUST include a data-testid attribute. e.g., data-testid='login-submit-button'.",
+    "motion": "Respect prefers-reduced-motion."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwyfHxldiUyMGNoYXJnZXIlMjBpbnN0YWxsYXRpb258ZW58MHx8fHwxNzg1NzYzNTE3fDA&ixlib=rb-4.1.0&q=85",
+      "category": "Hero / EV Charger",
+      "description": "EV charger plugged into car, representing charging solutions."
+    },
+    {
+      "url": "https://images.pexels.com/photos/27355831/pexels-photo-27355831.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "category": "Marketing Context / Home EV",
+      "description": "A woman connects an electric vehicle to a home charging station outdoors."
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1780445392694-c95056ed12e2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwxfHxzb2xhciUyMHBhbmVsJTIwbW9kZXJuJTIwaG9tZXxlbnwwfHx8fDE3ODU3NjM1MTd8MA&ixlib=rb-4.1.0&q=85",
+      "category": "Solar Solutions / Hearth Inverter Context",
+      "description": "Solar panel on a tiled roof in a residential area."
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1717386255773-1e3037c81788?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTF8MHwxfHNlYXJjaHwzfHxtb2Rlcm4lMjBmYWN0b3J5JTIwaW5kdXN0cmlhbHxlbnwwfHx8fDE3ODU3NjM1MTd8MA&ixlib=rb-4.1.0&q=85",
+      "category": "Industrial / Commercial Charging",
+      "description": "A large machine in a large building, representing commercial EV charging infrastructure."
+    },
+    {
+      "url": "https://images.pexels.com/photos/37730212/pexels-photo-37730212.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "category": "BESS / PowerBoy Powerwall",
+      "description": "Close-up of server racks in a data center highlighting modern technology infrastructure (Placeholder for Battery Energy Storage System)."
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1779907315536-1f21f6dd9bde?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzOTB8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjB0ZWFtJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzg1NzYzNTMwfDA&ixlib=rb-4.1.0&q=85",
+      "category": "Team / Why Us",
+      "description": "A group of professionals standing outdoors, representing the RUSHX expert team."
+    }
+  ],
+  "libraries": {
+    "icons": "lucide-react",
+    "charts": "recharts",
+    "motion": "framer-motion",
+    "notifications": "sonner"
+  },
+  "instructions_to_main_agent": [
+    "Build a hybrid fullstack app containing both Marketing pages and Dashboard layouts for RUSHX.",
+    "Implement full Light and Dark mode toggling via Tailwind's 'dark' class. The default should be intelligent based on system preference.",
+    "Design an engaging Marketing hero section with glassmorphism overlays and background imagery. Tell a premium enterprise brand story.",
+    "Use Manrope for all headings to ensure a premium look. Do NOT use Inter for headings.",
+    "Implement an animated stats counter section (scroll-triggered).",
+    "Create the Customer Portal Dashboard with tiered AMC plans (pricing cards) and a service booking flow with a date/time slot picker.",
+    "Create the Admin Dashboard showing a leads inbox, pipeline, bookings calendar, and customer catalog.",
+    "Add 'data-testid' to all interactive elements, buttons, links, and forms for robust automated testing.",
+    "Ensure 'lucide-react' icons are used to represent the logo and other visual markers where images aren't provided.",
+    "Never use pure transparent backgrounds under text. Always use a blur or semi-solid color to maintain contrast."
+  ],
+  "universal_guidelines": [
+    "Do not converge toward generic AI outputs. Avoid full-screen generic gradients.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Every interaction needs micro-animations - hover states, transitions, entrance animations. Static = dead.",
+    "DO NOT apply universal transition (e.g., transition: all). Add transitions for specific interactive elements.",
+    "DO NOT center align the main App container (.App { text-align: center; }).",
+    "Never use AI assistant emoji characters for icons.",
+    "Prioritize reusing pre-existing Shadcn components from src/components/ui."
+  ]
+}
