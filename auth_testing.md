@@ -1,25 +1,19 @@
-# Auth-Gated App Testing Playbook (Emergent Google Auth)
+# Auth Testing — VoltGrid (Phone OTP + JWT)
 
-## Step 1: Create Test User & Session (mongosh)
+## Login (no SMS, fixed OTP 123456)
 ```
-mongosh --eval "
-use('test_database');
-var userId = 'test-user-' + Date.now();
-var sessionToken = 'test_session_' + Date.now();
-db.users.insertOne({ user_id: userId, email: 'test.user.'+Date.now()+'@example.com', name:'Test User', picture:'', role:'customer', created_at:new Date() });
-db.user_sessions.insertOne({ user_id: userId, session_token: sessionToken, expires_at: new Date(Date.now()+7*24*60*60*1000), created_at:new Date() });
-print('Session token: '+sessionToken); print('User ID: '+userId);
-"
+URL=$REACT_APP_BACKEND_URL
+curl -s -X POST $URL/api/auth/request-otp -H "Content-Type: application/json" -d '{"phone":"+919000000003"}'
+TOK=$(curl -s -X POST $URL/api/auth/verify-otp -H "Content-Type: application/json" -d '{"phone":"+919000000003","otp":"123456"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+curl -s $URL/api/auth/me -H "Authorization: Bearer $TOK"
 ```
+Seeded: admin +919000000001, owner +919000000002, customer +919000000003.
 
-## Step 2: Test Backend API
+## Browser (frontend stores JWT in localStorage)
 ```
-curl -X GET "$URL/api/auth/me" -H "Authorization: Bearer YOUR_SESSION_TOKEN"
-curl -X GET "$URL/api/bookings" -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+await page.goto(APP_URL + "/login")
+# use demo buttons, or set token directly:
+await page.evaluate("localStorage.setItem('ev_token', 'JWT_HERE')")
+await page.goto(APP_URL + "/app")
 ```
-
-## Step 3: Browser Testing
-Set cookie session_token (domain=app host, path=/, httpOnly, secure, sameSite=None), then goto app.
-
-## Admin
-Admin account: crazycoder4192@gmail.com (role auto-set to admin on login/seed).
+Roles: customer→/app, owner→/owner, admin→/admin.

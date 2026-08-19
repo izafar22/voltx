@@ -1,44 +1,43 @@
-# RUSHX — EV Charging, BESS & Solar Solutions Platform (PRD)
+# VoltGrid — EV Charging Network Platform (PRD)
 
-## Original Problem Statement
-Premium web platform for RUSHX (India's EV charging solutions company): marketing website + product showcase + quote/lead capture + JWT/Google auth customer portal + AMC subscription portal + service booking + admin operations dashboard. Products: EV Chargers (Portable/3.3/7.4/11/22kW), PowerBoy Powerwall (BESS), Hearth Solar Inverter, Custom OEM. Services: Manufacturing, Installation, PCB-level Repair, AMC.
+## Original Problem Statement (Pivot)
+Build the smallest product that operates a real EV charging network. Three parts: EV Charger (OCPP 1.6J, start/stop, reports kWh/status/faults), Cloud Server (users, wallets, cost calc, 90/10 revenue split, commands), and apps (Customer, Owner, Admin). Wallet-based prepaid billing, QR-code charging, single ₹/kWh pricing, minimum wallet balance check before starting.
 
-## User Choices (v1)
-- All third-party integrations MOCKED (Razorpay, Twilio WhatsApp, Resend) — turn on later
-- Auth: Emergent-managed Google login
-- AMC tiers: sensible defaults (Basic ₹4,999 / Standard ₹9,999 / Premium ₹18,999 per year)
-- Case studies / blog: pushed to later phase
-- Product visuals: sourced/generated
+## User Choices
+- Replaced the earlier RUSHX marketing/AMC app entirely
+- Login: phone OTP, DEMO fixed code 123456 (no SMS gateway)
+- Wallet top-up: MOCKED instant add (no payment gateway)
+- Charger hardware: server-side simulator (OCPP 1.6J-style), time-accelerated (SIM_SPEED=120)
+- Build all three roles at once
+- Theme cues from globalcharge.com — clean, frictionless fintech aesthetic
 
 ## Architecture
-- Frontend: React + Tailwind + shadcn/ui + framer-motion + recharts + react-hook-form; light/dark mode
-- Backend: FastAPI, all routes under /api
-- DB: MongoDB (products, amc_plans, users, user_sessions, leads, bookings, subscriptions, invoices, quotes, messages)
-- Auth: Emergent Google OAuth, session_token cookie (httpOnly/secure/samesite=none) + Bearer fallback; role=admin for crazycoder4192@gmail.com
+- Frontend: React + Tailwind + shadcn/ui + framer-motion + recharts; fonts Outfit/Manrope/IBM Plex Mono; full light+dark; customer app is mobile-first (max-w-md), owner/admin are desktop dashboards
+- Backend: FastAPI, all routes under /api; JWT auth (Bearer, localStorage `ev_token`); role-based (customer/owner/admin)
+- DB: MongoDB (users, wallets, owner_wallets, transactions, owner_transactions, chargers, sessions, withdrawals, fault_logs, notifications, counters, otp_requests)
 
-## User Personas
-- Individuals / homeowners / EV owners; Businesses; Institutions; Enterprise/fleet/govt/OEM; Internal RUSHX admins
+## Personas
+Customer (EV owner), Charger Owner (host earning revenue), Company Admin (network ops).
 
-## Implemented (2026-08-03)
-- Marketing site: Home (hero, animated counters, product grid, services strip, why, segments, CTA), Products catalog, Product detail, Services, Why RUSHX, Segments, Contact
-- Quote/lead capture: reusable QuoteDialog on hero/products/segments + Contact form → creates lead + mocked WhatsApp ack
-- Auth: Google login, AuthCallback, ProtectedRoute (customer + adminOnly)
-- Customer portal: dashboard KPIs, service bookings list + book dialog (type/date/slot/device/desc), AMC plan cards (subscribe/cancel, mocked Razorpay + invoice), quotes (approve/decline), invoices
-- Admin dashboard: KPI cards, leads pipeline chart + inbox (status change, send quote), bookings table (technician assign + status), AMC subscribers, customers, WhatsApp message log
-- Full light/dark mode, responsive, data-testid coverage
-- Verified: 50/50 backend pytest pass; all frontend flows verified by testing agent
+## Implemented (2026-08-19)
+- Auth: phone OTP → JWT, auto-create customer, demo accounts + one-tap login
+- Customer: wallet (balance, quick top-up, transactions), scan/enter station code, charger detail, min ₹100 balance check, start charging, LIVE screen (animated SoC ring + energy/time/power/cost/voltage/current, 2s polling), stop→bill→history, notifications
+- Charging simulator: time-accelerated energy accrual, cost capped to wallet balance (no overdraw), 90/10 split on stop
+- Owner: earnings (today/month), units sold, wallet, chargers telemetry, transactions, withdrawal request
+- Admin: revenue/commission(10%)/payouts(90%) KPIs, charger-health pie, live charger monitoring (voltage/current/power/temp/signal/firmware/heartbeat) with remote restart + status control, add charger (atomic IDs) / add owner, customers + wallet adjust, fault logs, withdrawal approvals
+- Charger states: Available, Charging, Offline, Fault (Preparing/Finishing modeled in status set)
+- Verified: 39/39 backend pytest; all 3 roles' frontend flows via testing agent; accounting fix confirmed (owner+company == collected)
 
-## MOCKED (not real integrations)
-- Razorpay subscriptions/invoices, Twilio WhatsApp (messages log), Resend email
+## MOCKED (no real integrations)
+- SMS OTP (fixed 123456), wallet top-up (no gateway), charger hardware/OCPP (simulator)
 
 ## Backlog / Remaining
-- P1: Turn on real Razorpay recurring subscriptions; real Twilio WhatsApp; Resend renewal/booking emails
-- P1: Object storage for service photos + product image CMS uploads
-- P2: Admin product catalog CMS (edit specs/images/prices), case studies + blog CMS
-- P2: Registered devices in profile; renewal reminders (scheduled)
-- P2: shadcn Calendar for booking date + past-date validation; loading/error states on dashboards
-- P3: e-commerce checkout for spares, technician app, OCPP, multi-language, dealer portal, referrals
+- P1: Real OTP via Twilio; real payment gateway (UPI/cards) for wallet top-up; real OCPP 1.6J charger comms + WebSocket live push (replace polling)
+- P1: Auto-stop + notification when wallet exhausted mid-session (currently caps cost)
+- P2: Owner earnings via Mongo aggregation (scale); charger_id counter already atomic
+- P2: Native mobile apps (Flutter); real QR camera scanning; bank transfer on withdrawal
+- P3: Peak/night/member pricing, reservations, RFID, loyalty, OCPP telemetry dashboards
 
 ## Next Tasks
-- Wire real integrations (Razorpay/Twilio/Resend) when keys provided
-- Admin catalog CMS + object storage
+- Wire real integrations (Twilio OTP, payment gateway, OCPP) when keys/hardware available
+- WebSocket-based live charging updates; wallet-exhaustion auto-stop
