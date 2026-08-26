@@ -1,0 +1,41 @@
+{
+  "summary": "Verified the customer-dashboard desktop redesign (sidebar + full width + Leaflet stations map) and ran full regression. Backend: extended /app/backend/tests/backend_test.py with a new TestStationsMap class (auth on /api/stations, lat/lng present for all 10 chargers with India-bounded coords, no _id leak, admin-created charger gets IND######## atomic id + default coords, no duplicate ids) — 38/38 pytest tests pass. Frontend (Playwright, 1600x900 + 390x844): customer login (demo-customer + OTP 123456) -> /app renders FULL WIDTH (sidebar 240px, main 1360px, no phone-frame column) with nav-home/nav-wallet/nav-history, wallet-card, scan-qr-btn, station-code-input and stations-map with 10 color-coded markers and loaded CartoDB tiles. Marker popup -> map-view-IND000001 navigates to /app/charger/IND000001. Charging flow works end-to-end in the new shell (inline start-charging-btn -> live-page charging-ring with growing energy/cost -> stop-charging-btn -> stop-confirm -> /app/history, session billed ₹26.55). Wallet: quick-500 (1868->2368) and topup-input 250 (->2618) update balance + transactions, content constrained to 768px. History list renders 7 sessions. Sidebar nav, notifications panel, theme-toggle (map tiles switch to dark_all), mobile hamburger drawer + drawer nav, logout all work. RootRedirect correct per role (customer->/app, owner->/owner, admin->/admin). RBAC: customer hitting /admin and /owner is redirected to /app; nav-console appears only for owner/admin and routes to /owner. Owner console KPIs/chart + tabs and Admin console KPIs (revenue ₹382, commission ₹38 = 10%, payouts ₹344 = 90%) + donut render fine. No console errors, no blocking bugs.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/stations", "issue": "charger_public() does a separate db.users.find_one per charger (N+1 queries); will not scale past a few hundred stations. Batch the owner lookup."},
+      {"endpoint": "POST /api/sessions/{id}/stop", "issue": "STILL OPEN from iteration_1: when wallet is short the customer is debited min(cost, balance) but session cost and the 90/10 owner/company credits use the FULL cost, creating unbacked payouts. No wallet-based auto-stop either."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Dialogs (scan / admin add-charger / add-owner)", "issue": "Radix a11y warning: DialogContent missing Description or aria-describedby (carried over from iteration_1)", "selector": "[data-testid=\"scan-dialog\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Charger detail (/app/charger/:id) and Live (/app/live/:id)", "issues": ["Content uses max-w-lg/max-w-md with lg:mx-0, so on 1600px desktop it hugs the left edge leaving ~900-1000px of empty space. Either center it (keep mx-auto on lg) or use a 2-column layout with a mini map/session summary on the right."]},
+      {"screen": "Customer home left column", "issues": ["Wallet + Scan QR + station-code cards end at ~560px while the map is 560px tall, leaving a visible empty gap under the left column; consider moving 'Recent charging' or a stats card into that space."]},
+      {"screen": "Admin/Owner overview", "issues": ["Large empty area below the KPI grid on 1600x900 (pre-existing, unchanged)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional design polish: center or two-column the charger/live pages on desktop instead of left-hugging max-w-lg",
+    "Fill or rebalance the empty space under the customer-home left column",
+    "Still open from iteration_1: fix stop-session accounting (bill only collected amount / auto-stop on low balance)",
+    "Batch owner lookup in charger_public to remove N+1 queries"
+  ],
+  "critical_code_review_comments": [
+    "StationsMap filters out stations without lat/lng silently — a charger created via an older path would simply vanish from the map with no UI hint; consider a 'N stations without coordinates' note.",
+    "CustomerShell polls /api/notifications every 15s per mounted page and re-triggers on every pathname change; consider react-query with a shared key to avoid duplicate intervals.",
+    "GET /api/stations requires auth and returns all chargers with no pagination/bbox filter; fine for demo, will need geo filtering for real scale."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (38/38)", "frontend": "100% of tested flows (customer redesign, charging, wallet, history, nav/theme/notifs/mobile/logout, owner, admin, RBAC, root redirect)"},
+  "seed_data_creation": "TEST_Geo Owner owners + TEST_Geo Charger/TEST_Geo Charger 2 chargers (chargers_total now 10), one extra completed customer session, customer wallet topped to ~₹2,618",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "OTP 123456; admin +919000000001, owner +919000000002, customer +919000000003",
+  "context_for_next_testing_agent": "Run `pytest tests/backend_test.py -n 0` from /app/backend (serial ordering needed for owner withdrawal tests). New TestStationsMap class covers the map geo contract. Frontend testids confirmed: nav-home/nav-wallet/nav-history/nav-console, stations-map, map-view-<chargerId>, wallet-card, scan-qr-btn, station-code-input/code-go-btn, start-charging-btn, charging-ring/live-page, stop-charging-btn/stop-confirm, wallet-balance/quick-500/topup-input/topup-btn, history-list/history-<sessionId>, menu-btn/mobile-drawer, notifications-btn/notifications-panel, theme-toggle, logout-btn.",
+  "rca_of_the_issue": "No new defects. The redesign is functionally correct; remaining findings are the pre-existing stop-session accounting gap and desktop whitespace/left-alignment on the charger and live pages."
+}

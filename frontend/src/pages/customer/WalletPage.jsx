@@ -34,7 +34,7 @@ export default function WalletPage() {
 
   return (
     <CustomerShell>
-      <div className="p-5 space-y-6">
+      <div className="p-4 lg:p-8 space-y-6 max-w-3xl mx-auto lg:mx-0">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl bg-primary text-primary-foreground p-6 relative overflow-hidden" data-testid="wallet-balance-card">
           <div className="absolute inset-0 grain opacity-30" />

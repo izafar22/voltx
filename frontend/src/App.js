@@ -1,9 +1,10 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ProtectedRoute, homeFor } from "@/components/ProtectedRoute";
 import Login from "@/pages/Login";
 import CustomerHome from "@/pages/customer/CustomerHome";
 import ChargerPage from "@/pages/customer/ChargerPage";
@@ -13,6 +14,12 @@ import HistoryPage from "@/pages/customer/HistoryPage";
 import OwnerDashboard from "@/pages/owner/OwnerDashboard";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 
+function RootRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>;
+  return <Navigate to={user ? homeFor(user.role) : "/login"} replace />;
+}
+
 function App() {
   return (
     <div className="App">
@@ -21,7 +28,7 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/" element={<Navigate to="/app" replace />} />
+              <Route path="/" element={<RootRedirect />} />
 
               <Route path="/app" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><CustomerHome /></ProtectedRoute>} />
               <Route path="/app/wallet" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><WalletPage /></ProtectedRoute>} />

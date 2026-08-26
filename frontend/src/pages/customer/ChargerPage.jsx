@@ -36,7 +36,7 @@ export default function ChargerPage() {
 
   return (
     <CustomerShell>
-      <div className="p-5">
+      <div className="p-4 lg:p-8 max-w-lg mx-auto">
         <button onClick={() => navigate("/app")} data-testid="back-btn" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 mb-5"><ArrowLeft className="h-4 w-4 mr-1" /> Back</button>
         {isLoading || !c ? <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-charging" /></div> : (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} data-testid="charger-detail">
@@ -68,18 +68,14 @@ export default function ChargerPage() {
               <span className="text-sm text-muted-foreground">Your wallet</span>
               <span className="font-mono font-semibold">{inr(wallet?.balance)}</span>
             </div>
+
+            <Button onClick={start} disabled={starting || c.status !== "Available"} data-testid="start-charging-btn"
+              className="w-full h-14 mt-6 rounded-xl text-base bg-charging text-black hover:bg-charging/90 active:scale-95 transition-transform duration-200 disabled:opacity-50">
+              {starting ? <Loader2 className="h-5 w-5 animate-spin" /> : c.status === "Available" ? <><Zap className="h-5 w-5 mr-2" fill="currentColor" /> Start charging</> : `Charger ${c.status}`}
+            </Button>
           </motion.div>
         )}
       </div>
-
-      {c && (
-        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-md p-5 glass border-t z-30">
-          <Button onClick={start} disabled={starting || c.status !== "Available"} data-testid="start-charging-btn"
-            className="w-full h-14 rounded-xl text-base bg-charging text-black hover:bg-charging/90 active:scale-95 transition-transform duration-200 disabled:opacity-50">
-            {starting ? <Loader2 className="h-5 w-5 animate-spin" /> : c.status === "Available" ? <><Zap className="h-5 w-5 mr-2" fill="currentColor" /> Start charging</> : `Charger ${c.status}`}
-          </Button>
-        </div>
-      )}
     </CustomerShell>
   );
 }

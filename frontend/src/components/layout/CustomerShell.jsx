@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Home, Wallet as WalletIcon, History, Bell, Moon, Sun, LogOut } from "lucide-react";
+import { Home, Wallet as WalletIcon, History, Bell, Moon, Sun, LogOut, Menu, X, LayoutDashboard, Shield } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { Logo } from "@/components/Logo";
-import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 
 const nav = [
@@ -19,20 +16,61 @@ const nav = [
 
 export const CustomerShell = ({ children }) => {
   const loc = useLocation();
-  const nav_ = useNavigate();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const [notifs, setNotifs] = useState([]);
+  const [open, setOpen] = useState(false);
 
   const load = () => api.get("/notifications").then((r) => setNotifs(r.data)).catch(() => {});
   useEffect(() => { load(); const i = setInterval(load, 15000); return () => clearInterval(i); }, [loc.pathname]);
   const unread = notifs.filter((n) => !n.read).length;
 
+  const SideNav = () => (
+    <nav className="flex flex-col gap-1 p-3">
+      {nav.map((n) => {
+        const active = loc.pathname === n.to;
+        return (
+          <Link key={n.to} to={n.to} onClick={() => setOpen(false)} data-testid={`nav-${n.label.toLowerCase()}`}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}>
+            <n.icon className="h-4.5 w-4.5" strokeWidth={1.5} /> {n.label}
+          </Link>
+        );
+      })}
+      {(user?.role === "owner" || user?.role === "admin") && (
+        <button onClick={() => navigate(user.role === "admin" ? "/admin" : "/owner")} data-testid="nav-console"
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-colors duration-200 mt-2">
+          {user.role === "admin" ? <Shield className="h-4.5 w-4.5" strokeWidth={1.5} /> : <LayoutDashboard className="h-4.5 w-4.5" strokeWidth={1.5} />}
+          {user.role === "admin" ? "Admin Console" : "Owner Console"}
+        </button>
+      )}
+    </nav>
+  );
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-md min-h-screen flex flex-col border-x border-border/60 relative">
-        <header className="sticky top-0 z-40 glass border-b flex items-center justify-between px-5 h-14">
-          <Logo />
+    <div className="min-h-screen bg-background flex">
+      <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-border/60 sticky top-0 h-screen">
+        <div className="h-16 flex items-center px-5 border-b border-border/60"><Logo /></div>
+        <div className="flex-1 overflow-y-auto"><SideNav /></div>
+        <div className="p-3 border-t border-border/60"><div className="px-3 py-2 text-sm"><p className="font-medium truncate">{user?.name}</p><p className="text-xs text-muted-foreground font-mono">{user?.phone}</p></div></div>
+      </aside>
+
+      {open && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div className="w-64 bg-background border-r border-border/60 flex flex-col" data-testid="mobile-drawer">
+            <div className="h-16 flex items-center justify-between px-5 border-b border-border/60"><Logo /><button onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
+            <SideNav />
+          </div>
+          <div className="flex-1 bg-black/40" onClick={() => setOpen(false)} />
+        </div>
+      )}
+
+      <div className="flex-1 min-w-0 flex flex-col">
+        <header className="sticky top-0 z-40 glass border-b h-16 flex items-center justify-between px-4 lg:px-8">
+          <div className="flex items-center gap-3">
+            <button className="lg:hidden" onClick={() => setOpen(true)} data-testid="menu-btn"><Menu className="h-6 w-6" /></button>
+            <div className="lg:hidden"><Logo compact /></div>
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={toggle} data-testid="theme-toggle" className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -57,28 +95,10 @@ export const CustomerShell = ({ children }) => {
                 </div>
               </SheetContent>
             </Sheet>
-            <button onClick={logout} data-testid="logout-btn" className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
-              <LogOut className="h-5 w-5" />
-            </button>
+            <button onClick={logout} data-testid="logout-btn" className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200"><LogOut className="h-5 w-5" /></button>
           </div>
         </header>
-
-        <main className="flex-1 pb-24">{children}</main>
-
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md glass border-t z-40">
-          <div className="grid grid-cols-3 h-16">
-            {nav.map((n) => {
-              const active = loc.pathname === n.to;
-              return (
-                <Link key={n.to} to={n.to} data-testid={`nav-${n.label.toLowerCase()}`} className="flex flex-col items-center justify-center gap-0.5">
-                  <n.icon className={`h-5 w-5 transition-colors duration-200 ${active ? "text-charging" : "text-muted-foreground"}`} />
-                  <span className={`text-[11px] ${active ? "text-charging font-semibold" : "text-muted-foreground"}`}>{n.label}</span>
-                  {active && <motion.div layoutId="tab" className="absolute bottom-0 h-0.5 w-10 bg-charging rounded-full" />}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   );

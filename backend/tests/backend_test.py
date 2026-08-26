@@ -370,3 +370,48 @@ class TestAdmin:
     def test_admin_sessions_list(self, admin):
         r = admin.get(f"{API}/admin/sessions", timeout=30)
         assert r.status_code == 200 and isinstance(r.json(), list)
+
+
+# ---------------- Stations map (GET /api/stations, lat/lng) ----------------
+class TestStationsMap:
+    def test_stations_requires_auth(self):
+        r = requests.get(f"{API}/stations", timeout=30)
+        assert r.status_code in (401, 403)
+
+    def test_stations_have_geo_and_fields(self, customer):
+        r = customer.get(f"{API}/stations", timeout=30)
+        assert r.status_code == 200, r.text
+        stations = r.json()
+        assert isinstance(stations, list) and len(stations) >= 6
+        seeded = {s["charger_id"]: s for s in stations}
+        for cid in [f"IND00000{i}" for i in range(1, 7)]:
+            assert cid in seeded, f"{cid} missing from /api/stations"
+            s = seeded[cid]
+            assert isinstance(s["lat"], (int, float)) and isinstance(s["lng"], (int, float))
+            assert 6 <= s["lat"] <= 37 and 68 <= s["lng"] <= 98, f"{cid} coords outside India: {s}"
+            assert s["status"] in ("Available", "Charging", "Preparing", "Finishing", "Offline", "Fault")
+            assert s["price_per_kwh"] > 0
+            assert "_id" not in s
+        # every station returned should carry coords for the map
+        missing = [s["charger_id"] for s in stations if s.get("lat") is None or s.get("lng") is None]
+        assert not missing, f"stations without lat/lng (map markers will not render): {missing}"
+
+    def test_new_charger_gets_atomic_id_and_coords(self, admin):
+        ro = admin.post(f"{API}/admin/owners", json={"phone": f"+9199{uuid.uuid4().int % 100000000:08d}", "name": "TEST_Geo Owner"}, timeout=30)
+        assert ro.status_code == 200, ro.text
+        owner_id = ro.json()["owner"]["user_id"]
+        payload = {"name": "TEST_Geo Charger", "location": "Testville", "owner_id": owner_id,
+                   "price_per_kwh": 15.0, "connector": "CCS2", "max_power_kw": 60}
+        r = admin.post(f"{API}/admin/chargers", json=payload, timeout=30)
+        assert r.status_code == 200, r.text
+        cid = r.json()["charger"]["charger_id"]
+        assert cid and cid.startswith("IND") and len(cid) == 9 and cid[3:].isdigit()
+        g = admin.get(f"{API}/chargers/{cid}", timeout=30)
+        assert g.status_code == 200
+        c = g.json()
+        assert c["lat"] is not None and c["lng"] is not None, "new charger has no default coords"
+        # second create must not collide
+        r2 = admin.post(f"{API}/admin/chargers", json={**payload, "name": "TEST_Geo Charger 2"}, timeout=30)
+        assert r2.status_code == 200, r2.text
+        cid2 = r2.json()["charger"]["charger_id"]
+        assert cid2 != cid, "duplicate charger_id generated"

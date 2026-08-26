@@ -258,7 +258,14 @@ async def charger_public(c):
         "price_per_kwh": c["price_per_kwh"], "connector": c["connector"],
         "max_power_kw": c["max_power_kw"], "location": c.get("location", ""),
         "owner_name": owner["name"] if owner else "—", "online": c.get("online", True),
+        "lat": c.get("lat"), "lng": c.get("lng"),
     }
+
+
+@api_router.get("/stations")
+async def list_stations(user=Depends(get_current_user)):
+    chargers = await db.chargers.find({}, {"_id": 0}).sort("charger_id", 1).to_list(500)
+    return [await charger_public(c) for c in chargers]
 
 
 @api_router.get("/chargers/{charger_id}")
@@ -429,6 +436,7 @@ def telemetry(c):
         "signal": random.randint(3, 5) if online else 0,
         "firmware": c.get("firmware", "v1.6.3"),
         "last_heartbeat": iso() if online else c.get("last_heartbeat", iso()),
+        "lat": c.get("lat"), "lng": c.get("lng"),
     }
 
 
@@ -472,6 +480,7 @@ async def create_charger(body: ChargerCreate, user=Depends(require("admin"))):
     c = {"charger_id": cid, "name": body.name, "owner_id": body.owner_id, "connector": body.connector,
          "price_per_kwh": body.price_per_kwh, "max_power_kw": body.max_power_kw, "location": body.location,
          "status": "Available", "online": True, "energy_today": 0, "firmware": "v1.6.3", "last_heartbeat": iso(),
+         "lat": round(20 + random.uniform(-6, 8), 4), "lng": round(78 + random.uniform(-8, 8), 4),
          "created_at": iso()}
     await db.chargers.insert_one(dict(c))
     c.pop("_id", None)
@@ -626,6 +635,13 @@ async def seed():
     # keep charger id counter in sync with existing chargers
     total_chargers = await db.chargers.count_documents({})
     await db.counters.update_one({"_id": "charger"}, {"$max": {"seq": total_chargers}}, upsert=True)
+    coords = {
+        "IND000001": (18.5362, 73.8931), "IND000002": (28.4949, 77.0895),
+        "IND000003": (12.9756, 77.6068), "IND000004": (18.9430, 72.8238),
+        "IND000005": (28.6271, 77.3654), "IND000006": (13.0860, 80.2101),
+    }
+    for cid, (lat, lng) in coords.items():
+        await db.chargers.update_one({"charger_id": cid}, {"$set": {"lat": lat, "lng": lng}})
 
 
 @app.on_event("shutdown")

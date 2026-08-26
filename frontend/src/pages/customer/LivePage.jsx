@@ -50,7 +50,7 @@ export default function LivePage() {
 
   return (
     <CustomerShell>
-      <div className="p-5 flex flex-col items-center" data-testid="live-page">
+      <div className="p-4 lg:p-8 flex flex-col items-center max-w-md mx-auto" data-testid="live-page">
         {!data ? <div className="py-24"><Loader2 className="h-6 w-6 animate-spin text-charging" /></div> : (
           <>
             <div className="text-center mb-2">
@@ -81,28 +81,28 @@ export default function LivePage() {
               <div className="rounded-xl bg-secondary/50 p-3"><p className="text-xs text-muted-foreground">Voltage</p><p className="font-mono font-medium">{live.voltage ?? 0} V</p></div>
               <div className="rounded-xl bg-secondary/50 p-3"><p className="text-xs text-muted-foreground">Current</p><p className="font-mono font-medium">{live.current ?? 0} A</p></div>
             </div>
+
+            {!stopped && (
+              <div className="w-full mt-6">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button data-testid="stop-charging-btn" className="w-full h-14 rounded-xl text-base bg-destructive text-white hover:bg-destructive/90 active:scale-95 transition-transform duration-200">
+                      <Power className="h-5 w-5 mr-2" /> Stop charging
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent data-testid="stop-confirm-dialog">
+                    <AlertDialogHeader><AlertDialogTitle>Stop charging?</AlertDialogTitle><AlertDialogDescription>You'll be billed {inr(live.cost ?? 0)} for {live.energy_kwh ?? 0} kWh.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel data-testid="stop-cancel">Keep charging</AlertDialogCancel>
+                      <AlertDialogAction onClick={stop} disabled={stopping} data-testid="stop-confirm" className="bg-destructive hover:bg-destructive/90">{stopping ? <Loader2 className="h-4 w-4 animate-spin" /> : "Stop & pay"}</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
           </>
         )}
       </div>
-
-      {data && !stopped && (
-        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 w-full max-w-md p-5 glass border-t z-30">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button data-testid="stop-charging-btn" className="w-full h-14 rounded-xl text-base bg-destructive text-white hover:bg-destructive/90 active:scale-95 transition-transform duration-200">
-                <Power className="h-5 w-5 mr-2" /> Stop charging
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent data-testid="stop-confirm-dialog">
-              <AlertDialogHeader><AlertDialogTitle>Stop charging?</AlertDialogTitle><AlertDialogDescription>You'll be billed {inr(live.cost ?? 0)} for {live.energy_kwh ?? 0} kWh.</AlertDialogDescription></AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel data-testid="stop-cancel">Keep charging</AlertDialogCancel>
-                <AlertDialogAction onClick={stop} disabled={stopping} data-testid="stop-confirm" className="bg-destructive hover:bg-destructive/90">{stopping ? <Loader2 className="h-4 w-4 animate-spin" /> : "Stop & pay"}</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      )}
     </CustomerShell>
   );
 }

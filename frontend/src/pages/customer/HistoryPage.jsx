@@ -10,7 +10,7 @@ export default function HistoryPage() {
 
   return (
     <CustomerShell>
-      <div className="p-5">
+      <div className="p-4 lg:p-8 max-w-3xl mx-auto lg:mx-0">
         <h1 className="font-display text-2xl font-semibold tracking-tight mb-5">Charging history</h1>
         {sessions.length === 0 ? <p className="text-sm text-muted-foreground">No charging sessions yet.</p> : (
           <div className="space-y-2" data-testid="history-list">
