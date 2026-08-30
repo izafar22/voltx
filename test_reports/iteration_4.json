@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only smoke test after the React 19 -> 18.3.1 downgrade. Found a HARD CRASH: react-leaflet@5.0.0 requires React ^19 (it renders <Context> directly as a provider), so on React 18 the customer home page (/app) threw 'TypeError: render is not a function' inside MapContainerComponent and the whole CustomerHome tree unmounted (stations-map, wallet-card, repair-charger-btn, station-code-input all gone). I applied the in-scope dependency fix: yarn add react-leaflet@4.2.1 (React 18 peer; +@react-leaflet/core@2.1.0) and restarted frontend. After the fix everything is green: customer/owner/admin logins land on the right dashboards, map renders 9 markers + popups + 'Start charging' deep link, full charging flow (IND000001 -> charger-detail -> start -> live ring 20%->24% -> stop-confirm -> billed ₹31.89 in history), repairs create (REP-10049) + list + detail, wallet top-up (₹1,234->₹1,334), notifications panel, theme toggle light/dark, mobile 390px drawer. ZERO console/page errors and zero failing /api calls in the post-fix runs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Customer home stations-map", "issues": ["CARTO basemap tiles (basemaps.cartocdn.com light_all/dark_all) now render a diagonal 'API KEY REQUIRED / carto.com/basemaps#apikey' watermark across every tile in both light and dark mode. Switch to a keyless provider (e.g. https://tile.openstreetmap.org/{z}/{x}/{y}.png) or add a CARTO key via env."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_4.json"],
+  "action_items": [
+    "KEEP/commit the react-leaflet@4.2.1 downgrade in package.json + yarn.lock (I applied it) — react-leaflet@5 is incompatible with React 18.3.1 and crashes /app. Alternative: revert React to 19 and instead fix react-day-picker (v9 supports React 19) — but do NOT ship React 18 with react-leaflet 5.",
+    "Replace CARTO tile URLs with a keyless tile provider (API KEY REQUIRED watermark visible on the map).",
+    "Optional: ChargerPage station title has no data-testid (only charger-detail/charger-status exist); 'charger-name' testid currently belongs to the Admin add-charger form input, which is confusing for tests."
+  ],
+  "critical_code_review_comments": [
+    "Dependency compatibility must be checked across the whole tree when pinning React: react-leaflet 5 (peer react ^19) was the only React-19-only package and was missed by the downgrade. Run `yarn install` and check peer-dependency warnings before deploying.",
+    "StationsMap.jsx uses only v4-compatible react-leaflet APIs (MapContainer/TileLayer/Marker/Popup), so the 4.2.1 downgrade needed no code change."
+  ],
+  "updated_files": ["/app/frontend/package.json (react-leaflet 4.2.1)", "/app/frontend/yarn.lock"],
+  "success_rate": {"backend": "not tested (per request)", "frontend": "100% of smoke flows pass after react-leaflet 4.2.1 fix (was ~60% before: all of /app broken)"},
+  "seed_data_creation": "Created one repair request via UI: REP-10049 (customer +919000000003, brand TEST_Brand18 / model TEST_Model18). No delete endpoint exists for repair_requests so it remains. Also 2 completed charging sessions on IND000001 and a ₹100 wallet top-up for the seeded customer.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "OTP 123456; demo buttons demo-customer/demo-owner/demo-admin prefill phone then require otp-input + verify-otp-btn.",
+  "context_for_next_testing_agent": "React is 18.3.1 and react-leaflet is now 4.2.1 (I downgraded it during this iteration; frontend restarted). If /app ever crashes again with 'render is not a function' at MapContainerComponent, check react-leaflet version vs React version. Repairs list items use data-testid=repair-item-{id} (buttons, not links). ChargerPage has charger-detail/charger-status but no station-name testid.",
+  "rca_of_the_issue": "react-leaflet@5.0.0 declares peerDependencies react ^19 and relies on React 19's ability to render a Context object directly as a provider (<Context value=...>). Under React 18 that JSX is treated as a Context.Consumer, whose child must be a function -> 'TypeError: render is not a function' in updateContextConsumer, crashing CustomerHome. Fixed by installing react-leaflet@4.2.1 (peer react ^18) which uses <Context.Provider>; no application code change required."
+}
