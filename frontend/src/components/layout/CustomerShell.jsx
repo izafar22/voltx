@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Wallet as WalletIcon, History, Bell, Moon, Sun, LogOut, Menu, X, LayoutDashboard, Shield } from "lucide-react";
+import { Home, Wallet as WalletIcon, History, Wrench, Bell, Moon, Sun, LogOut, Menu, X, LayoutDashboard, Shield } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -12,6 +12,7 @@ const nav = [
   { to: "/app", icon: Home, label: "Home" },
   { to: "/app/wallet", icon: WalletIcon, label: "Wallet" },
   { to: "/app/history", icon: History, label: "History" },
+  { to: "/repairs", icon: Wrench, label: "Repairs" },
 ];
 
 export const CustomerShell = ({ children }) => {
