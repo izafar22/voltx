@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { QrCode, Plus, Zap, ArrowRight, MapPin, Navigation } from "lucide-react";
+import { QrCode, Plus, Zap, ArrowRight, MapPin, Navigation, Wrench } from "lucide-react";
 import { api, inr0 } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { CustomerShell } from "@/components/layout/CustomerShell";
@@ -84,6 +84,11 @@ export default function CustomerHome() {
                 <div className="flex gap-2"><Input data-testid="scan-code-input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. IND000001" className="h-12 font-mono" /><Button onClick={() => { setScanOpen(false); goCharger(); }} data-testid="scan-go-btn" className="h-12 rounded-lg">Go</Button></div>
               </DialogContent>
             </Dialog>
+
+            <button data-testid="repair-charger-btn" onClick={() => navigate("/repairs/new")} className="w-full rounded-2xl border border-border/60 p-5 flex items-center gap-4 hover:bg-secondary/50 transition-colors duration-200 active:scale-[0.98]">
+              <div className="h-11 w-11 rounded-xl bg-wallet/10 flex items-center justify-center"><Wrench className="h-6 w-6 text-wallet" strokeWidth={1.5} /></div>
+              <div className="text-left"><p className="font-semibold">Repair a Charger</p><p className="text-xs text-muted-foreground">Any brand · AC, DC or portable</p></div>
+            </button>
 
             <div className="rounded-2xl border border-border/60 p-5">
               <div className="flex items-center gap-2 mb-3"><Zap className="h-5 w-5 text-charging" strokeWidth={1.5} /><p className="font-semibold">Enter station code</p></div>

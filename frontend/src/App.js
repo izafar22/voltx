@@ -11,6 +11,8 @@ import ChargerPage from "@/pages/customer/ChargerPage";
 import LivePage from "@/pages/customer/LivePage";
 import WalletPage from "@/pages/customer/WalletPage";
 import HistoryPage from "@/pages/customer/HistoryPage";
+import RepairNew from "@/pages/customer/RepairNew";
+import RepairDetail from "@/pages/customer/RepairDetail";
 import OwnerDashboard from "@/pages/owner/OwnerDashboard";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 
@@ -35,6 +37,9 @@ function App() {
               <Route path="/app/history" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><HistoryPage /></ProtectedRoute>} />
               <Route path="/app/charger/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><ChargerPage /></ProtectedRoute>} />
               <Route path="/app/live/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><LivePage /></ProtectedRoute>} />
+
+              <Route path="/repairs/new" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><RepairNew /></ProtectedRoute>} />
+              <Route path="/repairs/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><RepairDetail /></ProtectedRoute>} />
 
               <Route path="/owner" element={<ProtectedRoute roles={["owner", "admin"]}><OwnerDashboard /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
