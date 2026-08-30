@@ -41,3 +41,12 @@ Customer (EV owner), Charger Owner (host earning revenue), Company Admin (networ
 ## Next Tasks
 - Wire real integrations (Twilio OTP, payment gateway, OCPP) when keys/hardware available
 - WebSocket-based live charging updates; wallet-exhaustion auto-stop
+
+## Repair Service Module — Phase 1 (backend foundation, 2026)
+- New collection `repair_requests` (embedded diagnosis/estimate/incoming_shipment/return_shipment + status_history). No changes to existing charging/rental/wallet/auth/owner logic.
+- Human-friendly `repair_request_number` (REP-10001…) via `counters._id=repair`; internal id uses existing `nid("rep")`.
+- Optional `charger_id` (retains relationship to an existing charger; retail customers supply `charger_info.brand`). charger_type controlled: AC/DC/PORTABLE/OTHER.
+- Server-side state machine (REQUESTED→…→COMPLETED, plus CANCELLED/NOT_REPAIRABLE/CUSTOMER_DECLINED); customers may only set AWAITING_SHIPMENT/IN_TRANSIT_TO_VOLTX/CUSTOMER_APPROVED/CUSTOMER_DECLINED/CANCELLED — RECEIVED_AT_VOLTX→DIAGNOSING onward are Voltx/admin-only.
+- Endpoints: POST/GET `/api/repairs`, GET `/api/repairs/{id}`, PATCH `/api/repairs/{id}/status|diagnosis|estimate|shipment`. RBAC: customers see only their own; owners see own + repairs for their chargers; admin sees all (`?scope=all`). Internal diagnosis fields hidden from non-admins.
+- No payment at submission; estimate created only after diagnosis. 13 pytest tests in `tests/test_repairs.py` — all passing.
+- Phase 1 = backend only; repair UI deferred to a later phase.

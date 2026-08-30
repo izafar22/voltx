@@ -14,7 +14,7 @@ import random
 import jwt
 from pymongo import ReturnDocument
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime, timezone, timedelta
 
 mongo_url = os.environ['MONGO_URL']
@@ -571,6 +571,261 @@ async def update_withdrawal(wid: str, body: dict, user=Depends(require("admin"))
 @api_router.get("/admin/sessions")
 async def admin_sessions(user=Depends(require("admin"))):
     return await db.sessions.find({}, {"_id": 0}).sort("start_time", -1).to_list(500)
+
+
+# ==================== EV Charger Repair Service (Phase 1) ====================
+REPAIR_STATUSES = [
+    "REQUESTED", "AWAITING_SHIPMENT", "IN_TRANSIT_TO_VOLTX", "RECEIVED_AT_VOLTX",
+    "DIAGNOSING", "ESTIMATE_SENT", "CUSTOMER_APPROVED", "CUSTOMER_DECLINED",
+    "REPAIRING", "REPAIR_COMPLETED", "PAYMENT_PENDING", "READY_TO_SHIP",
+    "SHIPPED_TO_CUSTOMER", "DELIVERED", "COMPLETED", "CANCELLED", "NOT_REPAIRABLE",
+]
+
+REPAIR_TRANSITIONS = {
+    "REQUESTED": ["AWAITING_SHIPMENT", "CANCELLED"],
+    "AWAITING_SHIPMENT": ["IN_TRANSIT_TO_VOLTX", "CANCELLED"],
+    "IN_TRANSIT_TO_VOLTX": ["RECEIVED_AT_VOLTX", "CANCELLED"],
+    "RECEIVED_AT_VOLTX": ["DIAGNOSING", "CANCELLED"],
+    "DIAGNOSING": ["ESTIMATE_SENT", "NOT_REPAIRABLE", "CANCELLED"],
+    "ESTIMATE_SENT": ["CUSTOMER_APPROVED", "CUSTOMER_DECLINED", "CANCELLED"],
+    "CUSTOMER_APPROVED": ["REPAIRING", "CANCELLED"],
+    "CUSTOMER_DECLINED": ["READY_TO_SHIP", "CANCELLED"],
+    "NOT_REPAIRABLE": ["READY_TO_SHIP", "CANCELLED"],
+    "REPAIRING": ["REPAIR_COMPLETED", "CANCELLED"],
+    "REPAIR_COMPLETED": ["PAYMENT_PENDING", "CANCELLED"],
+    "PAYMENT_PENDING": ["READY_TO_SHIP", "CANCELLED"],
+    "READY_TO_SHIP": ["SHIPPED_TO_CUSTOMER", "CANCELLED"],
+    "SHIPPED_TO_CUSTOMER": ["DELIVERED"],
+    "DELIVERED": ["COMPLETED"],
+    "COMPLETED": [],
+    "CANCELLED": [],
+}
+# Statuses a normal customer/owner may set themselves (others are Voltx/admin-only)
+CUSTOMER_SETTABLE = {"AWAITING_SHIPMENT", "IN_TRANSIT_TO_VOLTX", "CUSTOMER_APPROVED", "CUSTOMER_DECLINED", "CANCELLED"}
+CHARGER_TYPES = {"AC", "DC", "PORTABLE", "OTHER"}
+INTERNAL_DIAGNOSIS_FIELDS = ("technician_notes", "internal_notes", "parts_required")
+
+
+class ChargerInfo(BaseModel):
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    serial_number: Optional[str] = None
+    charger_type: Optional[str] = None
+    power_rating: Optional[str] = None
+
+
+class RepairCreate(BaseModel):
+    customer_type: Literal["RETAIL", "STATION_OWNER"] = "RETAIL"
+    charger_id: Optional[str] = None
+    charger_info: Optional[ChargerInfo] = None
+    problem_description: str = Field(..., min_length=3)
+    reported_category: Optional[str] = None
+    photos: Optional[List[str]] = None
+
+
+class RepairStatusUpdate(BaseModel):
+    status: str
+    note: Optional[str] = None
+
+
+class DiagnosisUpdate(BaseModel):
+    diagnosis: Optional[str] = None
+    identified_fault: Optional[str] = None
+    repairability: Optional[str] = None  # REPAIRABLE / NOT_REPAIRABLE / UNKNOWN
+    parts_required: Optional[List[str]] = None
+    technician_notes: Optional[str] = None
+    internal_notes: Optional[str] = None
+
+
+class EstimatePart(BaseModel):
+    name: str
+    qty: int = 1
+    price: float = 0.0
+
+
+class EstimateUpdate(BaseModel):
+    parts: Optional[List[EstimatePart]] = None
+    labor: Optional[float] = None
+    diagnostic_fee: Optional[float] = None
+    incoming_logistics_cost: Optional[float] = None
+    return_shipping_cost: Optional[float] = None
+    other_charges: Optional[float] = None
+    tax: Optional[float] = None
+    notes: Optional[str] = None
+
+
+class ShipmentUpdate(BaseModel):
+    leg: Literal["incoming", "return"]
+    courier: Optional[str] = None
+    tracking_number: Optional[str] = None
+    shipped_date: Optional[str] = None
+    received_date: Optional[str] = None
+    delivered_date: Optional[str] = None
+    notes: Optional[str] = None
+
+
+async def next_repair_number():
+    c = await db.counters.find_one_and_update(
+        {"_id": "repair"}, {"$inc": {"seq": 1}}, upsert=True, return_document=ReturnDocument.AFTER)
+    return f"REP-{10000 + c['seq']}"  # first request -> REP-10001
+
+
+async def owner_charger_ids(uid):
+    return [c["charger_id"] async for c in db.chargers.find({"owner_id": uid}, {"_id": 0, "charger_id": 1})]
+
+
+async def can_access_repair(user, r):
+    if user["role"] == "admin":
+        return True
+    if r["user_id"] == user["user_id"]:
+        return True
+    if user["role"] == "owner" and r.get("charger_id"):
+        return r["charger_id"] in await owner_charger_ids(user["user_id"])
+    return False
+
+
+def sanitize_repair(r, user):
+    r = dict(r)
+    r.pop("_id", None)
+    if user["role"] != "admin" and r.get("diagnosis"):
+        r["diagnosis"] = {k: v for k, v in r["diagnosis"].items() if k not in INTERNAL_DIAGNOSIS_FIELDS}
+    return r
+
+
+@api_router.post("/repairs")
+async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
+    charger_id = None
+    info = body.charger_info.model_dump() if body.charger_info else {}
+    if body.charger_id:
+        c = await db.chargers.find_one({"charger_id": body.charger_id}, {"_id": 0})
+        if not c:
+            raise HTTPException(status_code=404, detail="Charger not found")
+        charger_id = c["charger_id"]  # retain relationship, do NOT duplicate the charger
+        info.setdefault("brand", c.get("name"))
+        info.setdefault("model", c.get("name"))
+        info.setdefault("power_rating", f"{c.get('max_power_kw')} kW")
+    else:
+        if not info.get("brand"):
+            raise HTTPException(status_code=400, detail="Charger brand is required for an unregistered charger")
+    if info.get("charger_type") and info["charger_type"] not in CHARGER_TYPES:
+        raise HTTPException(status_code=400, detail=f"charger_type must be one of {sorted(CHARGER_TYPES)}")
+    now = iso()
+    r = {
+        "id": nid("rep"), "repair_request_number": await next_repair_number(), "user_id": user["user_id"],
+        "customer_type": body.customer_type, "charger_id": charger_id, "charger_info": info,
+        "problem_description": body.problem_description, "reported_category": body.reported_category,
+        "photos": body.photos or [], "status": "REQUESTED",
+        "status_history": [{"status": "REQUESTED", "by": user["user_id"], "at": now, "note": None}],
+        "diagnosis": None, "estimate": None, "incoming_shipment": None, "return_shipment": None,
+        "created_at": now, "updated_at": now,
+    }
+    await db.repair_requests.insert_one(dict(r))
+    return sanitize_repair(r, user)
+
+
+@api_router.get("/repairs")
+async def list_repairs(scope: str = "mine", user=Depends(get_current_user)):
+    if user["role"] == "admin" and scope == "all":
+        q = {}
+    elif user["role"] == "owner":
+        cids = await owner_charger_ids(user["user_id"])
+        q = {"$or": [{"user_id": user["user_id"]}, {"charger_id": {"$in": cids}}]}
+    else:
+        q = {"user_id": user["user_id"]}
+    docs = await db.repair_requests.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return [sanitize_repair(d, user) for d in docs]
+
+
+@api_router.get("/repairs/{rid}")
+async def get_repair(rid: str, user=Depends(get_current_user)):
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Repair request not found")
+    if not await can_access_repair(user, r):
+        raise HTTPException(status_code=403, detail="Not authorized for this repair request")
+    return sanitize_repair(r, user)
+
+
+@api_router.patch("/repairs/{rid}/status")
+async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(get_current_user)):
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Repair request not found")
+    if not await can_access_repair(user, r):
+        raise HTTPException(status_code=403, detail="Not authorized for this repair request")
+    target = body.status
+    if target not in REPAIR_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    if target not in REPAIR_TRANSITIONS.get(r["status"], []):
+        raise HTTPException(status_code=400, detail=f"Cannot transition from {r['status']} to {target}")
+    if user["role"] != "admin" and target not in CUSTOMER_SETTABLE:
+        raise HTTPException(status_code=403, detail="This status change is restricted to the Voltx repair team")
+    if target in ("CUSTOMER_APPROVED", "CUSTOMER_DECLINED") and not r.get("estimate"):
+        raise HTTPException(status_code=400, detail="No estimate available to approve or decline")
+    now = iso()
+    upd = {"status": target, "updated_at": now}
+    if target == "ESTIMATE_SENT" and r.get("estimate"):
+        upd["estimate.status"] = "SENT"
+    if target == "CUSTOMER_APPROVED":
+        upd["estimate.status"] = "APPROVED"
+        upd["estimate.approved_at"] = now
+    if target == "CUSTOMER_DECLINED":
+        upd["estimate.status"] = "DECLINED"
+        upd["estimate.declined_at"] = now
+    await db.repair_requests.update_one({"id": rid}, {
+        "$set": upd,
+        "$push": {"status_history": {"status": target, "by": user["user_id"], "at": now, "note": body.note}},
+    })
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    return sanitize_repair(r, user)
+
+
+@api_router.patch("/repairs/{rid}/diagnosis")
+async def update_repair_diagnosis(rid: str, body: DiagnosisUpdate, user=Depends(require("admin"))):
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Repair request not found")
+    d = r.get("diagnosis") or {}
+    d.update(body.model_dump(exclude_none=True))
+    d["diagnosed_at"] = iso()
+    await db.repair_requests.update_one({"id": rid}, {"$set": {"diagnosis": d, "updated_at": iso()}})
+    return {"ok": True, "diagnosis": d}
+
+
+@api_router.patch("/repairs/{rid}/estimate")
+async def update_repair_estimate(rid: str, body: EstimateUpdate, user=Depends(require("admin"))):
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Repair request not found")
+    e = r.get("estimate") or {"status": "DRAFT", "created_at": iso(), "approved_at": None, "declined_at": None}
+    data = body.model_dump(exclude_none=True)
+    if "parts" in data:
+        e["parts"] = data.pop("parts")
+    e.update(data)
+    parts_total = sum(p.get("price", 0) * p.get("qty", 1) for p in e.get("parts", []))
+    subtotal = parts_total + e.get("labor", 0) + e.get("diagnostic_fee", 0) + \
+        e.get("incoming_logistics_cost", 0) + e.get("return_shipping_cost", 0) + e.get("other_charges", 0)
+    e["subtotal"] = round(subtotal, 2)
+    e["total"] = round(subtotal + e.get("tax", 0), 2)
+    e["updated_at"] = iso()
+    await db.repair_requests.update_one({"id": rid}, {"$set": {"estimate": e, "updated_at": iso()}})
+    return {"ok": True, "estimate": e}
+
+
+@api_router.patch("/repairs/{rid}/shipment")
+async def update_repair_shipment(rid: str, body: ShipmentUpdate, user=Depends(get_current_user)):
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    if not r:
+        raise HTTPException(status_code=404, detail="Repair request not found")
+    if not await can_access_repair(user, r):
+        raise HTTPException(status_code=403, detail="Not authorized for this repair request")
+    key = "incoming_shipment" if body.leg == "incoming" else "return_shipment"
+    s = r.get(key) or {}
+    s.update({k: v for k, v in body.model_dump(exclude_none=True).items() if k != "leg"})
+    await db.repair_requests.update_one({"id": rid}, {"$set": {key: s, "updated_at": iso()}})
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    return sanitize_repair(r, user)
+# ================== End Repair Service (Phase 1) ==================
 
 
 @api_router.get("/")
