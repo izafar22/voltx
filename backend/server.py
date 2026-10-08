@@ -1,3 +1,10 @@
+if __package__:
+    from .demo_chargers import seed_demo_chargers
+    from .auth_service import AuthService, AuthSettings, auth_router, normalize_phone
+else:
+    from demo_chargers import seed_demo_chargers
+    from auth_service import AuthService, AuthSettings, auth_router, normalize_phone
+
 from dotenv import load_dotenv
 from pathlib import Path
 ROOT_DIR = Path(__file__).parent
@@ -5,13 +12,15 @@ load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
 import math
 import random
-import jwt
 from pymongo import ReturnDocument
 from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
@@ -25,8 +34,8 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 JWT_SECRET = os.environ['JWT_SECRET']
-JWT_ALG = "HS256"
-DEMO_OTP = "123456"
+auth_settings = AuthSettings.from_env()
+auth_service = AuthService(db, auth_settings)
 MIN_START_BALANCE = 100.0
 OWNER_SHARE = 0.90
 COMPANY_SHARE = 0.10
@@ -57,16 +66,6 @@ def parse_dt(v):
 
 
 # ---------------- Models ----------------
-class OTPRequest(BaseModel):
-    phone: str
-
-
-class OTPVerify(BaseModel):
-    phone: str
-    otp: str
-    name: Optional[str] = None
-
-
 class TopupBody(BaseModel):
     amount: float
 
@@ -100,26 +99,8 @@ class WalletAdjust(BaseModel):
 
 
 # ---------------- Auth helpers ----------------
-def make_token(user):
-    payload = {"sub": user["user_id"], "role": user["role"], "exp": now_utc() + timedelta(days=7)}
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
-
-
 async def get_current_user(request: Request):
-    auth = request.headers.get("Authorization", "")
-    token = auth[7:] if auth.startswith("Bearer ") else request.cookies.get("access_token")
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user = await db.users.find_one({"user_id": payload["sub"]}, {"_id": 0})
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
+    return await auth_service.authenticate(request)
 
 
 def require(*roles):
@@ -196,38 +177,7 @@ def compute_live(session, charger, max_cost=None):
 
 
 # ---------------- Auth routes ----------------
-@api_router.post("/auth/request-otp")
-async def request_otp(body: OTPRequest):
-    await db.otp_requests.insert_one({"phone": body.phone, "created_at": iso()})
-    # DEMO: OTP is fixed and returned in response (no SMS gateway)
-    return {"ok": True, "demo_otp": DEMO_OTP, "message": f"OTP sent to {body.phone} (demo code: {DEMO_OTP})"}
-
-
-@api_router.post("/auth/verify-otp")
-async def verify_otp(body: OTPVerify):
-    if body.otp != DEMO_OTP:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
-    user = await db.users.find_one({"phone": body.phone}, {"_id": 0})
-    if not user:
-        user = {
-            "user_id": nid("user"), "phone": body.phone, "name": body.name or "Customer",
-            "role": "customer", "email": "", "created_at": iso(),
-        }
-        await db.users.insert_one(dict(user))
-        await db.wallets.update_one({"user_id": user["user_id"]}, {"$setOnInsert": {"balance": 0.0}}, upsert=True)
-    token = make_token(user)
-    user.pop("_id", None)
-    return {"token": token, "user": user}
-
-
-@api_router.get("/auth/me")
-async def me(user=Depends(get_current_user)):
-    return user
-
-
-@api_router.post("/auth/logout")
-async def logout():
-    return {"ok": True}
+api_router.include_router(auth_router(auth_service))
 
 
 # ---------------- Wallet (customer) ----------------
@@ -520,6 +470,7 @@ async def admin_owners(user=Depends(require("admin"))):
 
 @api_router.post("/admin/owners")
 async def create_owner(body: OwnerCreate, user=Depends(require("admin"))):
+    body.phone = normalize_phone(body.phone)
     if await db.users.find_one({"phone": body.phone}):
         raise HTTPException(status_code=400, detail="Phone already registered")
     o = {"user_id": nid("user"), "phone": body.phone, "name": body.name, "role": "owner", "email": "", "created_at": iso()}
@@ -833,10 +784,28 @@ async def root():
     return {"message": "EV Charging Network API"}
 
 
+@app.exception_handler(RequestValidationError)
+async def safe_validation(request: Request, error: RequestValidationError):
+    if request.url.path.startswith("/api/auth/"):
+        return JSONResponse({"detail": "Check the supplied authentication fields."}, status_code=422)
+    return await request_validation_exception_handler(request, error)
+
+
+@app.middleware("http")
+async def trusted_origin(request: Request, call_next):
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        if request.headers.get("origin") not in auth_settings.origins:
+            return JSONResponse({"detail": "Request origin is not allowed"}, status_code=403)
+    response = await call_next(request)
+    if request.url.path.startswith("/api/auth/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware, allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=list(auth_settings.origins),
     allow_methods=["*"], allow_headers=["*"],
 )
 
@@ -846,6 +815,9 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def seed():
+    await auth_service.initialize()
+    if auth_settings.otp_mode != "demo":
+        return
     # Admin
     admin = await db.users.find_one({"phone": "+919000000001"})
     if not admin:
@@ -897,6 +869,9 @@ async def seed():
     }
     for cid, (lat, lng) in coords.items():
         await db.chargers.update_one({"charger_id": cid}, {"$set": {"lat": lat, "lng": lng}})
+
+    # Opt-in local discovery fixtures; never overwrite existing charger state.
+    await seed_demo_chargers(db, owner_id)
 
 
 @app.on_event("shutdown")

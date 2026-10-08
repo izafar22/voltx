@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Wallet as WalletIcon, History, Wrench, Bell, Moon, Sun, LogOut, Menu, X, LayoutDashboard, Shield } from "lucide-react";
+import { Home, Wallet as WalletIcon, History, Wrench, Bell, Moon, Sun, LogOut, Menu, LayoutDashboard, Shield } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -18,7 +18,7 @@ const nav = [
 export const CustomerShell = ({ children }) => {
   const loc = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, loggingOut, authError } = useAuth();
   const { theme, toggle } = useTheme();
   const [notifs, setNotifs] = useState([]);
   const [open, setOpen] = useState(false);
@@ -28,12 +28,12 @@ export const CustomerShell = ({ children }) => {
   const unread = notifs.filter((n) => !n.read).length;
 
   const SideNav = () => (
-    <nav className="flex flex-col gap-1 p-3">
+    <nav aria-label="Customer navigation" className="flex flex-col gap-1 p-3">
       {nav.map((n) => {
         const active = loc.pathname === n.to;
         return (
-          <Link key={n.to} to={n.to} onClick={() => setOpen(false)} data-testid={`nav-${n.label.toLowerCase()}`}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}>
+          <Link key={n.to} to={n.to} onClick={() => setOpen(false)} data-testid={`nav-${n.label.toLowerCase()}`} aria-current={active ? "page" : undefined}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}>
             <n.icon className="h-4.5 w-4.5" strokeWidth={1.5} /> {n.label}
           </Link>
         );
@@ -56,29 +56,26 @@ export const CustomerShell = ({ children }) => {
         <div className="p-3 border-t border-border/60"><div className="px-3 py-2 text-sm"><p className="font-medium truncate">{user?.name}</p><p className="text-xs text-muted-foreground font-mono">{user?.phone}</p></div></div>
       </aside>
 
-      {open && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="w-64 bg-background border-r border-border/60 flex flex-col" data-testid="mobile-drawer">
-            <div className="h-16 flex items-center justify-between px-5 border-b border-border/60"><Logo /><button onClick={() => setOpen(false)}><X className="h-5 w-5" /></button></div>
-            <SideNav />
-          </div>
-          <div className="flex-1 bg-black/40" onClick={() => setOpen(false)} />
-        </div>
-      )}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="left" className="w-64 p-0" data-testid="mobile-drawer" aria-describedby={undefined}>
+          <SheetHeader className="p-5"><SheetTitle><Logo /></SheetTitle></SheetHeader>
+          <SideNav />
+        </SheetContent>
+      </Sheet>
 
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="sticky top-0 z-40 glass border-b h-16 flex items-center justify-between px-4 lg:px-8">
           <div className="flex items-center gap-3">
-            <button className="lg:hidden" onClick={() => setOpen(true)} data-testid="menu-btn"><Menu className="h-6 w-6" /></button>
+            <button className="lg:hidden" onClick={() => setOpen(true)} data-testid="menu-btn" aria-label="Open navigation" aria-expanded={open}><Menu className="h-6 w-6" /></button>
             <div className="lg:hidden"><Logo compact /></div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={toggle} data-testid="theme-toggle" className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
+            <button onClick={toggle} data-testid="theme-toggle" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-            <Sheet onOpenChange={(o) => { if (!o && unread) api.post("/notifications/read").then(load); }}>
+            <Sheet onOpenChange={(o) => { if (!o && unread) api.post("/notifications/read").then(load).catch(() => {}); }}>
               <SheetTrigger asChild>
-                <button data-testid="notifications-btn" className="relative h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
+                <button data-testid="notifications-btn" aria-label="Notifications" className="relative h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
                   <Bell className="h-5 w-5" />
                   {unread > 0 && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-charging" />}
                 </button>
@@ -96,10 +93,10 @@ export const CustomerShell = ({ children }) => {
                 </div>
               </SheetContent>
             </Sheet>
-            <button onClick={logout} data-testid="logout-btn" className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200"><LogOut className="h-5 w-5" /></button>
+            <form onSubmit={(event) => { event.preventDefault(); logout(); }}><button type="submit" disabled={loggingOut} data-testid="logout-btn" aria-label={loggingOut ? "Signing out" : "Log out"} className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200"><LogOut className="h-5 w-5" /></button></form>
           </div>
         </header>
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">{authError && <p role="alert" className="p-4 text-sm text-destructive">{authError}</p>}{children}</main>
       </div>
     </div>
   );

@@ -1,112 +1,121 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { toast } from "sonner";
-import { ArrowRight, Loader2, Smartphone, ShieldCheck } from "lucide-react";
-import { api } from "@/lib/api";
-import { useAuth } from "@/context/AuthContext";
-import { homeFor } from "@/components/ProtectedRoute";
-import { Logo } from "@/components/Logo";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useEffect, useRef, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { PRODUCT_NAME } from "../config/brand";
+import { api } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
+import { homeFor } from "../components/ProtectedRoute";
+import { Logo } from "../components/Logo";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 
-const demoAccounts = [
-  { label: "Admin", phone: "+919000000001" },
-  { label: "Owner", phone: "+919000000002" },
-  { label: "Customer", phone: "+919000000003" },
-];
-
+const normalizedPhone = (value) => {
+  if (!/^\+?[\d\s()-]+$/.test(value.trim())) return null;
+  let digits = value.replace(/[\s()+-]/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
+  return /^[6-9]\d{9}$/.test(digits) ? `+91${digits}` : null;
+};
+function authMessage(error, fallback) {
+  const status = error.response?.status;
+  if (status === 429) return "Too many requests or attempts. Wait before resending a new code.";
+  if (status === 401) return "Your verification expired. Change phone number to start again.";
+  if (status === 403) return "This account is unavailable. Contact support.";
+  if (status === 409) return "An account already exists. Please sign in again.";
+  if (status === 503) return "Code delivery is unavailable. Please try again later.";
+  if (status === 400) return "Incorrect, expired, or already used code. Try again or request a new code.";
+  return fallback;
+}
 export default function Login() {
+  const demoEnabled = process.env.NODE_ENV !== "production" && process.env.REACT_APP_DEMO_AUTH === "true";
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { user, loading: checking, login, authError, loadMe } = useAuth();
   const [step, setStep] = useState("phone");
   const [phone, setPhone] = useState("");
-  const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
-  const [demoCode, setDemoCode] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const sendOtp = async (p = phone) => {
-    if (!p || p.length < 10) { toast.error("Enter a valid phone number"); return; }
-    setLoading(true);
-    try {
-      const { data } = await api.post("/auth/request-otp", { phone: p });
-      setDemoCode(data.demo_otp);
-      setStep("otp");
-      toast.success("OTP sent", { description: data.message });
-    } catch { toast.error("Could not send OTP"); }
-    finally { setLoading(false); }
+  const [challenge, setChallenge] = useState(null);
+  const [registrationToken, setRegistrationToken] = useState(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [remaining, setRemaining] = useState(0);
+  const resendAt = useRef(0);
+  const lock = useRef(false);
+  useEffect(() => {
+    if (step !== "otp") return;
+    const tick = () => setRemaining(Math.max(0, Math.ceil((resendAt.current - Date.now()) / 1000)));
+    tick(); const timer = setInterval(tick, 1000); return () => clearInterval(timer);
+  }, [step, challenge]);
+  const run = async (action, fallback) => {
+    if (lock.current) return;
+    lock.current = true; setBusy(true); setError("");
+    try { await action(); }
+    catch (e) {
+      const retry = Number(e.response?.headers?.["retry-after"]);
+      if (e.response?.status === 429 && retry > 0) { resendAt.current = Date.now() + retry * 1000; setRemaining(retry); }
+      setError(authMessage(e, fallback));
+    } finally { lock.current = false; setBusy(false); }
   };
-
-  const verify = async () => {
-    if (otp.length !== 6) { toast.error("Enter the 6-digit OTP"); return; }
-    setLoading(true);
-    try {
-      const { data } = await api.post("/auth/verify-otp", { phone, otp, name: name || undefined });
-      login(data.token, data.user);
-      toast.success(`Welcome, ${data.user.name}`);
-      navigate(homeFor(data.user.role));
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "Verification failed");
-    } finally { setLoading(false); }
+  const requestCode = (value = phone) => {
+    const normalized = normalizedPhone(value);
+    if (!normalized) { setError("Enter a valid 10-digit Indian mobile number."); return; }
+    run(async () => {
+      const { data } = await api.post("/auth/request-otp", { phone: normalized });
+      setPhone(normalized); setOtp(""); setChallenge(data);
+      resendAt.current = Date.now() + data.resend_after * 1000;
+      setRemaining(data.resend_after); setStep("otp");
+    }, "Unable to request a code. Please try again.");
   };
-
-  const quick = (p) => { setPhone(p); sendOtp(p); };
-
-  return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      <div className="hidden lg:flex flex-col justify-between bg-primary text-primary-foreground p-12 relative overflow-hidden">
-        <div className="absolute inset-0 grain opacity-40" />
-        <div className="relative"><Logo /></div>
-        <div className="relative">
-          <h2 className="font-display text-5xl font-light tracking-tighter leading-[1.05]">Charge<br />as fast as<br /><span className="text-charging font-medium">you pay.</span></h2>
-          <p className="mt-5 text-primary-foreground/70 max-w-sm">Scan, start, and go. Wallet-based billing with instant, frictionless EV charging across India.</p>
-        </div>
-        <div className="relative text-sm text-primary-foreground/50">VoltGrid Network · Powered by OCPP 1.6J</div>
-      </div>
-
-      <div className="flex items-center justify-center p-6">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
-          <div className="lg:hidden mb-8"><Logo /></div>
-          {step === "phone" ? (
-            <div data-testid="phone-step">
-              <div className="h-11 w-11 rounded-xl bg-charging/10 flex items-center justify-center mb-5"><Smartphone className="h-5 w-5 text-charging" /></div>
-              <h1 className="font-display text-3xl font-medium tracking-tight">Sign in</h1>
-              <p className="mt-2 text-muted-foreground">We'll send a one-time code to your phone.</p>
-              <div className="mt-7 space-y-4">
-                <div className="space-y-1.5"><Label>Phone number</Label><Input data-testid="phone-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+91 90000 00000" className="h-12 font-mono" /></div>
-                <div className="space-y-1.5"><Label>Name <span className="text-muted-foreground">(new users)</span></Label><Input data-testid="name-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="h-12" /></div>
-                <Button onClick={() => sendOtp()} disabled={loading} data-testid="send-otp-btn" className="w-full h-12 rounded-lg text-base active:scale-95 transition-transform duration-200">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Send OTP <ArrowRight className="h-4 w-4 ml-2" /></>}
-                </Button>
-              </div>
-              <div className="mt-8">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Demo accounts (OTP 123456)</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {demoAccounts.map((d) => (
-                    <button key={d.phone} onClick={() => quick(d.phone)} data-testid={`demo-${d.label.toLowerCase()}`} className="rounded-lg border border-border/60 px-2 py-2 text-sm hover:bg-secondary transition-colors duration-200">{d.label}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div data-testid="otp-step">
-              <div className="h-11 w-11 rounded-xl bg-charging/10 flex items-center justify-center mb-5"><ShieldCheck className="h-5 w-5 text-charging" /></div>
-              <h1 className="font-display text-3xl font-medium tracking-tight">Enter code</h1>
-              <p className="mt-2 text-muted-foreground">Sent to <span className="font-mono text-foreground">{phone}</span></p>
-              {demoCode && <div className="mt-4 rounded-lg bg-charging/10 border border-charging/30 px-4 py-2 text-sm">Demo code: <span className="font-mono font-semibold text-charging">{demoCode}</span></div>}
-              <div className="mt-6 space-y-4">
-                <Input data-testid="otp-input" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="••••••" maxLength={6} className="h-14 text-center text-2xl font-mono tracking-[0.5em]" />
-                <Button onClick={verify} disabled={loading} data-testid="verify-otp-btn" className="w-full h-12 rounded-lg text-base active:scale-95 transition-transform duration-200">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify & continue"}
-                </Button>
-                <button onClick={() => { setStep("phone"); setOtp(""); }} data-testid="change-phone-btn" className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors duration-200">Change number</button>
-              </div>
-            </div>
-          )}
-        </motion.div>
-      </div>
+  const complete = (data) => { login(data.user); navigate(homeFor(data.user.role), { replace: true }); };
+  const verify = (event) => {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(otp)) { setError("Enter the six-digit code."); return; }
+    run(async () => {
+      const { data } = await api.post("/auth/verify-otp", { phone, challenge_id: challenge.challenge_id, otp });
+      if (data.registration_required) { setRegistrationToken(data.registration_token); setStep("register"); setOtp(""); setChallenge(null); }
+      else complete(data);
+    }, "Unable to verify the code. Please try again.");
+  };
+  const register = (event) => {
+    event.preventDefault();
+    if (name.trim().length < 2 || name.trim().length > 100) { setError("Enter your full name (2–100 characters)."); return; }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError("Enter a valid email address."); return; }
+    run(async () => {
+      const { data } = await api.post("/auth/register-customer", { name: name.trim(), email: email.trim() }, { headers: { Authorization: `Bearer ${registrationToken}` } });
+      setRegistrationToken(null); complete(data);
+    }, "Unable to create your account. Please try again.");
+  };
+  const changePhone = () => { setStep("phone"); setChallenge(null); setRegistrationToken(null); setOtp(""); setError(""); };
+  if (checking) return <p role="status" className="p-8">Checking your session…</p>;
+  if (user) return <Navigate to={homeFor(user.role)} replace />;
+  return <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="hidden lg:flex flex-col justify-between bg-primary text-primary-foreground p-12">
+      <Logo /><div><h2 className="font-display text-5xl font-light leading-tight">Charge<br />as fast as<br /><span className="text-charging font-medium">you pay.</span></h2><p className="mt-5 opacity-70 max-w-sm">Find your next charge. Navigate, connect, and manage your charging across India.</p></div><p className="text-sm opacity-60">{PRODUCT_NAME} Network</p>
     </div>
-  );
+    <div className="flex items-center justify-center p-6"><div className="w-full max-w-sm space-y-6">
+      <div className="lg:hidden"><Logo /></div>
+      {authError && <div role="alert"><p>{authError}</p><button onClick={loadMe} className="underline">Retry session check</button></div>}
+      {error && <p id="auth-error" role="alert" className="text-sm text-destructive">{error}</p>}
+      {step === "phone" && <form onSubmit={(event) => { event.preventDefault(); requestCode(); }} className="space-y-5" data-testid="phone-step">
+        <div><h1 className="font-display text-3xl font-medium">Sign in</h1><p className="mt-2 text-muted-foreground">Enter your phone number to continue.</p></div>
+        <div><label htmlFor="phone">Phone number</label><Input id="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="98765 43210" maxLength={40} disabled={busy} aria-describedby={error ? "auth-error" : undefined} data-testid="phone-input" className="h-12 mt-2" /></div>
+        <Button type="submit" disabled={busy || !phone.trim()} className="w-full h-12" data-testid="send-otp-btn">{busy ? "Requesting code…" : "Send OTP"}</Button>
+        {demoEnabled && <div><p className="text-xs text-muted-foreground mb-2">Development demo accounts</p><div className="flex gap-2">{[["Admin", "+919000000001"], ["Owner", "+919000000002"], ["Customer", "+919000000003"]].map(([label, number]) => <Button key={label} type="button" variant="outline" disabled={busy} onClick={() => requestCode(number)}>{label}</Button>)}</div></div>}
+      </form>}
+      {step === "otp" && <form onSubmit={verify} className="space-y-5" data-testid="otp-step">
+        <div><h1 className="font-display text-3xl font-medium">Enter code</h1><p className="mt-2 text-muted-foreground">Code sent to +91••••••{phone.slice(-4)}</p></div>
+        {demoEnabled && challenge?.demo_otp && <p>Demo code: {challenge.demo_otp}</p>}
+        <div><label htmlFor="otp">Six-digit code</label><Input id="otp" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} disabled={busy} aria-describedby={error ? "auth-error" : undefined} data-testid="otp-input" className="h-14 text-center text-2xl font-mono tracking-widest" /></div>
+        <Button type="submit" disabled={busy || otp.length !== 6} className="w-full h-12" data-testid="verify-otp-btn">{busy ? "Verifying…" : "Verify"}</Button>
+        <p className="text-xs text-muted-foreground">Codes expire after 5 minutes.</p>
+        <Button type="button" variant="outline" disabled={busy || remaining > 0} onClick={() => requestCode()} className="w-full">{remaining > 0 ? `Resend in ${remaining}s` : "Resend code"}</Button>
+      </form>}
+      {step === "register" && <form onSubmit={register} className="space-y-5" data-testid="registration-step" noValidate>
+        <div><h1 className="font-display text-3xl font-medium">Create your account</h1><p className="mt-2 text-muted-foreground">Your number has been verified.</p></div>
+        <div><label htmlFor="full-name">Full name *</label><Input id="full-name" autoComplete="name" value={name} maxLength={100} onChange={e => setName(e.target.value)} disabled={busy} className="h-12 mt-2" /></div>
+        <div><label htmlFor="email">Email (optional)</label><Input id="email" type="email" autoComplete="email" value={email} maxLength={254} onChange={e => setEmail(e.target.value)} disabled={busy} className="h-12 mt-2" /></div>
+        <Button type="submit" disabled={busy} className="w-full h-12">{busy ? "Creating account…" : "Create account"}</Button>
+      </form>}
+      {step !== "phone" && <button type="button" onClick={changePhone} disabled={busy} className="text-sm underline focus-visible:outline focus-visible:outline-2" data-testid="change-phone-btn">Change phone number</button>}
+    </div></div>
+  </div>;
 }

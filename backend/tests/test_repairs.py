@@ -1,27 +1,23 @@
+from auth_client import login_headers, new_phone
 """Phase 1 backend tests for the EV Charger Repair Service module.
 Run: cd /app/backend && python -m pytest tests/test_repairs.py -v
 Hits the live server at localhost:8001. Auth = phone OTP (demo 123456)."""
 import requests
+import os
 import uuid
 
-BASE = "http://localhost:8001/api"
+BASE = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstrip("/") + "/api"
 OTP = "123456"
 OWNER_PHONE = "+919000000002"  # seeded owner of IND000001..6
 ADMIN_PHONE = "+919000000001"  # seeded admin
 
 
 def login(phone, name=None):
-    requests.post(f"{BASE}/auth/request-otp", json={"phone": phone})
-    body = {"phone": phone, "otp": OTP}
-    if name:
-        body["name"] = name
-    r = requests.post(f"{BASE}/auth/verify-otp", json=body)
-    assert r.status_code == 200, r.text
-    return {"Authorization": f"Bearer {r.json()['token']}"}
+    return login_headers(BASE, phone, name)
 
 
 def new_customer():
-    phone = "+9198" + uuid.uuid4().hex[:8]
+    phone = new_phone()
     return login(phone, "Repair Test"), phone
 
 

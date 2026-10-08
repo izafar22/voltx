@@ -68,3 +68,44 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+### Station map tiles
+
+The station map defaults to OpenStreetMap Standard tiles, without an API key.
+The same light basemap is used in both application themes.
+To change providers, set `REACT_APP_MAP_TILE_URL`, optionally
+`REACT_APP_MAP_TILE_DARK_URL`, and `REACT_APP_MAP_TILE_ATTRIBUTION` before building.
+Attribution must credit the selected provider and its underlying data sources.
+These values are public build-time configuration; never include secret keys.
+Review your provider's usage terms and capacity before production deployment.
+
+Location is requested once per map mount (HTTPS or localhost required), remains
+in component memory, and is not sent to the Voltx API. Distances are straight-line,
+not driving routes. Station updates use the existing parent query; the map adds
+no polling or subscriptions.
+
+The public OpenStreetMap Standard endpoint is a development/MVP fallback.
+Configure a suitable production tile provider with `REACT_APP_MAP_TILE_URL`
+and `REACT_APP_MAP_ATTRIBUTION` (the older `REACT_APP_MAP_TILE_ATTRIBUTION` also
+remains supported). Both themes use the same tiles unless a dark URL is supplied.
+All these variables are public build-time values; never include private keys.
+
+Customer discovery counts “nearby” as within 10 km straight-line distance when
+location is available. Other counts describe the loaded station dataset, not the
+entire network. Scan QR currently provides a manual station-code fallback; camera
+scanning is not implemented. Backend demo chargers remain explicitly opt-in and
+are independent of the frontend production build.
+
+### Customer sign-in
+
+The phone → OTP → optional registration flow uses the existing AuthContext.
+Axios sends cookies with `withCredentials`; the browser never reads session JWTs.
+Legacy `ev_token` entries are removed, and users sign in again once after upgrade.
+The query cache is cleared between customers. New accounts start with a zero wallet
+and empty history, with the existing discovery dashboard unchanged.
+
+Local demo controls require `REACT_APP_DEMO_AUTH=true` and a nonproduction build.
+The backend separately requires `OTP_MODE=demo`; optional code responses require
+`EXPOSE_DEMO_OTP=true`. Restart CRA after changing `.env`. Production builds strip
+the demo controls even if the flag is accidentally set. See `backend/AUTH.md` for
+trusted origins, cookie settings, SMS integration, migration, and tests.
