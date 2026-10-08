@@ -1,6 +1,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import Login from './Login';
+import { FEATURES } from '../config/features';
 const mockPost = jest.fn(), mockLogin = jest.fn(), mockNavigate = jest.fn();
 let mockAuth;
 jest.mock('../lib/api', () => ({ api: { post: (...args) => mockPost(...args) } }));
@@ -76,4 +77,15 @@ test('duplicate OTP submissions are locked while in flight', async () => {
 test('explicit demo controls are available only in nonproduction builds', () => {
   process.env.REACT_APP_DEMO_AUTH = 'true'; render();
   expect(container.textContent).toContain('Development demo accounts');
+});
+
+test('repair release sign-in copy preserves the charging copy behind its flag', () => {
+  act(() => root.render(<Login />));
+  expect(container.textContent).toContain('working again.');
+  expect(container.textContent).not.toContain('Find your next charge');
+  const previous = FEATURES.charging;
+  try {
+    FEATURES.charging = true; act(() => root.render(<Login />));
+    expect(container.textContent).toContain('Find your next charge');
+  } finally { FEATURES.charging = previous; }
 });

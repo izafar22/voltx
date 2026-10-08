@@ -17,5 +17,16 @@
 .dashboard-skeleton { min-height: 48px; border-radius: 8px; background: currentColor; opacity: .1; }
 .dashboard-map-header .dashboard-skeleton { min-height: 16px; width: 170px; }
 .dashboard-active { display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 12px; padding: 16px; border: 1px solid hsl(var(--charging) / .4); border-radius: 16px; background: hsl(var(--charging) / .05); }
-@media (min-width: 1200px) { .customer-dashboard { padding: 28px; } .dashboard-grid { grid-template-columns: minmax(280px, 1fr) minmax(0, 2.25fr); align-items: stretch; } .dashboard-map { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; } .dashboard-support { grid-column: 1; grid-row: 1; } .dashboard-map-body { flex: 1; min-height: 560px; } }
+@media (min-width: 1200px) { .customer-dashboard { padding: 28px; } .dashboard-grid-with-map { grid-template-columns: minmax(280px, 1fr) minmax(0, 2.25fr); align-items: stretch; } .dashboard-map { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; } .dashboard-support { grid-column: 1; grid-row: 1; } .dashboard-map-body { flex: 1; min-height: 560px; } }
 @media (prefers-reduced-motion: reduce) { .dashboard-action { transition: none; } }
+
+.dashboard-repair-hero { padding: 24px; display: grid; gap: 24px; border-color: hsl(var(--charging) / .35); background: linear-gradient(120deg, hsl(var(--charging) / .08), hsl(var(--card))); }
+.dashboard-repair-hero > div { min-width: 0; max-width: 600px; }
+.dashboard-repair-cta { min-height: 48px; height: auto; white-space: normal; width: 100%; }
+.dashboard-repair-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.dashboard-repair-item { width: 100%; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left; padding: 20px; }
+.dashboard-repair-item:hover { background: hsl(var(--secondary)); }
+.dashboard-repair-item > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+@media (min-width: 768px) { .dashboard-repair-hero { grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 32px; } .dashboard-repair-cta { width: auto; } }
+
+.customer-shell button:focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 3px; }

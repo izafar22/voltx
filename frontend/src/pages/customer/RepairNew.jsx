@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -34,6 +34,7 @@ const MAX_MB = 5;
 
 export default function RepairNew() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [source, setSource] = useState("other");
   const [chargerId, setChargerId] = useState("");
@@ -124,6 +125,7 @@ export default function RepairNew() {
       // Advance to AWAITING_SHIPMENT via validated Phase 1 transition (non-fatal if it fails)
       try { await api.patch(`/repairs/${data.id}/status`, { status: "AWAITING_SHIPMENT" }); }
       catch { toast.message("Repair request created. Shipment status will update shortly."); }
+      queryClient.invalidateQueries({ queryKey: ["repairs-mine"] });
       setResult({ id: data.id, number: data.repair_request_number });
     } catch (e) {
       const detail = e.response?.data?.detail;

@@ -1,10 +1,11 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import RepairNew from './RepairNew';
+const mockInvalidate = jest.fn();
 const mockNavigate = jest.fn(), mockPost = jest.fn(), mockPatch = jest.fn(), mockError = jest.fn();
 let mockChargers = [], mockRole = 'customer';
 jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }), { virtual: true });
-jest.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: mockChargers }) }));
+jest.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: mockChargers }), useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }));
 jest.mock('../../lib/api', () => ({ api: { post: (...args) => mockPost(...args), patch: (...args) => mockPatch(...args) } }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { role: mockRole } }) }));
 jest.mock('../../components/layout/CustomerShell', () => ({ CustomerShell: ({ children }) => <main>{children}</main> }));
@@ -75,6 +76,7 @@ test('review separates description and successful submission preserves contract 
   await act(async () => submit());
   expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'RETAIL', problem_description: 'Stops after a few seconds.', reported_category: 'Not charging', photos: [], charger_info: { brand: 'ABB', model: 'Terra AC', charger_type: null, serial_number: null, power_rating: null, purchase_date: null } });
   expect(mockPatch).toHaveBeenCalledWith('/repairs/r1/status', { status: 'AWAITING_SHIPMENT' });
+  expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ['repairs-mine'] });
   expect(el('repair-confirmation')).not.toBeNull(); expect(el('repair-number').textContent).toContain('REP-001'); expect(container.querySelectorAll('ol li')).toHaveLength(5);
   click('view-repair-btn'); expect(mockNavigate).toHaveBeenLastCalledWith('/repairs/r1'); click('back-dashboard-btn'); expect(mockNavigate).toHaveBeenLastCalledWith('/app');
 });

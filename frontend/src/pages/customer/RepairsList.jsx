@@ -1,27 +1,16 @@
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMyRepairs } from "../../hooks/useMyRepairs";
 import { motion } from "framer-motion";
 import { Wrench, ChevronRight, Plus, Calendar } from "lucide-react";
-import { api } from "@/lib/api";
 import { CustomerShell } from "@/components/layout/CustomerShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-const STATUS_LABEL = {
-  REQUESTED: "Requested", AWAITING_SHIPMENT: "Awaiting shipment", IN_TRANSIT_TO_VOLTX: "In transit",
-  RECEIVED_AT_VOLTX: "Received", DIAGNOSING: "Diagnosing", ESTIMATE_SENT: "Estimate sent",
-  CUSTOMER_APPROVED: "Approved", CUSTOMER_DECLINED: "Declined", REPAIRING: "Repairing",
-  REPAIR_COMPLETED: "Repair completed", PAYMENT_PENDING: "Payment pending", READY_TO_SHIP: "Ready to ship",
-  SHIPPED_TO_CUSTOMER: "Shipped", DELIVERED: "Delivered", COMPLETED: "Completed",
-  CANCELLED: "Cancelled", NOT_REPAIRABLE: "Not repairable",
-};
+import { REPAIR_STATUS_LABEL as STATUS_LABEL } from "../../lib/repairStatus";
 
 export default function RepairsList() {
   const navigate = useNavigate();
-  const { data: repairs = [], isLoading } = useQuery({
-    queryKey: ["repairs-mine"],
-    queryFn: async () => (await api.get("/repairs", { params: { scope: "mine" } })).data,
-  });
+  const { data: repairs = [], isLoading, isError, refetch } = useMyRepairs();
 
   return (
     <CustomerShell>
@@ -36,6 +25,8 @@ export default function RepairsList() {
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground py-10 text-center">Loading...</p>
+        ) : isError ? (
+          <div role="alert" className="rounded-xl border border-border/60 p-6"><p>Unable to load repair requests.</p><Button variant="outline" className="mt-3 min-h-11" onClick={() => refetch()}>Retry</Button></div>
         ) : repairs.length === 0 ? (
           <div className="rounded-xl border border-border/60 p-8 text-center" data-testid="repairs-empty">
             <div className="mx-auto h-12 w-12 rounded-xl bg-charging/10 flex items-center justify-center"><Wrench className="h-6 w-6 text-charging" /></div>

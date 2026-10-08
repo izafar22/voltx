@@ -1,6 +1,8 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import CustomerHome from './CustomerHome';
+import { FEATURES } from '../../config/features';
+const defaultFeatures = { ...FEATURES };
 const mockNavigate = jest.fn();
 const mockGet = jest.fn();
 let mockQueries;
@@ -17,10 +19,11 @@ let root, container;
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   jest.clearAllMocks();
-  mockQueries = Object.fromEntries(['wallet', 'stations', 'sessions'].map(key => [key, { data: key === 'wallet' ? { balance: 14640 } : [], isPending: false, isError: false, refetch: jest.fn() }]));
+  Object.keys(FEATURES).forEach(key => { FEATURES[key] = true; });
+  mockQueries = Object.fromEntries(['wallet', 'stations', 'sessions', 'repairs-mine'].map(key => [key, { data: key === 'wallet' ? { balance: 14640 } : [], isPending: false, isError: false, refetch: jest.fn() }]));
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
 });
-afterEach(() => { act(() => root.unmount()); container.remove(); });
+afterEach(() => { Object.assign(FEATURES, defaultFeatures); act(() => root.unmount()); container.remove(); });
 const render = () => act(() => root.render(<CustomerHome />));
 const inputCode = (code) => act(() => {
   const input = container.querySelector('[data-testid="station-code-input"]');

@@ -17,6 +17,8 @@ import RepairsList from "@/pages/customer/RepairsList";
 import OwnerDashboard from "@/pages/owner/OwnerDashboard";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 
+import { FEATURES } from "./config/features";
+
 function RootRedirect() {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>;
@@ -34,14 +36,14 @@ function App() {
               <Route path="/" element={<RootRedirect />} />
 
               <Route path="/app" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><CustomerHome /></ProtectedRoute>} />
-              <Route path="/app/wallet" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><WalletPage /></ProtectedRoute>} />
-              <Route path="/app/history" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><HistoryPage /></ProtectedRoute>} />
-              <Route path="/app/charger/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><ChargerPage /></ProtectedRoute>} />
-              <Route path="/app/live/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><LivePage /></ProtectedRoute>} />
+              <Route path="/app/wallet" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.wallet ? <WalletPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/app/history" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.charging ? <HistoryPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/app/charger/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.charging ? <ChargerPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/app/live/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.charging ? <LivePage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
 
-              <Route path="/repairs" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><RepairsList /></ProtectedRoute>} />
-              <Route path="/repairs/new" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><RepairNew /></ProtectedRoute>} />
-              <Route path="/repairs/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><RepairDetail /></ProtectedRoute>} />
+              <Route path="/repairs" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.repair ? <RepairsList /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/repairs/new" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.repair ? <RepairNew /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/repairs/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.repair ? <RepairDetail /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
 
               <Route path="/owner" element={<ProtectedRoute roles={["owner", "admin"]}><OwnerDashboard /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminDashboard /></ProtectedRoute>} />

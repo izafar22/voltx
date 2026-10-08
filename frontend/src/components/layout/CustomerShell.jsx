@@ -8,11 +8,13 @@ import { Logo } from "@/components/Logo";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 
+import { FEATURES } from "../../config/features";
+
 const nav = [
   { to: "/app", icon: Home, label: "Home" },
-  { to: "/app/wallet", icon: WalletIcon, label: "Wallet" },
-  { to: "/app/history", icon: History, label: "History" },
-  { to: "/repairs", icon: Wrench, label: "Repairs" },
+  { to: "/app/wallet", icon: WalletIcon, enabled: () => FEATURES.wallet, label: "Wallet" },
+  { to: "/app/history", icon: History, enabled: () => FEATURES.charging, label: "History" },
+  { to: "/repairs", icon: Wrench, enabled: () => FEATURES.repair, label: "Repairs" },
 ];
 
 export const CustomerShell = ({ children }) => {
@@ -23,14 +25,16 @@ export const CustomerShell = ({ children }) => {
   const [notifs, setNotifs] = useState([]);
   const [open, setOpen] = useState(false);
 
+  // Existing notifications are exclusively charging/wallet events.
+  const showNotifications = FEATURES.charging || FEATURES.wallet;
   const load = () => api.get("/notifications").then((r) => setNotifs(r.data)).catch(() => {});
-  useEffect(() => { load(); const i = setInterval(load, 15000); return () => clearInterval(i); }, [loc.pathname]);
+  useEffect(() => { if (!showNotifications) return; load(); const i = setInterval(load, 15000); return () => clearInterval(i); }, [loc.pathname, showNotifications]);
   const unread = notifs.filter((n) => !n.read).length;
 
   const SideNav = () => (
     <nav aria-label="Customer navigation" className="flex flex-col gap-1 p-3">
-      {nav.map((n) => {
-        const active = loc.pathname === n.to;
+      {nav.filter((n) => !n.enabled || n.enabled()).map((n) => {
+        const active = loc.pathname === n.to || (n.to === "/repairs" && loc.pathname.startsWith("/repairs/"));
         return (
           <Link key={n.to} to={n.to} onClick={() => setOpen(false)} data-testid={`nav-${n.label.toLowerCase()}`} aria-current={active ? "page" : undefined}
             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}>
@@ -49,7 +53,7 @@ export const CustomerShell = ({ children }) => {
   );
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="customer-shell min-h-screen bg-background flex">
       <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-border/60 sticky top-0 h-screen">
         <div className="h-16 flex items-center px-5 border-b border-border/60"><Logo /></div>
         <div className="flex-1 overflow-y-auto"><SideNav /></div>
@@ -66,16 +70,16 @@ export const CustomerShell = ({ children }) => {
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="sticky top-0 z-40 glass border-b h-16 flex items-center justify-between px-4 lg:px-8">
           <div className="flex items-center gap-3">
-            <button className="lg:hidden" onClick={() => setOpen(true)} data-testid="menu-btn" aria-label="Open navigation" aria-expanded={open}><Menu className="h-6 w-6" /></button>
+            <button className="lg:hidden h-11 w-11 flex items-center justify-center" onClick={() => setOpen(true)} data-testid="menu-btn" aria-label="Open navigation" aria-expanded={open}><Menu className="h-6 w-6" /></button>
             <div className="lg:hidden"><Logo compact /></div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={toggle} data-testid="theme-toggle" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
+            <button onClick={toggle} data-testid="theme-toggle" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} className="h-11 w-11 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-            <Sheet onOpenChange={(o) => { if (!o && unread) api.post("/notifications/read").then(load).catch(() => {}); }}>
+            {showNotifications && <Sheet onOpenChange={(o) => { if (!o && unread) api.post("/notifications/read").then(load).catch(() => {}); }}>
               <SheetTrigger asChild>
-                <button data-testid="notifications-btn" aria-label="Notifications" className="relative h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
+                <button data-testid="notifications-btn" aria-label="Notifications" className="relative h-11 w-11 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
                   <Bell className="h-5 w-5" />
                   {unread > 0 && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-charging" />}
                 </button>
@@ -92,8 +96,8 @@ export const CustomerShell = ({ children }) => {
                   ))}
                 </div>
               </SheetContent>
-            </Sheet>
-            <form onSubmit={(event) => { event.preventDefault(); logout(); }}><button type="submit" disabled={loggingOut} data-testid="logout-btn" aria-label={loggingOut ? "Signing out" : "Log out"} className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200"><LogOut className="h-5 w-5" /></button></form>
+            </Sheet>}
+            <form onSubmit={(event) => { event.preventDefault(); logout(); }}><button type="submit" disabled={loggingOut} data-testid="logout-btn" aria-label={loggingOut ? "Signing out" : "Log out"} className="h-11 w-11 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200"><LogOut className="h-5 w-5" /></button></form>
           </div>
         </header>
         <main className="flex-1">{authError && <p role="alert" className="p-4 text-sm text-destructive">{authError}</p>}{children}</main>
