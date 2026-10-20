@@ -67,14 +67,14 @@ test('registered charger selection preserves payload and details', async () => {
   mockRole = 'owner'; mockChargers = [{ charger_id: 'VOLTX1', name: 'Home charger', connector: 'Type 2', max_power_kw: 7.4 }]; render(); click('source-mine');
   change('my-charger-select', 'VOLTX1'); change('description-input', 'Not working');
   expect(el('selected-charger-info').textContent).toContain('Home charger');
-  await act(async () => submit()); expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'STATION_OWNER', charger_id: 'VOLTX1', problem_description: 'Not working', reported_category: null, photos: [] });
+  await act(async () => submit()); expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'STATION_OWNER', charger_id: 'VOLTX1', problem_description: 'Not working', reported_category: null, photos: [], whatsapp_opt_in: false });
 });
 test('review separates description and successful submission preserves contract and navigation', async () => {
   render(); fill(); change('category-select', 'Not charging');
   expect([...el('review-section').querySelectorAll('dt')].map(n => n.textContent)).toEqual(['Charger', 'Problem', 'Description', 'Photos']);
   expect(el('review-section').textContent).toContain('Terra AC');
   await act(async () => submit());
-  expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'RETAIL', problem_description: 'Stops after a few seconds.', reported_category: 'Not charging', photos: [], charger_info: { brand: 'ABB', model: 'Terra AC', charger_type: null, serial_number: null, power_rating: null, purchase_date: null } });
+  expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'RETAIL', problem_description: 'Stops after a few seconds.', reported_category: 'Not charging', photos: [], whatsapp_opt_in: false, charger_info: { brand: 'ABB', model: 'Terra AC', charger_type: null, serial_number: null, power_rating: null, purchase_date: null } });
   expect(mockPatch).toHaveBeenCalledWith('/repairs/r1/status', { status: 'AWAITING_SHIPMENT' });
   expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ['repairs-mine'] });
   expect(el('repair-confirmation')).not.toBeNull(); expect(el('repair-number').textContent).toContain('REP-001'); expect(container.querySelectorAll('ol li')).toHaveLength(5);
@@ -94,4 +94,12 @@ test('photos retain data URLs, can be removed and reject unsupported/oversized f
   expect(mockError).toHaveBeenCalledTimes(2); expect(el('photo-0').querySelector('img').src).toMatch(/^data:image\/png;base64,/);
   expect(el('remove-photo-0').getAttribute('aria-label')).toContain('charger.png'); expect(el('review-section').textContent).toContain('1 attached');
   click('remove-photo-0'); expect(el('photo-0')).toBeNull(); expect(el('review-section').textContent).toContain('0 attached');
+});
+
+test('WhatsApp consent defaults off and only explicit selection opts in', async () => {
+  render(); fill(); expect(el('whatsapp-opt-in').checked).toBe(false);
+  click('whatsapp-opt-in'); expect(el('whatsapp-opt-in').checked).toBe(true);
+  await act(async () => submit());
+  expect(mockPost.mock.calls[0][1].whatsapp_opt_in).toBe(true);
+  expect(mockPost.mock.calls[0][1]).not.toHaveProperty('destination');
 });

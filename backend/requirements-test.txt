@@ -1,0 +1,2 @@
+# Install after requirements.txt; no Meta network access is needed by these tests.
+mongomock-motor==0.0.36

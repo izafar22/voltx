@@ -42,6 +42,7 @@ export default function RepairNew() {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState([]);
+  const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [errors, setErrors] = useState({});
@@ -109,6 +110,7 @@ export default function RepairNew() {
         problem_description: description.trim(),
         reported_category: category || null,
         photos: photos.map((p) => p.data),
+        whatsapp_opt_in: whatsappOptIn,
       };
       if (source === "mine") {
         payload.charger_id = chargerId;
@@ -152,7 +154,7 @@ export default function RepairNew() {
           <h2 className="text-xl font-semibold">What happens next</h2>
           <ol className="mt-4 list-decimal pl-6 space-y-4 text-base leading-relaxed">
             <li>We’ve received your request.</li>
-            <li>Send the charger to the Voltx service center. <span className="text-muted-foreground">Our service team will provide shipping instructions.</span></li>
+            <li>Send the charger to the RushX service center. <span className="text-muted-foreground">Our service team will provide shipping instructions.</span></li>
             <li>Include the repair request number with the package.</li>
             <li>We’ll update you once the charger is received.</li>
             <li>You’ll receive a repair estimate for approval before any paid work begins.</li>
@@ -268,6 +270,12 @@ export default function RepairNew() {
             <p className="font-semibold flex items-start gap-3"><ShieldCheck className="h-6 w-6 text-charging shrink-0" aria-hidden="true" />No payment is required to submit a repair request.</p>
             <p className="text-muted-foreground mt-3">After we receive and inspect your charger, we’ll share a repair estimate for your approval before work begins.</p>
           </div>
+          <label className="mt-6 flex items-start gap-3 text-base leading-relaxed" htmlFor="whatsapp-opt-in">
+            <input id="whatsapp-opt-in" data-testid="whatsapp-opt-in" type="checkbox" checked={whatsappOptIn}
+              onChange={(e) => setWhatsappOptIn(e.target.checked)} className="mt-1 h-5 w-5 shrink-0" />
+            <span>I agree to receive RushX repair updates on WhatsApp at my account phone number (optional).
+              You can still track your repair in the app without opting in.</span>
+          </label>
           <Button type="submit" disabled={submitting} aria-busy={submitting} data-testid="submit-repair-btn" className="w-full h-[52px] mt-6 rounded-lg text-base">
             {submitting ? <><Loader2 className="h-5 w-5 animate-spin mr-2" aria-hidden="true" />Submitting request…</> : <>Submit repair request <ArrowRight className="h-5 w-5 ml-2" aria-hidden="true" /></>}
           </Button>

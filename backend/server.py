@@ -1,7 +1,9 @@
 if __package__:
+    from .services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter
     from .demo_chargers import seed_demo_chargers
     from .auth_service import AuthService, AuthSettings, auth_router, normalize_phone
 else:
+    from services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter
     from demo_chargers import seed_demo_chargers
     from auth_service import AuthService, AuthSettings, auth_router, normalize_phone
 
@@ -22,7 +24,7 @@ import uuid
 import math
 import random
 from pymongo import ReturnDocument
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 from typing import Optional, List, Literal
 from datetime import datetime, timezone, timedelta
 
@@ -572,6 +574,7 @@ class RepairCreate(BaseModel):
     problem_description: str = Field(..., min_length=3)
     reported_category: Optional[str] = None
     photos: Optional[List[str]] = None
+    whatsapp_opt_in: StrictBool = False
 
 
 class RepairStatusUpdate(BaseModel):
@@ -638,6 +641,8 @@ async def can_access_repair(user, r):
 def sanitize_repair(r, user):
     r = dict(r)
     r.pop("_id", None)
+    r.pop("whatsapp_outbox", None)
+    r.pop("whatsapp_consent", None)
     if user["role"] != "admin" and r.get("diagnosis"):
         r["diagnosis"] = {k: v for k, v in r["diagnosis"].items() if k not in INTERNAL_DIAGNOSIS_FIELDS}
     return r
@@ -661,15 +666,20 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
     if info.get("charger_type") and info["charger_type"] not in CHARGER_TYPES:
         raise HTTPException(status_code=400, detail=f"charger_type must be one of {sorted(CHARGER_TYPES)}")
     now = iso()
+    consent = consent_record(body.whatsapp_opt_in, user, now)
+    event_id = nid("evt")
     r = {
         "id": nid("rep"), "repair_request_number": await next_repair_number(), "user_id": user["user_id"],
         "customer_type": body.customer_type, "charger_id": charger_id, "charger_info": info,
         "problem_description": body.problem_description, "reported_category": body.reported_category,
         "photos": body.photos or [], "status": "REQUESTED",
-        "status_history": [{"status": "REQUESTED", "by": user["user_id"], "at": now, "note": None}],
+        "status_history": [{"event_id": event_id, "status": "REQUESTED", "by": user["user_id"], "at": now, "note": None}],
         "diagnosis": None, "estimate": None, "incoming_shipment": None, "return_shipment": None,
         "created_at": now, "updated_at": now,
     }
+    r["whatsapp_consent"] = consent
+    event = event_for(r, "REQUESTED", event_id, WhatsAppSettings.from_env())
+    r["whatsapp_outbox"] = [event] if event else []
     await db.repair_requests.insert_one(dict(r))
     return sanitize_repair(r, user)
 
@@ -723,10 +733,16 @@ async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(
     if target == "CUSTOMER_DECLINED":
         upd["estimate.status"] = "DECLINED"
         upd["estimate.declined_at"] = now
-    await db.repair_requests.update_one({"id": rid}, {
-        "$set": upd,
-        "$push": {"status_history": {"status": target, "by": user["user_id"], "at": now, "note": body.note}},
+    event_id = nid("evt")
+    pushes = {"status_history": {"event_id": event_id, "status": target, "by": user["user_id"], "at": now, "note": body.note}}
+    event = event_for(r, target, event_id, WhatsAppSettings.from_env())
+    if event:
+        pushes["whatsapp_outbox"] = event
+    result = await db.repair_requests.update_one({"id": rid, "status": r["status"]}, {
+        "$set": upd, "$push": pushes,
     })
+    if not result.modified_count:
+        raise HTTPException(status_code=409, detail="Repair status changed; refresh and try again")
     r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
     return sanitize_repair(r, user)
 
@@ -793,7 +809,7 @@ async def safe_validation(request: Request, error: RequestValidationError):
 
 @app.middleware("http")
 async def trusted_origin(request: Request, call_next):
-    if request.method not in ("GET", "HEAD", "OPTIONS"):
+    if request.method not in ("GET", "HEAD", "OPTIONS") and request.url.path != "/api/webhooks/whatsapp":
         if request.headers.get("origin") not in auth_settings.origins:
             return JSONResponse({"detail": "Request origin is not allowed"}, status_code=403)
     response = await call_next(request)
@@ -802,6 +818,7 @@ async def trusted_origin(request: Request, call_next):
     return response
 
 
+api_router.include_router(webhook_router(lambda: db, lambda: WhatsAppSettings.from_env()))
 app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware, allow_credentials=True,
@@ -811,6 +828,7 @@ app.add_middleware(
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logging.getLogger("uvicorn.access").addFilter(WebhookAccessLogFilter())
 
 
 @app.on_event("startup")
