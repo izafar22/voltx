@@ -6,7 +6,10 @@ is **off by default**. Production activation, template submission/approval, numb
 onboarding and live sends are separate human-controlled actions. Do not register,
 migrate, disconnect or change the existing WhatsApp Business App number.
 
-## Eight events and authoritative facts
+See [manual payment architecture and setup](PAYMENTS.md) for receipt verification,
+optional reviewed merchant QR, recovery/rollback and the separate ninth event.
+
+## Eight lifecycle events and authoritative facts
 
 | Stored status | Proposed Utility template | Snapshot body parameters, in order |
 | --- | --- | --- |
@@ -26,7 +29,8 @@ fictional sample values and per-template verification checklists are in
 Issue #3 is unchanged. Actual approval and classification are not guaranteed.
 Do not edit templates already in review. Nothing is submitted by this code.
 
-Only these eight statuses enqueue events. In particular, `DIAGNOSING` no longer
+Only these eight repair statuses enqueue lifecycle events. A separately verified
+full receipt emits the ninth `PAYMENT_RECEIVED` event without changing repair status. In particular, `DIAGNOSING` no longer
 sends. `IN_TRANSIT_TO_VOLTX` and `RECEIVED_AT_VOLTX` remain internal identifiers;
 customer labels use RushX. Do not introduce ESTIMATE_APPROVED or RETURN_SHIPPED.
 The existing graph, including declined/not-repairable/cancelled paths, is retained.
@@ -55,8 +59,8 @@ not opt in, so the app cannot publish misleading repair facts:
 - After REPAIR_COMPLETED, an admin records the reconciled balance using
   `PATCH /api/repairs/{id}/payment` with `amount_due` and an internal `reference`.
   The admin UI supplies this form. This is a manual attestation **after accounting
-  for all confirmed payments**, not a payment gateway, receipt ledger or automatic
-  payment collection. Currency is INR; verified actor/time/source are server-set.
+  for all confirmed payments**. This endpoint does not collect money or record a
+  receipt; the separate receipt-verification API is documented in PAYMENTS.md. Currency is INR; verified actor/time/source are server-set.
   Saving does not notify. PAYMENT_PENDING requires a positive verified amount.
   A subsequent balance change cancels an unsent notice rather than sending a
   stale amount. Customer responses show only amount/currency/verification time.
@@ -266,7 +270,7 @@ workers against the same queue during upgrade.
    old sender on v2 jobs; it does not understand their safety guards.
 
 Open business decisions: revised published quotes, zero-balance repair routing,
-production sender/coexistence, real payment-provider/ledger integration and approved
+production sender/coexistence, future payment-provider integration and approved
 retention periods. These do not block code/tests or require invented configuration.
 
 ## Automated validation

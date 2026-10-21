@@ -205,7 +205,7 @@ of these eight Utility templates or their content.
 - Production sender/coexistence decision and protected number onboarding: manual;
   never modify the current Business App number to unblock testing.
 - Real facility address, verified final balances and courier operations: business inputs.
-- Real payment gateway/repair payment ledger: absent; this release records manual reconciliation only.
+- Payment gateway: absent. Manual balance reconciliation and explicit full receipt verification are supported; see PAYMENTS.md.
 - Public HTTPS callback, Meta messages subscription, secrets, monitoring and least privilege: operations review.
 - Production activation and any live test sends: explicit human approval required.
 
@@ -213,3 +213,13 @@ Official references: [Meta template message API](https://whatsapp.github.io/What
 [Meta-maintained Cloud API reference](https://www.postman.com/meta/whatsapp-business-platform/documentation/wlk6lh4/whatsapp-cloud-api),
 [Meta WhatsApp documentation](https://developers.facebook.com/documentation/business-messaging/whatsapp/overview).
 Use current WhatsApp Manager review results as the authority for actual approval.
+
+## Payment follow-up templates
+
+The eight lifecycle templates retain their existing scope and text-only pending-payment
+format. `PAYMENT_RECEIVED` in the catalog is a separate ninth event requiring its own
+Utility approval. Optional `PAYMENT_PENDING_QR` is a distinct IMAGE-header variant,
+never a media attachment to the submitted text-only template. See
+[PAYMENTS.md](../PAYMENTS.md#optional-qr-and-new-template-setup) for exact parameter
+orders, safe activation, operator-owned QR review and fallback behavior. All new
+approval/submission statuses remain unknown.

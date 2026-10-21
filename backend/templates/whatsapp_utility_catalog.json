@@ -162,5 +162,28 @@
     "approved": "unknown",
     "pending": "unknown",
     "blocked": "unknown"
+  },
+  "PAYMENT_RECEIVED": {
+    "name": "rushx_payment_received_v1",
+    "language": "en_US",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, RushX has verified payment for repair {{2}}. Amount received: INR {{3}}. Reference: {{4}}. Thank you.",
+    "parameters": [
+      "customer_name",
+      "repair_number",
+      "verified_amount",
+      "safe_reference"
+    ],
+    "examples": [
+      "Sample Customer",
+      "REP-10421",
+      "1750.00",
+      "REF-1234"
+    ],
+    "configured": "unknown",
+    "submitted": "unknown",
+    "approved": "unknown",
+    "pending": "unknown",
+    "blocked": "unknown"
   }
 }

@@ -14,6 +14,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import unquote
 
+from .payment_config import public_payment_instructions, valid_public_qr_url
 from .repair_facts import estimate_total, amount_due, shipment_details, text_fact
 
 import httpx
@@ -70,6 +71,7 @@ class Settings:
     mode: str = "test"
     test_recipients: tuple = field(default=(), repr=False)
     max_attempts: int = 5
+    payment_qr_url: str = ""
 
     @classmethod
     def from_env(cls):
@@ -79,6 +81,7 @@ class Settings:
         except (TypeError, ValueError):
             templates = {}
         return cls(
+            payment_qr_url=public_payment_instructions()["qr_image_url"] or "",
             enabled=os.getenv("WHATSAPP_ENABLED", "false").lower() == "true",
             access_token=os.getenv("WHATSAPP_ACCESS_TOKEN", ""),
             phone_number_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", ""),
@@ -118,7 +121,7 @@ def consent_record(opt_in, user, at):
     }
 
 
-def event_for(repair, status, event_id, settings, customer=None):
+def event_for(repair, status, event_id, settings, customer=None, payment_event=None):
     consent = repair.get("whatsapp_consent", {})
     if (
         not settings.enabled
@@ -141,9 +144,15 @@ def event_for(repair, status, event_id, settings, customer=None):
         values["estimate_total"] = estimate_total(repair)
     elif status == "PAYMENT_PENDING":
         values["amount_due"] = amount_due(repair)
+    elif status == "PAYMENT_RECEIVED":
+        if not payment_event or payment_event.get("type") != "PaymentReceived":
+            return None
+        values.update(
+            {key: payment_event[key] for key in ("verified_amount", "safe_reference")}
+        )
     elif status == "SHIPPED_TO_CUSTOMER":
         values.update(shipment_details(repair))
-    return {
+    event = {
         "_id": (
             f"{repair['id']}:REQUESTED"
             if status == "REQUESTED"
@@ -162,6 +171,26 @@ def event_for(repair, status, event_id, settings, customer=None):
         "values": values,
     }
 
+    if status == "PAYMENT_PENDING" and settings.payment_qr_url:
+        try:
+            configured_template("PAYMENT_PENDING_QR", settings)
+            event["template_key"] = "PAYMENT_PENDING_QR"
+            event["qr_image_url"] = settings.payment_qr_url
+        except ConfigurationError:
+            pass  # Unapproved optional media must not replace the existing text template.
+    return event
+
+
+def payment_received_notification(repair, event, settings, customer=None):
+    return event_for(
+        repair,
+        "PAYMENT_RECEIVED",
+        event["id"],
+        settings,
+        customer=customer,
+        payment_event=event,
+    )
+
 
 class ConfigurationError(Exception):
     pass
@@ -175,7 +204,8 @@ def configured_template(status, settings):
     template = (
         settings.templates.get(status) if isinstance(settings.templates, dict) else None
     )
-    if not isinstance(template, dict) or status not in CATALOG:
+    catalog_status = "PAYMENT_PENDING" if status == "PAYMENT_PENDING_QR" else status
+    if not isinstance(template, dict) or catalog_status not in CATALOG:
         raise ConfigurationError()
     name = template.get("name")
     if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9_]{1,512}", name):
@@ -189,9 +219,20 @@ def configured_template(status, settings):
         raise ConfigurationError()
     if not sandbox and (
         name == "hello_world"
-        or template.get("parameters") != CATALOG[status]["parameters"]
+        or template.get("parameters") != CATALOG[catalog_status]["parameters"]
         or template.get("approval_status") != "approved"
         or template.get("category") != "UTILITY"
+    ):
+        raise ConfigurationError()
+    pending_template = settings.templates.get("PAYMENT_PENDING")
+    pending_name = (
+        pending_template.get("name") if isinstance(pending_template, dict) else None
+    )
+    if status == "PAYMENT_PENDING_QR" and (
+        sandbox
+        or template.get("header_format") != "IMAGE"
+        or name == CATALOG["PAYMENT_PENDING"]["name"]
+        or name == pending_name
     ):
         raise ConfigurationError()
     return template
@@ -225,7 +266,8 @@ def validate_settings(settings):
         ):
             raise ConfigurationError()
         for status in CATALOG:
-            configured_template(status, settings)
+            if status != "PAYMENT_RECEIVED":
+                configured_template(status, settings)
     else:
         raise ConfigurationError()
 
@@ -244,7 +286,12 @@ def message_payload(job, settings):
         raise SnapshotError()
     if settings.mode == "test" and destination not in settings.test_recipients:
         raise ConfigurationError()
-    template = configured_template(job["status"], settings)
+    template_key = job.get("template_key", job["status"])
+    if template_key != job["status"] and not (
+        job["status"] == "PAYMENT_PENDING" and template_key == "PAYMENT_PENDING_QR"
+    ):
+        raise SnapshotError()
+    template = configured_template(template_key, settings)
     params = template["parameters"]
     values = job.get("values", {})
     # Validate the entire schema even for hello_world: it cannot bypass missing business facts.
@@ -254,10 +301,13 @@ def message_payload(job, settings):
         raise SnapshotError()
     if any(not text_fact(value, 1024) for value in values.values()):
         raise SnapshotError()
-    for key in ("amount_due", "estimate_total"):
+    for key in ("amount_due", "estimate_total", "verified_amount"):
         if key in values and not re.fullmatch(r"[0-9]{1,8}\.[0-9]{2}", values[key]):
             raise SnapshotError()
-    if "amount_due" in values and float(values["amount_due"]) <= 0:
+    if any(
+        key in values and float(values[key]) <= 0
+        for key in ("amount_due", "verified_amount")
+    ):
         raise SnapshotError()
     body = {"name": template["name"], "language": {"code": template["language"]}}
     if params:
@@ -267,6 +317,17 @@ def message_payload(job, settings):
                 "parameters": [{"type": "text", "text": values[p]} for p in params],
             }
         ]
+    if template_key == "PAYMENT_PENDING_QR":
+        url = job.get("qr_image_url", "")
+        if url != settings.payment_qr_url or not valid_public_qr_url(url):
+            raise ConfigurationError()
+        body["components"].insert(
+            0,
+            {
+                "type": "header",
+                "parameters": [{"type": "image", "image": {"link": url}}],
+            },
+        )
     return {
         "messaging_product": "whatsapp",
         "to": destination,

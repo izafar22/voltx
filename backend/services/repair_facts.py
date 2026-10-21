@@ -70,17 +70,9 @@ def estimate_total(repair, published=False):
 
 
 def amount_due(repair):
-    payment = repair.get("payment_summary") or {}
-    if (
-        payment.get("source") != "manual_reconciliation"
-        or payment.get("currency") != "INR"
-        or not payment.get("verified_at")
-        or not payment.get("verified_by")
-    ):
-        raise HTTPException(
-            400, "An administrator must verify the outstanding payment amount first"
-        )
-    due = money(payment.get("amount_due"))
+    from .payment_service import verified_balance_summary
+
+    due = money(verified_balance_summary(repair)["amount_due"])
     if due <= 0:
         raise HTTPException(
             400, "Payment pending requires a positive verified amount due"

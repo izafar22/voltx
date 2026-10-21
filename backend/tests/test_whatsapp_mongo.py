@@ -7,6 +7,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 import httpx
+import pytest
+from fastapi import HTTPException
+from services.payment_service import PaymentService, ManualPaymentProcessor
+from services.payment_repository import MongoPaymentRepository
+from services.whatsapp_service import payment_received_notification
 from dotenv import dotenv_values
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -98,6 +103,49 @@ def test_real_mongo_atomic_outbox_indexes_and_claims():
                 assert len(calls) == 8
                 assert await db.whatsapp_jobs.count_documents({"state": "sent"}) == 8
                 assert not await svc.process_one()
+
+                # Verify reference uniqueness and receipt/outbox CAS on real Mongo,
+                # still using only the disposable DB and mocked Meta transport.
+                original = await db.repair_requests.find_one({"id": repair["id"]})
+                original.pop("_id")
+                original["id"] = "duplicate-reference-test"
+                await db.repair_requests.insert_one(original)
+                payments = PaymentService(
+                    MongoPaymentRepository(db.repair_requests, db.payment_references),
+                    ManualPaymentProcessor(),
+                    lambda r, event, customer: payment_received_notification(
+                        r, event, SETTINGS, customer
+                    ),
+                )
+
+                async def receipt(rid, key):
+                    return await payments.receive(
+                        rid,
+                        100,
+                        "upi",
+                        "TESTUTR123456",
+                        ADMIN["user_id"],
+                        key,
+                        True,
+                        USER,
+                    )
+
+                results = await asyncio.gather(
+                    *(receipt(repair["id"], "test-key") for _ in range(5))
+                )
+                assert len({result["payment_id"] for result in results}) == 1
+                with pytest.raises(HTTPException) as conflict:
+                    await receipt("duplicate-reference-test", "other-key")
+                assert conflict.value.status_code == 409
+                stored = await db.repair_requests.find_one({"id": repair["id"]})
+                assert stored["payment_summary"]["state"] == "PAID"
+                assert (
+                    len(stored["payment_events"]) == len(stored["whatsapp_outbox"]) == 1
+                )
+                await asyncio.gather(svc.reconcile(), svc.reconcile())
+                await asyncio.gather(*(svc.process_one() for _ in range(3)))
+                assert len(calls) == 9
+                assert await db.whatsapp_jobs.count_documents({"state": "sent"}) == 9
         finally:
             assert name.startswith("voltx_wa_test_")
             await client.drop_database(name)

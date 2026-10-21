@@ -754,7 +754,7 @@ def test_missing_dispatch_address_blocks_notice_without_blocking_repair():
 def test_catalog_consistency_and_unknown_approvals():
     import re
 
-    assert set(CATALOG) == set(SELECTED)
+    assert set(CATALOG) == set(SELECTED) | {"PAYMENT_RECEIVED"}
     for spec in CATALOG.values():
         assert spec["language"] == "en_US" and spec["category"] == "UTILITY"
         assert re.findall(r"\{\{(\d+)\}\}", spec["body"]) == [

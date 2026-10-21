@@ -1,3 +1,4 @@
+import RepairPaymentPanel from "../../components/RepairPaymentPanel";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -124,11 +125,7 @@ export default function RepairDetail() {
               </div>
             )}
 
-            {r.payment_summary && <section className="mt-4 rounded-xl border border-border/60 p-4" aria-label="Payment balance">
-              <h2 className="font-semibold">Outstanding payment</h2>
-              <p className="mt-2">Verified amount due: {inr(r.payment_summary.amount_due)}</p>
-              <p className="mt-2 text-sm text-muted-foreground">Contact RushX support for payment instructions.</p>
-            </section>}
+            {r.payment_summary && <RepairPaymentPanel repairId={r.id} refreshToken={r.updated_at} />}
             <section className="mt-4 rounded-xl border border-border/60 p-4" aria-label="WhatsApp updates">
               <Button variant="outline" disabled={withdrawalBusy} onClick={async () => {
                 setWithdrawalBusy(true);

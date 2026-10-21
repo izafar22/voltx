@@ -724,8 +724,8 @@ def test_all_relevant_transitions_keep_private_fields_out_of_jobs():
                     ADMIN,
                 )
             stored = await db.repair_requests.find_one({"id": rid})
-            assert {e["status"] for e in stored["whatsapp_outbox"]} == set(STATUS_TEXT)
-            assert len(stored["whatsapp_outbox"]) == len(STATUS_TEXT)
+            assert {e["status"] for e in stored["whatsapp_outbox"]} == set(STATUS_TEXT) - {"PAYMENT_RECEIVED"}
+            assert len(stored["whatsapp_outbox"]) == len(STATUS_TEXT) - 1
             assert "sensitive" not in str(stored["whatsapp_outbox"])
 
     run(scenario)

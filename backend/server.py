@@ -1,11 +1,19 @@
 if __package__:
     from .services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter, WhatsAppService
     from .services.repair_facts import validate_transition_facts, calculated_estimate, money, text_fact
+    from .services.payment_repository import MongoPaymentRepository
+    from .services.payment_config import public_payment_instructions
+    from .services.whatsapp_service import payment_received_notification
+    from .services.payment_service import PaymentService, ManualPaymentProcessor
     from .demo_chargers import seed_demo_chargers
     from .auth_service import AuthService, AuthSettings, auth_router, normalize_phone
 else:
     from services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter, WhatsAppService
     from services.repair_facts import validate_transition_facts, calculated_estimate, money, text_fact
+    from services.payment_repository import MongoPaymentRepository
+    from services.payment_config import public_payment_instructions
+    from services.whatsapp_service import payment_received_notification
+    from services.payment_service import PaymentService, ManualPaymentProcessor
     from demo_chargers import seed_demo_chargers
     from auth_service import AuthService, AuthSettings, auth_router, normalize_phone
 
@@ -24,9 +32,10 @@ import os
 import logging
 import uuid
 import math
+from decimal import Decimal
 import random
 from pymongo import ReturnDocument
-from pydantic import BaseModel, Field, StrictBool
+from pydantic import BaseModel, Field, StrictBool, field_validator
 from typing import Optional, List, Literal
 from datetime import datetime, timezone, timedelta
 
@@ -611,6 +620,7 @@ class EstimateUpdate(BaseModel):
 
 
 class PaymentVerification(BaseModel):
+    idempotency_key: Optional[str] = Field(None, min_length=1, max_length=128)
     amount_due: float = Field(..., ge=0, le=99999999.99, allow_inf_nan=False)
     reference: str = Field(..., min_length=3, max_length=120)
 
@@ -656,6 +666,10 @@ def sanitize_repair(r, user):
     r.pop("whatsapp_outbox", None)
     r.pop("whatsapp_consent", None)
     r.pop("revision", None)
+    r.pop("payment_records", None)
+    r.pop("payment_events", None)
+    r.pop("payment_evidence", None)
+    r.pop("payment_receipt", None)
     if r.get("payment_summary"):
         r["payment_summary"] = {k: v for k, v in r["payment_summary"].items()
                                 if k in ("amount_due", "currency", "verified_at")}
@@ -836,21 +850,71 @@ async def update_repair_shipment(rid: str, body: ShipmentUpdate, user=Depends(ge
     return sanitize_repair(r, user)
 
 
+def payment_service():
+    settings = WhatsAppSettings.from_env()
+    return PaymentService(MongoPaymentRepository(db.repair_requests, db.payment_references),
+                          ManualPaymentProcessor(),
+                          lambda repair, event, customer: payment_received_notification(
+                              repair, event, settings, customer))
+
+
+class PaymentEvidence(BaseModel):
+    reference: str = Field(..., min_length=3, max_length=120)
+
+
+class PaymentReceiptVerification(BaseModel):
+    amount: Decimal = Field(..., gt=0, le=Decimal("99999999.99"), max_digits=10, decimal_places=2, allow_inf_nan=False)
+    method: Literal["upi", "bank_transfer", "cash"]
+    reference: Optional[str] = Field(None, max_length=120)
+    idempotency_key: str = Field(..., min_length=1, max_length=128)
+    funds_received: StrictBool
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def amount_is_numeric(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("Amount must be numeric")
+        return value
+
+
+@api_router.get("/repairs/{rid}/payment")
+async def get_repair_payment(rid: str, user=Depends(get_current_user)):
+    repair = await db.repair_requests.find_one({"id": rid})
+    if not repair:
+        raise HTTPException(404, "Repair request not found")
+    if user["role"] != "admin" and repair["user_id"] != user["user_id"]:
+        raise HTTPException(403, "Not authorized for this payment")
+    summary = repair.get("payment_summary") or {}
+    receipt = repair.get("payment_receipt") or {}
+    result = {"state": summary.get("state", "PENDING" if summary else "UNVERIFIED"),
+              "amount_due": summary.get("amount_due"), "currency": "INR",
+              "receipt": {k: receipt[k] for k in ("id", "verified_amount", "safe_reference", "verified_at", "method") if k in receipt},
+              **public_payment_instructions()}
+    if user["role"] == "admin":
+        result["evidence"] = repair.get("payment_evidence", [])
+        result["audit"] = repair.get("payment_records", [])
+        result["verified_receipt"] = receipt
+    return result
+
+
+@api_router.post("/repairs/{rid}/payment/reference")
+async def submit_payment_reference(rid: str, body: PaymentEvidence, user=Depends(get_current_user)):
+    return await payment_service().submit_reference(rid, body.reference, user["user_id"])
+
+
+@api_router.post("/repairs/{rid}/payment/verify")
+async def receive_repair_payment(rid: str, body: PaymentReceiptVerification, user=Depends(require("admin"))):
+    repair = await db.repair_requests.find_one({"id": rid})
+    customer = await db.users.find_one({"user_id": repair["user_id"]}, {"name": 1}) if repair else None
+    return await payment_service().receive(rid, body.amount, body.method, body.reference,
+                                          user["user_id"], body.idempotency_key,
+                                          body.funds_received, customer)
+
+
 @api_router.patch("/repairs/{rid}/payment")
 async def verify_repair_payment(rid: str, body: PaymentVerification, user=Depends(require("admin"))):
-    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
-    if not r:
-        raise HTTPException(404, "Repair request not found")
-    if r["status"] not in ("REPAIR_COMPLETED", "PAYMENT_PENDING"):
-        raise HTTPException(400, "Verify the final balance after repair completion")
-    summary = {"amount_due": float(money(body.amount_due)), "currency": "INR",
-               "source": "manual_reconciliation", "verified_by": user["user_id"],
-               "verified_at": iso(), "reference": body.reference}
-    result = await db.repair_requests.update_one(repair_guard(r), {
-        "$set": {"payment_summary": summary, "updated_at": iso()}, "$inc": {"revision": 1}})
-    if not result.modified_count:
-        raise HTTPException(409, "Repair changed; refresh and try again")
-    return {"ok": True}
+    return await payment_service().verify_balance(
+        rid, body.amount_due, body.reference, user["user_id"], body.idempotency_key)
 
 
 @api_router.delete("/repairs/{rid}/whatsapp-consent")

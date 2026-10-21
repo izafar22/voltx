@@ -1,3 +1,4 @@
+import RepairPaymentPanel from "../../components/RepairPaymentPanel";
 import RepairPaymentVerification from "../../components/RepairPaymentVerification";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -506,6 +507,7 @@ function RepairDetailPanel({ id, onBack, custById, chargerById }) {
       </Card>
 
       {["REPAIR_COMPLETED", "PAYMENT_PENDING"].includes(r.status) && <RepairPaymentVerification key={r.id} repair={r} onSaved={refresh} />}
+      {r.payment_summary && <RepairPaymentPanel key={`payment-${r.id}`} repairId={r.id} admin repairStatus={r.status} refreshToken={r.updated_at} />}
 
       <DiagnosisCard r={r} busy={busy} setBusy={setBusy} onSaved={refresh} />
       <EstimateCard r={r} busy={busy} setBusy={setBusy} onSaved={refresh} onSend={() => applyStatus("ESTIMATE_SENT")} />
