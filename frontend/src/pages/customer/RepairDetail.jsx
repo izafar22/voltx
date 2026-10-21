@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const STATUS_LABEL = {
-  REQUESTED: "Requested", AWAITING_SHIPMENT: "Awaiting shipment", IN_TRANSIT_TO_VOLTX: "In transit to Voltx",
-  RECEIVED_AT_VOLTX: "Received at Voltx", DIAGNOSING: "Diagnosing", ESTIMATE_SENT: "Estimate sent",
+  REQUESTED: "Requested", AWAITING_SHIPMENT: "Awaiting shipment", IN_TRANSIT_TO_VOLTX: "In transit to RushX",
+  RECEIVED_AT_VOLTX: "Received at RushX", DIAGNOSING: "Diagnosing", ESTIMATE_SENT: "Estimate sent",
   CUSTOMER_APPROVED: "Approved", CUSTOMER_DECLINED: "Declined", REPAIRING: "Repairing",
   REPAIR_COMPLETED: "Repair completed", PAYMENT_PENDING: "Payment pending", READY_TO_SHIP: "Ready to ship",
   SHIPPED_TO_CUSTOMER: "Shipped", DELIVERED: "Delivered", COMPLETED: "Completed",
@@ -41,6 +41,8 @@ export default function RepairDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [withdrawalMessage, setWithdrawalMessage] = useState("");
+  const [withdrawalBusy, setWithdrawalBusy] = useState(false);
   const [busy, setBusy] = useState(null); // target status while the PATCH request is in flight
   const [pendingAction, setPendingAction] = useState(null); // CUSTOMER_APPROVED | CUSTOMER_DECLINED | CANCELLED
   const { data: r, isLoading, isError, error } = useQuery({
@@ -122,6 +124,20 @@ export default function RepairDetail() {
               </div>
             )}
 
+            {r.payment_summary && <section className="mt-4 rounded-xl border border-border/60 p-4" aria-label="Payment balance">
+              <h2 className="font-semibold">Outstanding payment</h2>
+              <p className="mt-2">Verified amount due: {inr(r.payment_summary.amount_due)}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Contact RushX support for payment instructions.</p>
+            </section>}
+            <section className="mt-4 rounded-xl border border-border/60 p-4" aria-label="WhatsApp updates">
+              <Button variant="outline" disabled={withdrawalBusy} onClick={async () => {
+                setWithdrawalBusy(true);
+                try { await api.delete(`/repairs/${id}/whatsapp-consent`); setWithdrawalMessage("WhatsApp updates stopped for this repair."); }
+                catch { setWithdrawalMessage("Could not update your preference. Please try again or contact RushX support."); }
+                finally { setWithdrawalBusy(false); }
+              }}>Stop WhatsApp updates</Button>
+              {withdrawalMessage && <p role="status" className="mt-2 text-sm">{withdrawalMessage}</p>}
+            </section>
             {r.estimate && (
               <div className="mt-4 rounded-xl border border-border/60 p-4" data-testid="estimate-section">
                 <div className="flex items-center justify-between mb-3">
@@ -163,7 +179,7 @@ export default function RepairDetail() {
             )}
 
             <div className="mt-4 rounded-xl bg-secondary/50 border border-border/60 p-4 space-y-3 text-sm">
-              <div className="flex gap-3"><MapPin className="h-5 w-5 text-charging shrink-0" /><div><p className="font-medium">Next step</p><p className="text-muted-foreground mt-0.5">Please send your charger to the Voltx service center. Shipping instructions will be provided by the Voltx service team.</p></div></div>
+              <div className="flex gap-3"><MapPin className="h-5 w-5 text-charging shrink-0" /><div><p className="font-medium">Next step</p><p className="text-muted-foreground mt-0.5">Please send your charger to the RushX service center. Shipping instructions will be provided by the RushX service team.</p></div></div>
               <div className="flex gap-3"><Info className="h-5 w-5 text-muted-foreground shrink-0" /><p className="text-muted-foreground">Include your repair request number <span className="font-mono text-foreground">{r.repair_request_number}</span> with the charger.</p></div>
               <div className="flex gap-3"><ShieldCheck className="h-5 w-5 text-charging shrink-0" /><p className="text-muted-foreground">Payment is not required at this stage.</p></div>
             </div>
@@ -198,7 +214,7 @@ export default function RepairDetail() {
                     <AlertDialogHeader>
                       <AlertDialogTitle className="font-display">Approve repair estimate?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        You approve the repair work for {inr(r?.estimate?.total || 0)}. The Voltx repair team will proceed with the repair.
+                        You approve the repair work for {inr(r?.estimate?.total || 0)}. The RushX repair team will proceed with the repair.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -215,7 +231,7 @@ export default function RepairDetail() {
                     <AlertDialogHeader>
                       <AlertDialogTitle className="font-display">Decline repair estimate?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        The repair will not be carried out and the Voltx team will arrange to return your charger.
+                        The repair will not be carried out and the RushX team will arrange to return your charger.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

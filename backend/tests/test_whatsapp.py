@@ -22,16 +22,23 @@ from services.whatsapp_service import (
     message_payload,
     ConfigurationError,
     STATUS_TEXT,
+    CATALOG,
     webhook_router,
 )
 
 PHONE = "+919876543210"
-USER = {"user_id": "customer", "role": "customer", "phone": PHONE}
+USER = {
+    "user_id": "customer",
+    "role": "customer",
+    "phone": PHONE,
+    "name": "Sample Customer",
+}
 ADMIN = {"user_id": "admin", "role": "admin"}
 SETTINGS = Settings(
     enabled=True,
     access_token="test-secret-token",
     phone_number_id="12345",
+    test_phone_number_id="12345",
     app_secret="test-app-secret",
     verify_token="test-verify-secret",
     api_version="v23.0",
@@ -39,15 +46,13 @@ SETTINGS = Settings(
     test_recipients=(PHONE,),
     templates={
         status: {
-            "name": "rushx_test",
+            "name": spec["name"],
             "language": "en_US",
-            "parameters": (
-                ["repair_number", "dispatch_address"]
-                if status == "REQUESTED"
-                else ["repair_number", "status_text"]
-            ),
+            "category": "UTILITY",
+            "approval_status": "approved",
+            "parameters": spec["parameters"],
         }
-        for status in STATUS_TEXT
+        for status, spec in CATALOG.items()
     },
 )
 
@@ -62,6 +67,7 @@ async def fixture(handler=None, settings=SETTINGS):
         repair_requests=mongo.repair_requests,
         whatsapp_jobs=mongo.whatsapp_jobs,
         whatsapp_receipts=mongo.whatsapp_receipts,
+        whatsapp_control=mongo.whatsapp_control,
     )
     clock = [datetime(2026, 1, 1, tzinfo=timezone.utc)]
     calls = []
@@ -80,9 +86,10 @@ async def fixture(handler=None, settings=SETTINGS):
     repair = {
         "id": "r1",
         "repair_request_number": "REP-10001",
+        "charger_info": {"brand": "Test", "model": "AC"},
         "whatsapp_consent": consent_record(True, USER, clock[0].isoformat()),
     }
-    event = event_for(repair, "REQUESTED", "e1", settings)
+    event = event_for(repair, "REQUESTED", "e1", settings, customer=USER)
     repair["whatsapp_outbox"] = [event] if event else []
     await db.repair_requests.insert_one(repair)
     await svc.reconcile()
@@ -143,7 +150,7 @@ def test_reconcile_idempotency_and_async_payload():
             assert payload["biz_opaque_callback_data"] == job["_id"]
             assert (
                 payload["template"]["components"][0]["parameters"][1]["text"]
-                == SETTINGS.dispatch_address
+                == "REP-10001"
             )
             sent = await db.whatsapp_jobs.find_one({})
             assert sent["state"] == "sent" and sent["delivery_rank"] == 0
@@ -190,8 +197,8 @@ def test_network_timeout_and_permanent_error():
             await svc.process_one()
             job = await db.whatsapp_jobs.find_one({})
             assert (
-                job["state"] == "retryable_failure"
-                and job["error_code"] == "transport_error"
+                job["state"] == "dead_letter"
+                and job["error_code"] == "ambiguous_delivery"
             )
             assert "sensitive detail" not in str(job)
         db, svc, _, calls, http = await fixture(
@@ -230,6 +237,7 @@ def test_lease_recovery_after_restart_and_exhaustion():
                     "$set": {
                         "state": "processing",
                         "attempts": 5,
+                        "dispatch_started_at": None,
                         "lease_until": clock[0] - timedelta(seconds=1),
                     }
                 },
@@ -249,7 +257,7 @@ def test_lease_recovery_after_restart_and_exhaustion():
         dict(access_token=""),
         dict(api_version="bad/path"),
         dict(templates={}),
-        dict(dispatch_address=""),
+        dict(test_phone_number_id=""),
         dict(test_recipients=()),
         dict(mode="bad"),
         dict(app_secret=""),
@@ -315,10 +323,12 @@ def test_sandbox_template_and_parameter_order():
                 }
             },
         )
-        params = message_payload(job, configured)["template"]["components"][0][
+        with pytest.raises(ConfigurationError):
+            message_payload(job, configured)
+        params = message_payload(job, SETTINGS)["template"]["components"][0][
             "parameters"
         ]
-        assert [p["text"] for p in params] == [SETTINGS.dispatch_address, "REP-10001"]
+        assert [p["text"] for p in params] == [USER["name"], "REP-10001", "Test AC"]
 
     run(scenario)
 
@@ -504,15 +514,13 @@ def test_api_creation_consent_transitions_and_origin_security(monkeypatch):
                     await browser.patch(endpoint, json={"status": "RECEIVED_AT_VOLTX"})
                 ).status_code == 400
                 stored = await db.repair_requests.find_one({"id": rid})
-                assert len(stored["whatsapp_outbox"]) == 2
+                assert len(stored["whatsapp_outbox"]) == 3
                 event = stored["whatsapp_outbox"][-1]
                 assert (
                     event["_id"] == f"{rid}:{stored['status_history'][-1]['event_id']}"
                 )
-                assert (
-                    "RushX" in event["values"]["status_text"]
-                    and "Voltx" not in event["values"]["status_text"]
-                )
+                assert CATALOG[event["status"]]["name"].startswith("rushx_")
+                assert "Voltx" not in CATALOG[event["status"]]["body"]
                 assert "private technician note" not in str(event)
                 # Callback is exempt from browser Origin, but not signature authentication.
                 assert (
@@ -593,7 +601,7 @@ def test_racing_status_transition_creates_one_event():
 
     async def scenario():
         db = AsyncMongoMockClient(tz_aware=True).test
-        db = SimpleNamespace(repair_requests=db.repair_requests)
+        db = SimpleNamespace(repair_requests=db.repair_requests, users=db.users)
         consent = consent_record(True, USER, "2026-01-01T00:00:00+00:00")
         await db.repair_requests.insert_one(
             {
@@ -682,6 +690,8 @@ def test_all_relevant_transitions_keep_private_fields_out_of_jobs():
                             "$set": {
                                 "estimate": {
                                     "total": 100,
+                                    "labor": 100,
+                                    "status": "DRAFT",
                                     "notes": "sensitive estimate",
                                 },
                                 "diagnosis": {
@@ -689,6 +699,24 @@ def test_all_relevant_transitions_keep_private_fields_out_of_jobs():
                                 },
                             }
                         },
+                    )
+                if status == "PAYMENT_PENDING":
+                    await server.verify_repair_payment(
+                        rid,
+                        server.PaymentVerification(
+                            amount_due=100, reference="test record"
+                        ),
+                        ADMIN,
+                    )
+                if status == "SHIPPED_TO_CUSTOMER":
+                    await server.update_repair_shipment(
+                        rid,
+                        server.ShipmentUpdate(
+                            leg="return",
+                            courier="Test Courier",
+                            tracking_number="SAMPLE123",
+                        ),
+                        ADMIN,
                     )
                 await server.update_repair_status(
                     rid,

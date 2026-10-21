@@ -1,0 +1,166 @@
+{
+  "REQUESTED": {
+    "name": "rushx_repair_requested_v1",
+    "language": "en_US",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, your RushX repair request {{2}} has been received for your {{3}} charger. We will share the next steps shortly.",
+    "parameters": [
+      "customer_name",
+      "repair_number",
+      "charger_description"
+    ],
+    "examples": [
+      "Sample Customer",
+      "REP-10421",
+      "ExampleBrand AC 7.4 kW"
+    ],
+    "configured": "unknown",
+    "submitted": "unknown",
+    "approved": "unknown",
+    "pending": "unknown",
+    "blocked": "unknown"
+  },
+  "AWAITING_SHIPMENT": {
+    "name": "rushx_awaiting_shipment_v1",
+    "language": "en_US",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, repair {{2}} is ready for dispatch. Please securely package your charger and send it to: {{3}}. Keep your courier tracking details.",
+    "parameters": [
+      "customer_name",
+      "repair_number",
+      "dispatch_address"
+    ],
+    "examples": [
+      "Sample Customer",
+      "REP-10421",
+      "Sample Service Centre, Unit 12, Example Industrial Estate (fictional; replace before submission)"
+    ],
+    "configured": "unknown",
+    "submitted": "unknown",
+    "approved": "unknown",
+    "pending": "unknown",
+    "blocked": "unknown"
+  },
+  "RECEIVED_AT_VOLTX": {
+    "name": "rushx_charger_received_v1",
+    "language": "en_US",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, we have received your charger for repair {{2}}. Our technical team will inspect it and update you when the estimate is ready.",
+    "parameters": [
+      "customer_name",
+      "repair_number"
+    ],
+    "examples": [
+      "Sample Customer",
+      "REP-10421"
+    ],
+    "configured": "unknown",
+    "submitted": "unknown",
+    "approved": "unknown",
+    "pending": "unknown",
+    "blocked": "unknown"
+  },
+  "ESTIMATE_SENT": {
+    "name": "rushx_estimate_ready_v1",
+    "language": "en_US",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, the repair estimate for {{2}} is ready. Estimated total: INR {{3}}. Please review and approve or decline it in your RushX dashboard.",
+    "parameters": [
+      "customer_name",
+      "repair_number",
+      "estimate_total"
+    ],
+    "examples": [
+      "Sample Customer",
+      "REP-10421",
+      "2750.00"
+    ],
+    "configured": "unknown",
+    "submitted": "unknown",
+    "approved": "unknown",
+    "pending": "unknown",
+    "blocked": "unknown"
+  },
+  "CUSTOMER_APPROVED": {
+    "name": "rushx_estimate_approved_v1",
+    "language": "en_US",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, your approval for repair {{2}} has been recorded. Our team will proceed with the repair.",
+    "parameters": [
+      "customer_name",
+      "repair_number"
+    ],
+    "examples": [
+      "Sample Customer",
+      "REP-10421"
+    ],
+    "configured": "unknown",
+    "submitted": "unknown",
+    "approved": "unknown",
+    "pending": "unknown",
+    "blocked": "unknown"
+  },
+  "REPAIR_COMPLETED": {
+    "name": "rushx_repair_completed_v1",
+    "language": "en_US",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, repair work for {{2}} has been completed. We will update you about remaining payment and return-shipment steps.",
+    "parameters": [
+      "customer_name",
+      "repair_number"
+    ],
+    "examples": [
+      "Sample Customer",
+      "REP-10421"
+    ],
+    "configured": "unknown",
+    "submitted": "unknown",
+    "approved": "unknown",
+    "pending": "unknown",
+    "blocked": "unknown"
+  },
+  "PAYMENT_PENDING": {
+    "name": "rushx_payment_pending_v1",
+    "language": "en_US",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, repair {{2}} is awaiting payment confirmation. Amount due: INR {{3}}. Please check your RushX dashboard or contact support for payment instructions.",
+    "parameters": [
+      "customer_name",
+      "repair_number",
+      "amount_due"
+    ],
+    "examples": [
+      "Sample Customer",
+      "REP-10421",
+      "1750.00"
+    ],
+    "configured": "unknown",
+    "submitted": "unknown",
+    "approved": "unknown",
+    "pending": "unknown",
+    "blocked": "unknown"
+  },
+  "SHIPPED_TO_CUSTOMER": {
+    "name": "rushx_return_shipped_v1",
+    "language": "en_US",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, your charger for repair {{2}} has been dispatched. Courier: {{3}}. Tracking number: {{4}}. Track using the courier official tracking service.",
+    "parameters": [
+      "customer_name",
+      "repair_number",
+      "courier",
+      "tracking_number"
+    ],
+    "examples": [
+      "Sample Customer",
+      "REP-10421",
+      "Example Courier",
+      "SAMPLE123456"
+    ],
+    "configured": "unknown",
+    "submitted": "unknown",
+    "approved": "unknown",
+    "pending": "unknown",
+    "blocked": "unknown"
+  }
+}

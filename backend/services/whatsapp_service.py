@@ -11,6 +11,10 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+from pathlib import Path
+from urllib.parse import unquote
+
+from .repair_facts import estimate_total, amount_due, shipment_details, text_fact
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -20,15 +24,16 @@ from pymongo.errors import DuplicateKeyError
 
 logger = logging.getLogger(__name__)
 E164 = re.compile(r"\+[1-9][0-9]{7,14}\Z")
-# Only explicitly supported customer events. No diagnosis, notes, cost or courier claims.
-STATUS_TEXT = {
-    "REQUESTED": "RushX has received your repair request",
-    "RECEIVED_AT_VOLTX": "Your charger has been received at RushX",
-    "DIAGNOSING": "RushX is diagnosing your charger",
-    "ESTIMATE_SENT": "Your RushX repair estimate is ready to review in the app",
-    "REPAIR_COMPLETED": "RushX has completed your charger repair",
-    "SHIPPED_TO_CUSTOMER": "RushX has marked your charger as shipped",
-}
+# Catalog is a reviewed schema and submission artifact, never an approval claim.
+CATALOG = json.loads(
+    (
+        Path(__file__).resolve().parents[1]
+        / "templates"
+        / "whatsapp_utility_catalog.json"
+    ).read_text()
+)
+STATUS_TEXT = {status: template["body"] for status, template in CATALOG.items()}
+SCHEMA_VERSION = 2
 RANK = {"sent": 1, "failed": 2, "delivered": 3, "read": 4}
 
 
@@ -39,7 +44,9 @@ class WebhookAccessLogFilter(logging.Filter):
         args = record.args
         if isinstance(args, tuple) and len(args) == 5 and isinstance(args[2], str):
             path = args[2]
-            if path.split("?", 1)[0] == "/api/webhooks/whatsapp":
+            if path.split("?", 1)[0].rstrip(
+                "/"
+            ) == "/api/webhooks/whatsapp" or "hub.verify_token=" in unquote(path):
                 record.args = (*args[:2], path.split("?", 1)[0], *args[3:])
         return True
 
@@ -52,14 +59,16 @@ def now():
 class Settings:
     enabled: bool = False
     access_token: str = field(default="", repr=False)
-    phone_number_id: str = ""
+    phone_number_id: str = field(default="", repr=False)
+    test_phone_number_id: str = field(default="", repr=False)
+    production_approved: bool = False
     verify_token: str = field(default="", repr=False)
     app_secret: str = field(default="", repr=False)
     api_version: str = ""
-    dispatch_address: str = ""
-    templates: dict = field(default_factory=dict)
+    dispatch_address: str = field(default="", repr=False)
+    templates: dict = field(default_factory=dict, repr=False)
     mode: str = "test"
-    test_recipients: tuple = ()
+    test_recipients: tuple = field(default=(), repr=False)
     max_attempts: int = 5
 
     @classmethod
@@ -73,6 +82,11 @@ class Settings:
             enabled=os.getenv("WHATSAPP_ENABLED", "false").lower() == "true",
             access_token=os.getenv("WHATSAPP_ACCESS_TOKEN", ""),
             phone_number_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", ""),
+            test_phone_number_id=os.getenv("WHATSAPP_TEST_PHONE_NUMBER_ID", ""),
+            production_approved=os.getenv(
+                "WHATSAPP_PRODUCTION_APPROVED", "false"
+            ).lower()
+            == "true",
             verify_token=os.getenv("WHATSAPP_VERIFY_TOKEN", ""),
             app_secret=os.getenv("META_APP_SECRET", ""),
             api_version=os.getenv("WHATSAPP_API_VERSION", ""),
@@ -104,10 +118,31 @@ def consent_record(opt_in, user, at):
     }
 
 
-def event_for(repair, status, event_id, settings):
+def event_for(repair, status, event_id, settings, customer=None):
     consent = repair.get("whatsapp_consent", {})
-    if not settings.enabled or not consent.get("opted_in") or status not in STATUS_TEXT:
+    if (
+        not settings.enabled
+        or consent.get("opted_in") is not True
+        or status not in CATALOG
+    ):
         return None
+    values = {
+        "customer_name": (customer or {}).get("name", ""),
+        "repair_number": repair["repair_request_number"],
+    }
+    if status == "REQUESTED":
+        info = repair.get("charger_info") or {}
+        values["charger_description"] = " ".join(
+            str(info[k]).strip() for k in ("brand", "model") if info.get(k)
+        )
+    elif status == "AWAITING_SHIPMENT":
+        values["dispatch_address"] = settings.dispatch_address
+    elif status == "ESTIMATE_SENT":
+        values["estimate_total"] = estimate_total(repair)
+    elif status == "PAYMENT_PENDING":
+        values["amount_due"] = amount_due(repair)
+    elif status == "SHIPPED_TO_CUSTOMER":
+        values.update(shipment_details(repair))
     return {
         "_id": (
             f"{repair['id']}:REQUESTED"
@@ -117,13 +152,14 @@ def event_for(repair, status, event_id, settings):
         "repair_id": repair["id"],
         "event_id": event_id,
         "status": status,
-        "destination": consent["destination"],
-        "consent_at": consent["at"],
-        "values": {
-            "repair_number": repair["repair_request_number"],
-            "dispatch_address": settings.dispatch_address,
-            "status_text": STATUS_TEXT[status],
+        "schema_version": SCHEMA_VERSION,
+        "delivery_scope": {
+            "mode": settings.mode,
+            "phone_number_id": settings.phone_number_id,
         },
+        "destination": consent.get("destination", ""),
+        "consent_at": consent.get("at"),
+        "values": values,
     }
 
 
@@ -131,55 +167,109 @@ class ConfigurationError(Exception):
     pass
 
 
-def message_payload(job, settings):
+class SnapshotError(Exception):
+    pass
+
+
+def configured_template(status, settings):
+    template = (
+        settings.templates.get(status) if isinstance(settings.templates, dict) else None
+    )
+    if not isinstance(template, dict) or status not in CATALOG:
+        raise ConfigurationError()
+    name = template.get("name")
+    if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9_]{1,512}", name):
+        raise ConfigurationError()
+    sandbox = (
+        settings.mode == "test"
+        and name == "hello_world"
+        and template.get("parameters") == []
+    )
+    if template.get("language") != "en_US":
+        raise ConfigurationError()
+    if not sandbox and (
+        name == "hello_world"
+        or template.get("parameters") != CATALOG[status]["parameters"]
+        or template.get("approval_status") != "approved"
+        or template.get("category") != "UTILITY"
+    ):
+        raise ConfigurationError()
+    return template
+
+
+def validate_settings(settings):
     if (
         not settings.access_token
         or not re.fullmatch(r"[0-9]+", settings.phone_number_id)
         or not re.fullmatch(r"v[0-9]+\.[0-9]+", settings.api_version)
         or not settings.app_secret
         or not settings.verify_token
+        or not re.fullmatch(r"[0-9]+", settings.test_phone_number_id)
     ):
         raise ConfigurationError()
-    if settings.mode not in ("test", "production"):
+    if settings.mode == "test":
+        if (
+            settings.phone_number_id != settings.test_phone_number_id
+            or not settings.test_recipients
+        ):
+            raise ConfigurationError()
+        if any(
+            not isinstance(p, str) or not E164.fullmatch(p)
+            for p in settings.test_recipients
+        ):
+            raise ConfigurationError()
+    elif settings.mode == "production":
+        if (
+            not settings.production_approved
+            or settings.phone_number_id == settings.test_phone_number_id
+        ):
+            raise ConfigurationError()
+        for status in CATALOG:
+            configured_template(status, settings)
+    else:
         raise ConfigurationError()
-    if settings.mode == "test" and job["destination"] not in settings.test_recipients:
-        raise ConfigurationError()
-    template = settings.templates.get(job["status"], {})
+
+
+def message_payload(job, settings):
+    validate_settings(settings)
     if (
-        not isinstance(template, dict)
-        or not re.fullmatch(r"[a-z0-9_]+", template.get("name", ""))
-        or not re.fullmatch(r"[a-z]{2,3}(?:_[A-Z]{2})?", template.get("language", ""))
+        job.get("schema_version") != SCHEMA_VERSION
+        or job.get("status") not in CATALOG
+        or job.get("delivery_scope")
+        != {"mode": settings.mode, "phone_number_id": settings.phone_number_id}
     ):
+        raise SnapshotError()
+    destination = job.get("destination")
+    if not isinstance(destination, str) or not E164.fullmatch(destination):
+        raise SnapshotError()
+    if settings.mode == "test" and destination not in settings.test_recipients:
         raise ConfigurationError()
-    params = template.get("parameters")
-    if not isinstance(params, list) or any(p not in job["values"] for p in params):
-        raise ConfigurationError()
-    # hello_world is a deliberate sandbox-only smoke test with no parameters.
-    sandbox = (
-        settings.mode == "test" and template["name"] == "hello_world" and params == []
-    )
-    required = (
-        {"repair_number", "dispatch_address"}
-        if job["status"] == "REQUESTED"
-        else {"repair_number"}
-    )
-    if not sandbox and (
-        not required.issubset(params) or any(not job["values"][p] for p in params)
+    template = configured_template(job["status"], settings)
+    params = template["parameters"]
+    values = job.get("values", {})
+    # Validate the entire schema even for hello_world: it cannot bypass missing business facts.
+    if not isinstance(values, dict) or set(values) != set(
+        CATALOG[job["status"]]["parameters"]
     ):
-        raise ConfigurationError()
+        raise SnapshotError()
+    if any(not text_fact(value, 1024) for value in values.values()):
+        raise SnapshotError()
+    for key in ("amount_due", "estimate_total"):
+        if key in values and not re.fullmatch(r"[0-9]{1,8}\.[0-9]{2}", values[key]):
+            raise SnapshotError()
+    if "amount_due" in values and float(values["amount_due"]) <= 0:
+        raise SnapshotError()
     body = {"name": template["name"], "language": {"code": template["language"]}}
     if params:
         body["components"] = [
             {
                 "type": "body",
-                "parameters": [
-                    {"type": "text", "text": job["values"][p]} for p in params
-                ],
+                "parameters": [{"type": "text", "text": values[p]} for p in params],
             }
         ]
     return {
         "messaging_product": "whatsapp",
-        "to": job["destination"],
+        "to": destination,
         "type": "template",
         "template": body,
         "biz_opaque_callback_data": job["_id"],
@@ -193,6 +283,8 @@ class WhatsAppService:
     async def initialize(self):
         await self.db.whatsapp_jobs.create_index([("state", 1), ("next_attempt_at", 1)])
         await self.db.whatsapp_jobs.create_index("message_id", sparse=True)
+        await self.db.whatsapp_jobs.create_index([("state", 1), ("lease_until", 1)])
+        await self.db.whatsapp_jobs.create_index([("error_code", 1), ("updated_at", 1)])
         await self.db.repair_requests.create_index("whatsapp_outbox._id", sparse=True)
         await self.db.whatsapp_receipts.create_index(
             [("processed", 1), ("next_check_at", 1)]
@@ -238,6 +330,22 @@ class WhatsAppService:
             query = {"message_id": receipt["message_id"]}
             if receipt.get("job_id"):
                 query = {"$or": [query, {"_id": receipt["job_id"]}]}
+            if receipt.get("phone_number_id"):
+                query = {
+                    "$and": [
+                        query,
+                        {
+                            "$or": [
+                                {
+                                    "delivery_scope.phone_number_id": receipt[
+                                        "phone_number_id"
+                                    ]
+                                },
+                                {"schema_version": {"$exists": False}},
+                            ]
+                        },
+                    ]
+                }
             job = await self.db.whatsapp_jobs.find_one(query)
             if not job:
                 await self.db.whatsapp_receipts.update_one(
@@ -261,10 +369,154 @@ class WhatsAppService:
                 {"_id": receipt["_id"]}, {"$set": {"processed": True}}
             )
 
+    async def metrics(self):
+        at = self.clock()
+        states = (
+            "pending",
+            "processing",
+            "retryable_failure",
+            "sent",
+            "delivered",
+            "read",
+            "failed",
+            "dead_letter",
+        )
+        counts = {
+            state: await self.db.whatsapp_jobs.count_documents({"state": state})
+            for state in states
+        }
+        oldest = await self.db.whatsapp_jobs.find_one(
+            {"state": {"$in": ["pending", "retryable_failure"]}},
+            sort=[("created_at", 1)],
+        )
+        created = (oldest or {}).get("created_at", at)
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        lag = max(0, int((at - created).total_seconds()))
+        expired = await self.db.whatsapp_jobs.count_documents(
+            {"state": "processing", "lease_until": {"$lt": at}}
+        )
+        missing = await self.db.whatsapp_jobs.count_documents(
+            {"state": "sent", "accepted_at": {"$lt": at - timedelta(hours=1)}}
+        )
+        throttled = await self.db.whatsapp_jobs.count_documents(
+            {
+                "error_code": {
+                    "$in": [
+                        "http_429",
+                        "meta_4",
+                        "meta_80007",
+                        "meta_130429",
+                        "meta_131056",
+                    ]
+                },
+                "updated_at": {"$gte": at - timedelta(hours=1)},
+            }
+        )
+        configuration = await self.db.whatsapp_jobs.count_documents(
+            {"state": "dead_letter", "error_code": "configuration_invalid"}
+        )
+        return {
+            "counts": counts,
+            "oldest_pending_seconds": lag,
+            "expired_leases": expired,
+            "missing_receipts_over_one_hour": missing,
+            "throttled_jobs_last_hour": throttled,
+            "invalid_configuration_jobs": configuration,
+            "outbox_repairs": await self.db.repair_requests.count_documents(
+                {"whatsapp_outbox._id": {"$exists": True}}
+            ),
+            "unprocessed_receipts": await self.db.whatsapp_receipts.count_documents(
+                {"processed": False}
+            ),
+            "alerts": {
+                "pending_lag": lag > 300,
+                "dead_letters": counts["dead_letter"] > 0,
+                "stuck_leases": expired > 0,
+                "missing_receipts": missing > 0,
+                "provider_throttling": throttled >= 5,
+                "invalid_configuration": configuration > 0,
+            },
+        }
+
+    async def safe_requeue(self, job_id):
+        job = await self.db.whatsapp_jobs.find_one({"_id": job_id})
+        allowed = {
+            "configuration_invalid",
+            "transport_error",
+            "attempts_exhausted",
+            "http_429",
+            "http_500",
+            "http_502",
+            "http_503",
+            "http_504",
+            "meta_4",
+            "meta_80007",
+            "meta_130429",
+            "meta_131056",
+        }
+        if not job:
+            raise HTTPException(404, "Notification job not found")
+        if (
+            job["state"] != "dead_letter"
+            or job.get("error_code") not in allowed
+            or job.get("message_id")
+            or job.get("accepted_at")
+            or job.get("dispatch_started_at")
+            or job.get("delivery_rank", 0) > 0
+        ):
+            raise HTTPException(409, "This job cannot be safely replayed")
+        try:
+            message_payload(job, self.settings)
+        except (ConfigurationError, SnapshotError, TypeError, KeyError):
+            raise HTTPException(
+                409,
+                "Correct configuration before retrying; snapshots cannot be rewritten",
+            ) from None
+        repair = await self.db.repair_requests.find_one({"id": job["repair_id"]})
+        consent = (repair or {}).get("whatsapp_consent", {})
+        if (
+            consent.get("opted_in") is not True
+            or consent.get("at") != job.get("consent_at")
+            or consent.get("destination") != job.get("destination")
+        ):
+            raise HTTPException(409, "Consent is not valid")
+        result = await self.db.whatsapp_jobs.update_one(
+            {
+                "_id": job_id,
+                "state": "dead_letter",
+                "error_code": job["error_code"],
+                "attempts": job["attempts"],
+                "message_id": None,
+                "accepted_at": None,
+                "dispatch_started_at": None,
+                "delivery_rank": 0,
+            },
+            {
+                "$set": {
+                    "state": "pending",
+                    "attempts": 0,
+                    "next_attempt_at": self.clock(),
+                    "updated_at": self.clock(),
+                },
+                "$inc": {"manual_replays": 1},
+                "$unset": {"error_code": ""},
+            },
+        )
+        if not result.modified_count:
+            raise HTTPException(409, "Job changed; refresh and review")
+
     async def process_one(self):
         if not self.settings.enabled:
             return False
         at, lease = self.clock(), uuid.uuid4().hex
+        sender = hashlib.sha256(
+            f"{self.settings.mode}:{self.settings.phone_number_id}".encode()
+        ).hexdigest()
+        if await self.db.whatsapp_control.find_one(
+            {"_id": sender, "paused_until": {"$gt": at}}
+        ):
+            return False
         job = await self.db.whatsapp_jobs.find_one_and_update(
             {
                 "$or": [
@@ -284,6 +536,7 @@ class WhatsAppService:
                 "$inc": {"attempts": 1},
             },
             return_document=ReturnDocument.AFTER,
+            sort=[("next_attempt_at", 1), ("created_at", 1)],
         )
         if not job:
             return False
@@ -298,11 +551,14 @@ class WhatsAppService:
                 },
             )
 
+        if job.get("dispatch_started_at"):
+            await finish({"state": "dead_letter", "error_code": "ambiguous_delivery"})
+            return True
         if job["attempts"] > self.settings.max_attempts:
             await finish({"state": "dead_letter", "error_code": "attempts_exhausted"})
             return True
         repair = await self.db.repair_requests.find_one(
-            {"id": job["repair_id"]}, {"whatsapp_consent": 1}
+            {"id": job["repair_id"]}, {"whatsapp_consent": 1, "payment_summary": 1}
         )
         consent = (repair or {}).get("whatsapp_consent", {})
         if (
@@ -310,18 +566,37 @@ class WhatsAppService:
             or consent.get("at") != job.get("consent_at")
             or consent.get("source") != "repair_submission_v1"
             or consent.get("destination") != job["destination"]
+            or not isinstance(job.get("destination"), str)
             or not E164.fullmatch(job["destination"])
         ):
             await finish({"state": "dead_letter", "error_code": "consent_invalid"})
             return True
+        if job["status"] == "PAYMENT_PENDING":
+            try:
+                if amount_due(repair or {}) != job.get("values", {}).get("amount_due"):
+                    raise HTTPException(400, "Balance changed")
+            except HTTPException:
+                await finish(
+                    {"state": "dead_letter", "error_code": "business_facts_changed"}
+                )
+                return True
         try:
             payload = message_payload(job, self.settings)
+        except SnapshotError:
+            await finish({"state": "dead_letter", "error_code": "snapshot_invalid"})
+            return True
         except (ConfigurationError, TypeError, KeyError):
             await finish(
                 {"state": "dead_letter", "error_code": "configuration_invalid"}
             )
             return True
         delay = min(3600, 30 * 2 ** (job["attempts"] - 1))
+        # Fenced durable send-intent marker. If persistence fails, no request is made.
+        marked = await self.db.whatsapp_jobs.update_one(
+            claim, {"$set": {"dispatch_started_at": self.clock()}}
+        )
+        if not marked.modified_count:
+            return True
         try:
             response = await self.http.post(
                 f"https://graph.facebook.com/{self.settings.api_version}/{self.settings.phone_number_id}/messages",
@@ -374,8 +649,16 @@ class WhatsAppService:
                     except (ValueError, TypeError, KeyError, OverflowError):
                         pass
                 delay = min(delay, 86400)
-        except httpx.RequestError:
+                await self.db.whatsapp_control.update_one(
+                    {"_id": sender},
+                    {"$max": {"paused_until": at + timedelta(seconds=delay)}},
+                    upsert=True,
+                )
+        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout):
             retryable, error = True, "transport_error"
+        except httpx.RequestError:
+            await finish({"state": "dead_letter", "error_code": "ambiguous_delivery"})
+            return True
         state = (
             "retryable_failure"
             if retryable and job["attempts"] < self.settings.max_attempts
@@ -386,6 +669,7 @@ class WhatsAppService:
                 "state": state,
                 "error_code": error,
                 "next_attempt_at": at + timedelta(seconds=delay),
+                "dispatch_started_at": None,
             }
         )
         return True
@@ -426,13 +710,13 @@ def webhook_router(db_provider, settings_provider=Settings.from_env):
     @router.post("")
     async def receive(request: Request):
         settings = settings_provider()
-        if not settings.app_secret:
+        if not settings.app_secret or not settings.phone_number_id:
             raise HTTPException(503, "Webhook is not configured")
         raw = bytearray()
         async for chunk in request.stream():
-            raw.extend(chunk)
-            if len(raw) > 1024 * 1024:
+            if len(raw) + len(chunk) > 1024 * 1024:
                 raise HTTPException(413, "Webhook payload too large")
+            raw.extend(chunk)
         expected = (
             "sha256="
             + hmac.new(settings.app_secret.encode(), raw, hashlib.sha256).hexdigest()
@@ -456,19 +740,29 @@ def webhook_router(db_provider, settings_provider=Settings.from_env):
                     for status in value.get("statuses", []):
                         if status.get("status") not in RANK:
                             continue
-                        mid, timestamp = status["id"], str(int(status["timestamp"]))
+                        mid, timestamp = status["id"], status["timestamp"]
+                        if (
+                            isinstance(timestamp, bool)
+                            or not isinstance(timestamp, (str, int))
+                            or not re.fullmatch(r"[0-9]{1,12}", str(timestamp))
+                        ):
+                            raise ValueError()
+                        timestamp = str(int(timestamp))
                         if not isinstance(mid, str) or not mid or len(mid) > 512:
                             raise ValueError()
                         key = hashlib.sha256(
                             f"{mid}:{status['status']}:{timestamp}".encode()
                         ).hexdigest()
                         callback = status.get("biz_opaque_callback_data")
+                        if len(receipts) >= 100:
+                            raise HTTPException(413, "Too many webhook statuses")
                         receipts.append(
                             {
                                 "_id": key,
                                 "message_id": mid,
                                 "status": status["status"],
                                 "timestamp": timestamp,
+                                "phone_number_id": settings.phone_number_id,
                                 "rank": RANK[status["status"]],
                                 "processed": False,
                                 "next_check_at": now(),

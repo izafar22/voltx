@@ -1,9 +1,11 @@
 if __package__:
-    from .services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter
+    from .services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter, WhatsAppService
+    from .services.repair_facts import validate_transition_facts, calculated_estimate, money, text_fact
     from .demo_chargers import seed_demo_chargers
     from .auth_service import AuthService, AuthSettings, auth_router, normalize_phone
 else:
-    from services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter
+    from services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter, WhatsAppService
+    from services.repair_facts import validate_transition_facts, calculated_estimate, money, text_fact
     from demo_chargers import seed_demo_chargers
     from auth_service import AuthService, AuthSettings, auth_router, normalize_phone
 
@@ -593,19 +595,24 @@ class DiagnosisUpdate(BaseModel):
 
 class EstimatePart(BaseModel):
     name: str
-    qty: int = 1
-    price: float = 0.0
+    qty: int = Field(1, ge=1, le=10000, strict=True)
+    price: float = Field(0.0, ge=0, le=99999999.99, allow_inf_nan=False)
 
 
 class EstimateUpdate(BaseModel):
     parts: Optional[List[EstimatePart]] = None
-    labor: Optional[float] = None
-    diagnostic_fee: Optional[float] = None
-    incoming_logistics_cost: Optional[float] = None
-    return_shipping_cost: Optional[float] = None
-    other_charges: Optional[float] = None
-    tax: Optional[float] = None
+    labor: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    diagnostic_fee: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    incoming_logistics_cost: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    return_shipping_cost: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    other_charges: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    tax: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
     notes: Optional[str] = None
+
+
+class PaymentVerification(BaseModel):
+    amount_due: float = Field(..., ge=0, le=99999999.99, allow_inf_nan=False)
+    reference: str = Field(..., min_length=3, max_length=120)
 
 
 class ShipmentUpdate(BaseModel):
@@ -638,11 +645,23 @@ async def can_access_repair(user, r):
     return False
 
 
+def repair_guard(r):
+    # Legacy repairs without a revision match null; every relevant writer increments it.
+    return {"id": r["id"], "status": r["status"], "revision": r.get("revision")}
+
+
 def sanitize_repair(r, user):
     r = dict(r)
     r.pop("_id", None)
     r.pop("whatsapp_outbox", None)
     r.pop("whatsapp_consent", None)
+    r.pop("revision", None)
+    if r.get("payment_summary"):
+        r["payment_summary"] = {k: v for k, v in r["payment_summary"].items()
+                                if k in ("amount_due", "currency", "verified_at")}
+    if r.get("return_shipment"):
+        r["return_shipment"] = {k: v for k, v in r["return_shipment"].items()
+                                if k not in ("confirmed_at", "confirmed_by")}
     if user["role"] != "admin" and r.get("diagnosis"):
         r["diagnosis"] = {k: v for k, v in r["diagnosis"].items() if k not in INTERNAL_DIAGNOSIS_FIELDS}
     return r
@@ -672,13 +691,13 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
         "id": nid("rep"), "repair_request_number": await next_repair_number(), "user_id": user["user_id"],
         "customer_type": body.customer_type, "charger_id": charger_id, "charger_info": info,
         "problem_description": body.problem_description, "reported_category": body.reported_category,
-        "photos": body.photos or [], "status": "REQUESTED",
+        "photos": body.photos or [], "status": "REQUESTED", "revision": 0,
         "status_history": [{"event_id": event_id, "status": "REQUESTED", "by": user["user_id"], "at": now, "note": None}],
         "diagnosis": None, "estimate": None, "incoming_shipment": None, "return_shipment": None,
         "created_at": now, "updated_at": now,
     }
     r["whatsapp_consent"] = consent
-    event = event_for(r, "REQUESTED", event_id, WhatsAppSettings.from_env())
+    event = event_for(r, "REQUESTED", event_id, WhatsAppSettings.from_env(), customer=user)
     r["whatsapp_outbox"] = [event] if event else []
     await db.repair_requests.insert_one(dict(r))
     return sanitize_repair(r, user)
@@ -720,13 +739,15 @@ async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(
     if target not in REPAIR_TRANSITIONS.get(r["status"], []):
         raise HTTPException(status_code=400, detail=f"Cannot transition from {r['status']} to {target}")
     if user["role"] != "admin" and target not in CUSTOMER_SETTABLE:
-        raise HTTPException(status_code=403, detail="This status change is restricted to the Voltx repair team")
+        raise HTTPException(status_code=403, detail="This status change is restricted to the RushX repair team")
     if target in ("CUSTOMER_APPROVED", "CUSTOMER_DECLINED") and not r.get("estimate"):
         raise HTTPException(status_code=400, detail="No estimate available to approve or decline")
+    validate_transition_facts(r, target)
     now = iso()
     upd = {"status": target, "updated_at": now}
     if target == "ESTIMATE_SENT" and r.get("estimate"):
         upd["estimate.status"] = "SENT"
+        upd["estimate.published_at"] = now
     if target == "CUSTOMER_APPROVED":
         upd["estimate.status"] = "APPROVED"
         upd["estimate.approved_at"] = now
@@ -735,11 +756,15 @@ async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(
         upd["estimate.declined_at"] = now
     event_id = nid("evt")
     pushes = {"status_history": {"event_id": event_id, "status": target, "by": user["user_id"], "at": now, "note": body.note}}
-    event = event_for(r, target, event_id, WhatsAppSettings.from_env())
+    settings = WhatsAppSettings.from_env()
+    customer = None
+    if settings.enabled and r.get("whatsapp_consent", {}).get("opted_in"):
+        customer = await db.users.find_one({"user_id": r["user_id"]}, {"name": 1})
+    event = event_for(r, target, event_id, settings, customer=customer)
     if event:
         pushes["whatsapp_outbox"] = event
-    result = await db.repair_requests.update_one({"id": rid, "status": r["status"]}, {
-        "$set": upd, "$push": pushes,
+    result = await db.repair_requests.update_one(repair_guard(r), {
+        "$set": upd, "$push": pushes, "$inc": {"revision": 1},
     })
     if not result.modified_count:
         raise HTTPException(status_code=409, detail="Repair status changed; refresh and try again")
@@ -764,18 +789,21 @@ async def update_repair_estimate(rid: str, body: EstimateUpdate, user=Depends(re
     r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Repair request not found")
+    if (r.get("estimate") or {}).get("status", "DRAFT") != "DRAFT":
+        raise HTTPException(409, "Published estimates are immutable; contact support for a revised quote")
     e = r.get("estimate") or {"status": "DRAFT", "created_at": iso(), "approved_at": None, "declined_at": None}
     data = body.model_dump(exclude_none=True)
     if "parts" in data:
         e["parts"] = data.pop("parts")
     e.update(data)
-    parts_total = sum(p.get("price", 0) * p.get("qty", 1) for p in e.get("parts", []))
-    subtotal = parts_total + e.get("labor", 0) + e.get("diagnostic_fee", 0) + \
-        e.get("incoming_logistics_cost", 0) + e.get("return_shipping_cost", 0) + e.get("other_charges", 0)
-    e["subtotal"] = round(subtotal, 2)
-    e["total"] = round(subtotal + e.get("tax", 0), 2)
+    total = calculated_estimate(e)
+    e["subtotal"] = float(total - money(e.get("tax", 0)))
+    e["total"] = float(total)
     e["updated_at"] = iso()
-    await db.repair_requests.update_one({"id": rid}, {"$set": {"estimate": e, "updated_at": iso()}})
+    result = await db.repair_requests.update_one(repair_guard(r), {
+        "$set": {"estimate": e, "updated_at": iso()}, "$inc": {"revision": 1}})
+    if not result.modified_count:
+        raise HTTPException(409, "Repair changed; refresh and try again")
     return {"ok": True, "estimate": e}
 
 
@@ -786,12 +814,73 @@ async def update_repair_shipment(rid: str, body: ShipmentUpdate, user=Depends(ge
         raise HTTPException(status_code=404, detail="Repair request not found")
     if not await can_access_repair(user, r):
         raise HTTPException(status_code=403, detail="Not authorized for this repair request")
+    if body.leg == "return" and user["role"] != "admin":
+        raise HTTPException(403, "Return shipment details must be confirmed by the RushX repair team")
     key = "incoming_shipment" if body.leg == "incoming" else "return_shipment"
     s = r.get(key) or {}
+    if body.leg == "return" and r["status"] in ("SHIPPED_TO_CUSTOMER", "DELIVERED", "COMPLETED"):
+        if any(getattr(body, k) is not None and getattr(body, k) != s.get(k) for k in ("courier", "tracking_number")):
+            raise HTTPException(409, "Dispatched courier and tracking details are immutable; contact support")
     s.update({k: v for k, v in body.model_dump(exclude_none=True).items() if k != "leg"})
-    await db.repair_requests.update_one({"id": rid}, {"$set": {key: s, "updated_at": iso()}})
+    if body.leg == "return":
+        if text_fact(s.get("courier"), 128) and text_fact(s.get("tracking_number"), 128):
+            s.update(confirmed_at=iso(), confirmed_by=user["user_id"])
+        else:
+            s.pop("confirmed_at", None)
+            s.pop("confirmed_by", None)
+    result = await db.repair_requests.update_one(repair_guard(r), {
+        "$set": {key: s, "updated_at": iso()}, "$inc": {"revision": 1}})
+    if not result.modified_count:
+        raise HTTPException(409, "Repair changed; refresh and try again")
     r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
     return sanitize_repair(r, user)
+
+
+@api_router.patch("/repairs/{rid}/payment")
+async def verify_repair_payment(rid: str, body: PaymentVerification, user=Depends(require("admin"))):
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    if not r:
+        raise HTTPException(404, "Repair request not found")
+    if r["status"] not in ("REPAIR_COMPLETED", "PAYMENT_PENDING"):
+        raise HTTPException(400, "Verify the final balance after repair completion")
+    summary = {"amount_due": float(money(body.amount_due)), "currency": "INR",
+               "source": "manual_reconciliation", "verified_by": user["user_id"],
+               "verified_at": iso(), "reference": body.reference}
+    result = await db.repair_requests.update_one(repair_guard(r), {
+        "$set": {"payment_summary": summary, "updated_at": iso()}, "$inc": {"revision": 1}})
+    if not result.modified_count:
+        raise HTTPException(409, "Repair changed; refresh and try again")
+    return {"ok": True}
+
+
+@api_router.delete("/repairs/{rid}/whatsapp-consent")
+async def withdraw_whatsapp_consent(rid: str, user=Depends(get_current_user)):
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    if not r:
+        raise HTTPException(404, "Repair request not found")
+    if user["role"] != "admin" and user["user_id"] != r["user_id"]:
+        raise HTTPException(403, "Only the customer or support can withdraw consent")
+    if not r.get("whatsapp_consent", {}).get("opted_in"):
+        return {"ok": True}
+    result = await db.repair_requests.update_one(repair_guard(r), {"$set": {
+        "whatsapp_consent.opted_in": False, "whatsapp_consent.withdrawn_at": iso(),
+        "updated_at": iso()}, "$inc": {"revision": 1}})
+    if not result.modified_count:
+        raise HTTPException(409, "Repair changed; refresh and try again")
+    return {"ok": True}
+
+
+@api_router.get("/admin/whatsapp/metrics")
+async def whatsapp_metrics(user=Depends(require("admin"))):
+    return await WhatsAppService(db, WhatsAppSettings.from_env()).metrics()
+
+
+@api_router.post("/admin/whatsapp/jobs/{job_id}/retry")
+async def retry_whatsapp_job(job_id: str, user=Depends(require("admin"))):
+    await WhatsAppService(db, WhatsAppSettings.from_env()).safe_requeue(job_id)
+    return {"ok": True}
+
+
 # ================== End Repair Service (Phase 1) ==================
 
 

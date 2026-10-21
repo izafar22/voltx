@@ -37,6 +37,7 @@ def test_real_mongo_atomic_outbox_indexes_and_claims():
             async with httpx.AsyncClient(transport=httpx.MockTransport(send)) as http:
                 svc = WhatsAppService(db, SETTINGS, http)
                 await svc.initialize()
+                await db.users.insert_one(dict(USER))
                 with patch.object(server, "db", db), patch.object(
                     server.WhatsAppSettings, "from_env", return_value=SETTINGS
                 ):
@@ -52,22 +53,50 @@ def test_real_mongo_atomic_outbox_indexes_and_claims():
                         "AWAITING_SHIPMENT",
                         "IN_TRANSIT_TO_VOLTX",
                         "RECEIVED_AT_VOLTX",
+                        "DIAGNOSING",
+                        "ESTIMATE_SENT",
+                        "CUSTOMER_APPROVED",
+                        "REPAIRING",
+                        "REPAIR_COMPLETED",
+                        "PAYMENT_PENDING",
+                        "READY_TO_SHIP",
+                        "SHIPPED_TO_CUSTOMER",
                     ]:
+                        if status == "ESTIMATE_SENT":
+                            await server.update_repair_estimate(
+                                repair["id"], server.EstimateUpdate(labor=100), ADMIN
+                            )
+                        if status == "PAYMENT_PENDING":
+                            await server.verify_repair_payment(
+                                repair["id"],
+                                server.PaymentVerification(
+                                    amount_due=100, reference="test record"
+                                ),
+                                ADMIN,
+                            )
+                        if status == "SHIPPED_TO_CUSTOMER":
+                            await server.update_repair_shipment(
+                                repair["id"],
+                                server.ShipmentUpdate(
+                                    leg="return",
+                                    courier="Example Courier",
+                                    tracking_number="SAMPLE123",
+                                ),
+                                ADMIN,
+                            )
                         await server.update_repair_status(
                             repair["id"],
                             server.RepairStatusUpdate(status=status),
                             ADMIN,
                         )
                 await asyncio.gather(svc.reconcile(), svc.reconcile())
-                assert await db.whatsapp_jobs.count_documents({}) == 2
+                assert await db.whatsapp_jobs.count_documents({}) == 8
                 assert (await db.repair_requests.find_one({"id": repair["id"]}))[
                     "whatsapp_outbox"
                 ] == []
-                await asyncio.gather(
-                    svc.process_one(), svc.process_one(), svc.process_one()
-                )
-                assert len(calls) == 2
-                assert await db.whatsapp_jobs.count_documents({"state": "sent"}) == 2
+                await asyncio.gather(*(svc.process_one() for _ in range(12)))
+                assert len(calls) == 8
+                assert await db.whatsapp_jobs.count_documents({"state": "sent"}) == 8
                 assert not await svc.process_one()
         finally:
             assert name.startswith("voltx_wa_test_")
