@@ -36,6 +36,7 @@ const change = (id, value) => act(() => {
 const submit = () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 const fill = () => { change('brand-input', ' ABB '); change('model-input', 'Terra AC'); change('type-select', 'NOT_SURE'); change('description-input', 'Stops after a few seconds.'); };
 beforeEach(() => {
+  Object.defineProperty(global, "crypto", { value: { randomUUID: jest.fn(() => "creation-key") }, configurable: true });
   global.IS_REACT_ACT_ENVIRONMENT = true; jest.clearAllMocks(); mockRole = 'customer'; mockChargers = [];
   mockPost.mockResolvedValue({ data: { id: 'r1', repair_request_number: 'REP-001' } }); mockPatch.mockResolvedValue({});
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
@@ -67,14 +68,14 @@ test('registered charger selection preserves payload and details', async () => {
   mockRole = 'owner'; mockChargers = [{ charger_id: 'VOLTX1', name: 'Home charger', connector: 'Type 2', max_power_kw: 7.4 }]; render(); click('source-mine');
   change('my-charger-select', 'VOLTX1'); change('description-input', 'Not working');
   expect(el('selected-charger-info').textContent).toContain('Home charger');
-  await act(async () => submit()); expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'STATION_OWNER', charger_id: 'VOLTX1', problem_description: 'Not working', reported_category: null, photos: [], whatsapp_opt_in: false });
+  await act(async () => submit()); expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'STATION_OWNER', charger_id: 'VOLTX1', problem_description: 'Not working', reported_category: null, photos: [], whatsapp_opt_in: false, idempotency_key: 'creation-key' });
 });
 test('review separates description and successful submission preserves contract and navigation', async () => {
   render(); fill(); change('category-select', 'Not charging');
   expect([...el('review-section').querySelectorAll('dt')].map(n => n.textContent)).toEqual(['Charger', 'Problem', 'Description', 'Photos']);
   expect(el('review-section').textContent).toContain('Terra AC');
   await act(async () => submit());
-  expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'RETAIL', problem_description: 'Stops after a few seconds.', reported_category: 'Not charging', photos: [], whatsapp_opt_in: false, charger_info: { brand: 'ABB', model: 'Terra AC', charger_type: null, serial_number: null, power_rating: null, purchase_date: null } });
+  expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'RETAIL', problem_description: 'Stops after a few seconds.', reported_category: 'Not charging', photos: [], whatsapp_opt_in: false, idempotency_key: 'creation-key', charger_info: { brand: 'ABB', model: 'Terra AC', charger_type: null, serial_number: null, power_rating: null, purchase_date: null } });
   expect(mockPatch).toHaveBeenCalledWith('/repairs/r1/status', { status: 'AWAITING_SHIPMENT' });
   expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ['repairs-mine'] });
   expect(el('repair-confirmation')).not.toBeNull(); expect(el('repair-number').textContent).toContain('REP-001'); expect(container.querySelectorAll('ol li')).toHaveLength(5);
@@ -102,4 +103,13 @@ test('WhatsApp consent defaults off and only explicit selection opts in', async 
   await act(async () => submit());
   expect(mockPost.mock.calls[0][1].whatsapp_opt_in).toBe(true);
   expect(mockPost.mock.calls[0][1]).not.toHaveProperty('destination');
+});
+
+test('ambiguous submission retry retains the same idempotency key', async () => {
+  render(); fill();
+  mockPost.mockRejectedValueOnce(new Error('connection lost'));
+  await act(async () => submit());
+  await act(async () => submit());
+  expect(mockPost.mock.calls[0][1].idempotency_key).toBe(mockPost.mock.calls[1][1].idempotency_key);
+  expect(mockPost.mock.calls[0][1].idempotency_key).toBeTruthy();
 });

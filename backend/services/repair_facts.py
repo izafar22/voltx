@@ -103,3 +103,15 @@ def validate_transition_facts(repair, status):
         amount_due(repair)
     elif status == "SHIPPED_TO_CUSTOMER":
         shipment_details(repair)
+
+
+def exact_money_input(value):
+    if value is None:
+        return value
+    try:
+        rounded = money(value)
+    except HTTPException as exc:
+        raise ValueError(exc.detail) from None
+    if Decimal(str(value)) != rounded:
+        raise ValueError("INR amounts support at most two decimal places")
+    return value

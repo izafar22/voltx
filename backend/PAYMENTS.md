@@ -93,7 +93,7 @@ use a fresh explicit idempotency key (or a new descriptive reconciliation refere
 Mongo's built-in unique `_id` on `payment_references` atomically reserves a normalized
 reference before settlement. A compound unique index on repair ID and receipt
 idempotency key also prevents changing inputs after a failed reservation. The
-repository creates this index before reserving; the API database role needs index
+API startup creates this index before serving requests; the API database role needs index
 creation permission on `payment_references` (or provision this named index ahead
 of time: `repair_payment_idempotency`). A reservation contains the intended immutable receipt,
 domain event, request fingerprint and original revision; `RESERVED` is **not PAID**.
@@ -184,3 +184,6 @@ summary; it cannot enforce receipt immutability or understand ninth-event jobs, 
 code returns. Do not run old/new payment writers concurrently. Reconcile reservations
 and inspect pending jobs before reactivation. Restore audit records from backup only
 through a reviewed recovery procedure; never infer historical receipts from statuses.
+
+Pre-merge safety reconciliation, MVP permission matrix and outstanding release gates:
+[PREMERGE_SAFETY.md](PREMERGE_SAFETY.md).

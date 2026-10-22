@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/api";
+import { listRepairs } from "../lib/repairApi";
 
 // Shared with repair history and invalidated by existing repair status actions.
 export function useMyRepairs() {
   return useQuery({
     queryKey: ["repairs-mine"],
-    queryFn: async () => (await api.get("/repairs", { params: { scope: "mine" } })).data,
+    queryFn: () => listRepairs("mine"),
   });
 }

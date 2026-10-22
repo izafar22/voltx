@@ -1,3 +1,4 @@
+import { listRepairs } from "../../lib/repairApi";
 import RepairPaymentPanel from "../../components/RepairPaymentPanel";
 import RepairPaymentVerification from "../../components/RepairPaymentVerification";
 import { useState } from "react";
@@ -93,7 +94,7 @@ export default function AdminDashboard() {
   const { data: customers = [] } = useQuery({ queryKey: ["acust"], queryFn: async () => (await api.get("/admin/users")).data });
   const { data: faults = [] } = useQuery({ queryKey: ["afaults"], queryFn: async () => (await api.get("/admin/faults")).data });
   const { data: withdrawals = [] } = useQuery({ queryKey: ["awd"], queryFn: async () => (await api.get("/admin/withdrawals")).data });
-  const { data: repairs = [] } = useQuery({ queryKey: ["repairs-all"], queryFn: async () => (await api.get("/repairs", { params: { scope: "all" } })).data });
+  const { data: repairs = [] } = useQuery({ queryKey: ["repairs-all"], queryFn: () => listRepairs("all") });
 
   const nav = [
     { label: "Overview", icon: LayoutDashboard, active: tab === "overview", onClick: () => setTab("overview") },

@@ -47,6 +47,7 @@ export default function RepairNew() {
   const [result, setResult] = useState(null);
   const [errors, setErrors] = useState({});
   const submissionLock = useRef(false);
+  const creationRetry = useRef(null);
   const clearError = (key, value) => {
     if (value.trim()) setErrors((current) => ({ ...current, [key]: undefined }));
   };
@@ -123,6 +124,11 @@ export default function RepairNew() {
           purchase_date: info.purchase_date || null,
         };
       }
+      const fingerprint = JSON.stringify(payload);
+      if (creationRetry.current?.fingerprint !== fingerprint) {
+        creationRetry.current = { fingerprint, key: crypto.randomUUID() };
+      }
+      payload.idempotency_key = creationRetry.current.key;
       const { data } = await api.post("/repairs", payload);
       // Advance to AWAITING_SHIPMENT via validated Phase 1 transition (non-fatal if it fails)
       try { await api.patch(`/repairs/${data.id}/status`, { status: "AWAITING_SHIPMENT" }); }

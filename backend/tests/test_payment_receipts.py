@@ -1,3 +1,4 @@
+from services.safety_indexes import initialize_safety_indexes
 """Manual receipt, authorization, durable delivery and QR regressions."""
 
 import asyncio
@@ -39,6 +40,7 @@ async def fixture(opt_in=True):
             },
         }
     )
+    await initialize_safety_indexes(db)
     repo = MongoPaymentRepository(db.repair_requests, db.payment_references)
     service = PaymentService(
         repo,

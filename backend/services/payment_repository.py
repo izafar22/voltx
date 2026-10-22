@@ -39,13 +39,6 @@ class MongoPaymentRepository:
 
     async def reserve(self, reference, operation):
         key = self.reference_key(reference)
-        # Both transaction identity and operation identity must be unique, even
-        # if a request failed after reservation and retries with changed inputs.
-        await self.references.create_index(
-            [("repair_id", 1), ("receipt.idempotency_key", 1)],
-            unique=True,
-            name="repair_payment_idempotency",
-        )
         try:
             await self.references.insert_one(
                 {"_id": key, **operation, "state": "RESERVED"}

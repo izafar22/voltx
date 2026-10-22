@@ -1,3 +1,4 @@
+from services.safety_indexes import initialize_safety_indexes
 """MongoDB semantics smoke test in a fresh disposable DB; Meta HTTP is mocked."""
 
 import asyncio
@@ -41,6 +42,7 @@ def test_real_mongo_atomic_outbox_indexes_and_claims():
         try:
             async with httpx.AsyncClient(transport=httpx.MockTransport(send)) as http:
                 svc = WhatsAppService(db, SETTINGS, http)
+                await initialize_safety_indexes(db)
                 await svc.initialize()
                 await db.users.insert_one(dict(USER))
                 with patch.object(server, "db", db), patch.object(

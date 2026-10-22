@@ -1,3 +1,4 @@
+from services.safety_indexes import initialize_safety_indexes
 """Issue #3: all lifecycle facts, production gates and delivery uncertainty use mocks."""
 
 import asyncio
@@ -59,6 +60,7 @@ SELECTED = [
 async def api_context(settings=SETTINGS):
     db = AsyncMongoMockClient(tz_aware=True).test
     await db.users.insert_one(dict(USER))
+    await initialize_safety_indexes(db)
     actor = [USER]
     app = FastAPI()
     app.include_router(server.api_router)

@@ -1,3 +1,9 @@
+Latest pre-merge safety validation (2026-10-22): **243 backend passed / 2 existing
+skips; 134 frontend passed; production build passed**. Dependency audit remains
+unresolved. See [PREMERGE_SAFETY.md](PREMERGE_SAFETY.md) for exact evidence, exceptions
+and the **no-merge/no-deploy** recommendation. The earlier payment-phase results
+below are retained as historical evidence.
+
 # PR #4 validation — lifecycle and manual payments — 2026-10-21
 
 Base: latest fetched repair-mvp plus the unmerged PR #2 commit `44c8ef1`.
