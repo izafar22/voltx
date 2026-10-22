@@ -1,0 +1,66 @@
+name: RushX CI
+
+on:
+  pull_request:
+    branches: [repair-mvp]
+  push:
+    branches: [repair-mvp]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rushx-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - name: Run backend tests
+        env:
+          MONGO_URL: mongodb://localhost:27017
+          DB_NAME: rushx_ci
+          JWT_SECRET: ci-only-not-a-production-secret
+          ENVIRONMENT: test
+          WHATSAPP_ENABLED: 'false'
+        run: python -m pytest -q tests
+
+  frontend:
+    name: Frontend tests and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - run: corepack enable
+      - run: corepack prepare yarn@1.22.22 --activate
+      - run: yarn install --frozen-lockfile --non-interactive
+      - name: Run frontend tests
+        env:
+          CI: 'true'
+        run: yarn test --watchAll=false --runInBand
+      - name: Build frontend
+        env:
+          CI: 'false'
+        run: yarn build
