@@ -357,3 +357,27 @@ def test_duplicate_legacy_index_data_fails_without_destructive_repair():
         assert await db.payment_references.count_documents({}) == 2
 
     run(check)
+
+
+@pytest.mark.parametrize("host", ["example.test/api/webhooks/whatsapp#", "example.test/api/webhooks/whatsapp?"])
+def test_host_cannot_bypass_origin_guard(host):
+    async def check():
+        async with api_context() as (db, browser, actor):
+            response = await browser.post(
+                "/api/wallet/topup", json={"amount": 100},
+                headers={"host": host, "origin": "https://untrusted.invalid"},
+            )
+            assert response.status_code == 403
+            assert response.json()["detail"] == "Request origin is not allowed"
+            assert await db.transactions.count_documents({}) == 0
+    run(check)
+
+
+def test_host_cannot_hide_auth_cache_protection():
+    async def check():
+        async with api_context() as (db, browser, actor):
+            response = await browser.get(
+                "/api/auth/me", headers={"host": "example.test/unrelated#"}
+            )
+            assert response.headers["cache-control"] == "no-store"
+    run(check)

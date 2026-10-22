@@ -1065,18 +1065,18 @@ async def root():
 
 @app.exception_handler(RequestValidationError)
 async def safe_validation(request: Request, error: RequestValidationError):
-    if request.url.path.startswith("/api/auth/"):
+    if request.scope["path"].startswith("/api/auth/"):
         return JSONResponse({"detail": "Check the supplied authentication fields."}, status_code=422)
     return await request_validation_exception_handler(request, error)
 
 
 @app.middleware("http")
 async def trusted_origin(request: Request, call_next):
-    if request.method not in ("GET", "HEAD", "OPTIONS") and request.url.path != "/api/webhooks/whatsapp":
+    if request.method not in ("GET", "HEAD", "OPTIONS") and request.scope["path"] != "/api/webhooks/whatsapp":
         if request.headers.get("origin") not in auth_settings.origins:
             return JSONResponse({"detail": "Request origin is not allowed"}, status_code=403)
     response = await call_next(request)
-    if request.url.path.startswith("/api/auth/"):
+    if request.scope["path"].startswith("/api/auth/"):
         response.headers["Cache-Control"] = "no-store"
     return response
 

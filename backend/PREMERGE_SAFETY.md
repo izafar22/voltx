@@ -76,23 +76,30 @@ credential, production data, live message or activation configuration was change
 
 ## Security/dependency checks and remaining risks
 
-`npm audit --json` completed against the checked-in frontend npm lockfile and returned
-116 dependency entries: 2 critical, 73 high, 35 moderate, 6 low. Critical entries are
-`proxy-addr` and `shell-quote`; reports also include axios, react-router and extensive
-CRA/build tooling chains. These are lockfile advisory counts, not 116 independently
-verified exploitable application flaws. Both npm and Yarn lockfiles exist and Yarn
-resolutions may differ from npm's graph; resolving that discrepancy and assessing
-browser/runtime/build exposure is an outstanding release requirement.
+Dependency follow-up for comment **6336573688**, starting at `4ae54c8`:
 
-No automatic `npm audit fix --force`: suggested fixes include incompatible major
-changes (even react-scripts 0.0.0), risking existing functionality. Dependencies and
-lockfiles remain unchanged pending focused review. This unresolved audit is a reason
-to hold merge/launch, not a claim that production exploitability has been established.
+| Check / change | Result |
+| --- | --- |
+| Declared production package manager | Yarn 1.22.22; fresh isolated frozen install validated. Actual production installer is not evidenced in this repository |
+| Browser dependency fixes | Axios 1.20.0 and React Router 7.18.2; no React/CRA major upgrade |
+| Build/dev dependency fixes | Targeted same-major patches, including critical proxy-addr and shell-quote; existing resolutions retained |
+| Yarn audit, unique advisories | Before: 2 critical / 34 high / 19 moderate. After: **0 critical / 3 high / 3 moderate** |
+| Yarn audit, path occurrences | Before: 3 critical / 110 high / 50 moderate. After: **0 critical / 13 high / 16 moderate** |
+| npm retained lock audit | **116 entries: 2 critical / 73 high / 35 moderate / 6 low**, unchanged. npm ignores Yarn resolutions; this graph is not tested or approved for release |
+| Python fixes | certifi 2026.10.19, PyJWT 2.15.0, urllib3 2.8.0; isolated runtime pip check passes |
+| pip-audit 2.10.1 | Before: 29 records / 20 unique IDs in 8 packages. After: **23 records / 14 unique IDs in 5 packages**. Pinned-list scan, not full transitive/OS coverage |
+| Verified Host/path middleware vulnerability | Use routed ASGI path for origin, auth validation and no-store checks; three tests fail on old code and pass on fixed code |
+| Complete backend | **246 passed, 2 existing skips**, 11 warnings; disposable test DB, WhatsApp disabled |
+| Frontend / production build | **134 tests, 12 suites passed; build compiled successfully** |
+| Remaining fixes requiring incompatible upgrades | SVGO 1.x/CRA, FastAPI/Starlette; Mongo driver/Motor compatibility review. No forced upgrades |
+| Merge recommendation | **HOLD** pending reviewer disposition of residual risks and prior safety-gate decisions |
+| Deployment recommendation | **NOT READY**: installer verification, residual Python assessment and operational gates remain |
 
-Python `pip check`: no broken requirements. `python -m pip_audit --version` could not
-run because pip-audit is not installed; no Python vulnerability-scan pass is claimed.
-Static Pyflakes and Python compilation passed on changed modules/tests. Existing
-FastAPI lifecycle and multipart deprecation warnings remain.
+See [dependency triage evidence](DEPENDENCY_SECURITY.md) for every critical/high
+Yarn advisory's installed version, dependency chains, patched range, exposure and
+disposition; Python findings, exact commands, remaining risks and test limitations.
+No dependencies were removed, no package manager switched, and no live messages,
+Meta changes, production mutations, merge or deployment occurred.
 
 Live 100/1000 requests-per-day load tests, p95/p99/error-budget measurement, physical
 mobile/accessibility acceptance, real Meta template/delivery verification, merchant
