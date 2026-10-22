@@ -1,3 +1,6 @@
+import { listRepairs } from "../../lib/repairApi";
+import RepairPaymentPanel from "../../components/RepairPaymentPanel";
+import RepairPaymentVerification from "../../components/RepairPaymentVerification";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -91,7 +94,7 @@ export default function AdminDashboard() {
   const { data: customers = [] } = useQuery({ queryKey: ["acust"], queryFn: async () => (await api.get("/admin/users")).data });
   const { data: faults = [] } = useQuery({ queryKey: ["afaults"], queryFn: async () => (await api.get("/admin/faults")).data });
   const { data: withdrawals = [] } = useQuery({ queryKey: ["awd"], queryFn: async () => (await api.get("/admin/withdrawals")).data });
-  const { data: repairs = [] } = useQuery({ queryKey: ["repairs-all"], queryFn: async () => (await api.get("/repairs", { params: { scope: "all" } })).data });
+  const { data: repairs = [] } = useQuery({ queryKey: ["repairs-all"], queryFn: () => listRepairs("all") });
 
   const nav = [
     { label: "Overview", icon: LayoutDashboard, active: tab === "overview", onClick: () => setTab("overview") },
@@ -504,6 +507,9 @@ function RepairDetailPanel({ id, onBack, custById, chargerById }) {
         </CardContent>
       </Card>
 
+      {["REPAIR_COMPLETED", "PAYMENT_PENDING"].includes(r.status) && <RepairPaymentVerification key={r.id} repair={r} onSaved={refresh} />}
+      {r.payment_summary && <RepairPaymentPanel key={`payment-${r.id}`} repairId={r.id} admin repairStatus={r.status} refreshToken={r.updated_at} />}
+
       <DiagnosisCard r={r} busy={busy} setBusy={setBusy} onSaved={refresh} />
       <EstimateCard r={r} busy={busy} setBusy={setBusy} onSaved={refresh} onSend={() => applyStatus("ESTIMATE_SENT")} />
 
@@ -563,7 +569,7 @@ function DiagnosisCard({ r, busy, setBusy, onSaved }) {
   return (
     <Card className="rounded-xl" data-testid="diagnosis-card">
       <CardHeader><CardTitle className="font-display text-base flex items-center gap-2">Diagnosis
-        <Badge className="rounded-full bg-amber-500/15 text-amber-600">Voltx team</Badge>
+        <Badge className="rounded-full bg-amber-500/15 text-amber-600">RushX team</Badge>
       </CardTitle></CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">Summary, fault and repairability are visible to the customer. Fields marked <span className="text-amber-600">internal</span> are stripped by the API for non-admin users.</p>
@@ -706,7 +712,7 @@ function EstimateCard({ r, busy, setBusy, onSaved, onSend }) {
         )}
         {!open && (
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => setOpen(true)} data-testid="estimate-toggle-btn" className="rounded-lg">{e ? "Edit estimate" : "Create estimate"}</Button>
+            <Button variant="outline" size="sm" onClick={() => setOpen(true)} disabled={!!e && e.status !== "DRAFT"} title={e && e.status !== "DRAFT" ? "Published estimates are locked; contact support for a revised quote" : undefined} data-testid="estimate-toggle-btn" className="rounded-lg">{e ? "Edit estimate" : "Create estimate"}</Button>
           </div>
         )}
         {r.status === "DIAGNOSING" && e && (
@@ -766,7 +772,7 @@ function ShipmentCard({ r, leg, busy, setBusy, onSaved }) {
   const shown = [s.courier, s.tracking_number, s.shipped_date, leg === "incoming" ? s.received_date : s.delivered_date].filter(Boolean);
   return (
     <div className="rounded-xl border border-border/60 p-4 space-y-2" data-testid={`shipment-${leg}`}>
-      <p className="text-xs uppercase tracking-widest text-muted-foreground">{leg === "incoming" ? "Incoming — customer → Voltx" : "Return — Voltx → customer"}</p>
+      <p className="text-xs uppercase tracking-widest text-muted-foreground">{leg === "incoming" ? "Incoming — customer → RushX" : "Return — RushX → customer"}</p>
       {shown.length > 0 && <p className="text-sm font-mono">{shown.join(" · ")}</p>}
       <div className="grid grid-cols-2 gap-2">
         <Input data-testid={`shipment-${leg}-courier`} placeholder="Courier" value={f.courier} onChange={(e) => setF({ ...f, courier: e.target.value })} className="h-10" />
