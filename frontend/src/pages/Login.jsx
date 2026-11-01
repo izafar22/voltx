@@ -37,7 +37,7 @@ export default function Login() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(new URLSearchParams(window.location.search).has("google_error") ? "Google sign-in could not be completed. Please try again or use SMS." : "");
   const [remaining, setRemaining] = useState(0);
   const resendAt = useRef(0);
   const lock = useRef(false);
@@ -100,6 +100,8 @@ export default function Login() {
         <div><h1 className="font-display text-3xl font-medium">Sign in</h1><p className="mt-2 text-muted-foreground">Enter your phone number to continue.</p></div>
         <div><label htmlFor="phone">Phone number</label><Input id="phone" type="tel" autoComplete="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="98765 43210" maxLength={40} disabled={busy} aria-describedby={error ? "auth-error" : undefined} data-testid="phone-input" className="h-12 mt-2" /></div>
         <Button type="submit" disabled={busy || !phone.trim()} className="w-full h-12" data-testid="send-otp-btn">{busy ? "Requesting code…" : "Send OTP"}</Button>
+        <div className="flex items-center gap-3" aria-label="or"><hr className="flex-1" /><span>OR</span><hr className="flex-1" /></div>
+        <Button type="button" variant="outline" className="w-full h-12" disabled={busy} onClick={() => window.location.assign("/api/auth/google/login")}>Continue with Google</Button>
         {demoEnabled && <div><p className="text-xs text-muted-foreground mb-2">Development demo accounts</p><div className="flex gap-2">{[["Admin", "+919000000001"], ["Owner", "+919000000002"], ["Customer", "+919000000003"]].map(([label, number]) => <Button key={label} type="button" variant="outline" disabled={busy} onClick={() => requestCode(number)}>{label}</Button>)}</div></div>}
       </form>}
       {step === "otp" && <form onSubmit={verify} className="space-y-5" data-testid="otp-step">

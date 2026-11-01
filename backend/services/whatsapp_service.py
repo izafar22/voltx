@@ -47,7 +47,7 @@ class WebhookAccessLogFilter(logging.Filter):
             path = args[2]
             if path.split("?", 1)[0].rstrip(
                 "/"
-            ) == "/api/webhooks/whatsapp" or "hub.verify_token=" in unquote(path):
+            ) in ("/api/webhooks/whatsapp", "/api/auth/google/callback") or "hub.verify_token=" in unquote(path):
                 record.args = (*args[:2], path.split("?", 1)[0], *args[3:])
         return True
 

@@ -89,3 +89,25 @@ test('repair release sign-in copy preserves the charging copy behind its flag', 
     expect(container.textContent).toContain('Find your next charge');
   } finally { FEATURES.charging = previous; }
 });
+
+test('dual login uses top-level Google navigation', () => {
+  const originalLocation = window.location;
+  const assign = jest.fn();
+  delete window.location;
+  window.location = { assign, search: '' };
+  render();
+  const google = [...container.querySelectorAll('button')].find(button => button.textContent === 'Continue with Google');
+  expect(google).toBeDefined();
+  act(() => google.click());
+  expect(assign).toHaveBeenCalledWith('/api/auth/google/login');
+  expect(mockPost).not.toHaveBeenCalled();
+  window.location = originalLocation;
+});
+
+test('Google callback failure shows a clear error and keeps SMS available', () => {
+  window.history.replaceState({}, '', '/login?google_error=1');
+  render();
+  expect(container.querySelector('[role="alert"]').textContent).toContain('Google sign-in could not be completed');
+  expect(container.querySelector('#phone')).not.toBeNull();
+  window.history.replaceState({}, '', '/login');
+});

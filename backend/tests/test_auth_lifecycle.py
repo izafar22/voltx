@@ -198,7 +198,7 @@ def test_safe_migration_and_index_uniqueness():
         await db.users.insert_one({'user_id': 'legacy', 'phone': '98765 43210', 'role': 'customer', 'name': 'Legacy'})
         await service.initialize()
         assert (await db.users.find_one({'user_id': 'legacy'}))['phone'] == '+919876543210'
-        assert (await db.users.index_information())['auth_phone_unique']['unique']
+        assert (await db.users.index_information())['auth_phone_partial_unique']['unique']
         await db.users.insert_one({'user_id': 'collision', 'phone': '91 9876543210'})
         with pytest.raises(RuntimeError, match='collision'):
             await service.initialize()
@@ -235,4 +235,20 @@ def test_expired_registration_grant_and_production_cookie():
         response = Response()
         await production.login_response({'user_id':'test','role':'customer'},response,Request({'type':'http','headers':[]}))
         assert 'Secure' in response.headers['set-cookie'] and 'HttpOnly' in response.headers['set-cookie']
+    run(scenario)
+
+
+def test_legacy_full_phone_index_migrates_without_data_loss():
+    async def scenario(service, db, browser, clock):
+        await db.users.drop_index('auth_phone_partial_unique')
+        await db.users.create_index('phone', unique=True, name='phone_1')
+        await db.users.insert_one({'user_id': 'legacy', 'phone': '+919876543210'})
+        await service.initialize()
+        await db.users.insert_many([{'user_id': 'google1'}, {'user_id': 'google2'}, {'user_id': 'null1', 'phone': None}, {'user_id': 'null2', 'phone': None}])
+        from pymongo.errors import DuplicateKeyError
+        with pytest.raises(DuplicateKeyError):
+            await db.users.insert_one({'user_id': 'duplicate', 'phone': '+919876543210'})
+        assert await db.users.count_documents({}) == 5
+        await service.initialize()
+        assert await db.users.count_documents({}) == 5
     run(scenario)

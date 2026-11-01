@@ -101,6 +101,11 @@ class AuthService:
     def __init__(self, db, settings, provider=None, clock=utcnow):
         self.db, self.settings, self.clock = db, settings, clock
         settings.validate()
+        try:
+            from .google_oidc import GoogleOIDC
+        except ImportError:
+            from google_oidc import GoogleOIDC
+        self.google = GoogleOIDC(self)
         self.provider = provider or (DemoOtpProvider() if settings.otp_mode == "demo" else UnconfiguredOtpProvider())
 
     def digest(self, value):
@@ -121,12 +126,22 @@ class AuthService:
             if normalized != user["phone"]:
                 changes.append((user["_id"], user["phone"], normalized))
         try:
-            await self.db.users.create_index("phone", unique=True, name="auth_phone_unique")
+            # Build replacement before removing legacy full indexes; no uniqueness gap.
+            partial = {"phone": {"$type": "string"}}
+            await self.db.users.create_index("phone", unique=True, name="auth_phone_partial_unique", partialFilterExpression=partial)
+            indexes = await self.db.users.index_information()
+            for name, spec in indexes.items():
+                if spec.get("key") == [("phone", 1)] and not spec.get("partialFilterExpression"):
+                    if not spec.get("unique"):
+                        continue
+                    await self.db.users.drop_index(name)
+            await self.db.users.create_index([("auth_provider", 1), ("auth_subject", 1)], unique=True,
+                name="auth_provider_subject_unique", partialFilterExpression={"auth_provider": {"$type": "string"}, "auth_subject": {"$type": "string"}})
             await self.db.users.create_index("user_id", unique=True, name="auth_user_id_unique")
             await self.db.wallets.create_index("user_id", unique=True, name="auth_wallet_user_unique")
             for uid, old, phone in changes:
                 await self.db.users.update_one({"_id": uid, "phone": old}, {"$set": {"phone": phone}})
-            for collection in (self.db.auth_challenges, self.db.auth_limits, self.db.auth_sessions, self.db.auth_registrations):
+            for collection in (self.db.auth_challenges, self.db.auth_limits, self.db.auth_sessions, self.db.auth_registrations, self.db.auth_google_transactions):
                 await collection.create_index("expires_at", expireAfterSeconds=0)
             await self.db.auth_challenges.create_index("phone")
         except OperationFailure:
@@ -353,6 +368,14 @@ class AuthService:
 
 def auth_router(service):
     router = APIRouter(prefix="/auth")
+
+    @router.get("/google/login")
+    async def google_login(request: Request):
+        return await service.google.login(request)
+
+    @router.get("/google/callback")
+    async def google_callback(request: Request):
+        return await service.google.callback(request)
 
     @router.post("/request-otp")
     async def request_otp(body: PhoneRequest, request: Request):

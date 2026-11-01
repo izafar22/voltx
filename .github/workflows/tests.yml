@@ -1,0 +1,41 @@
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:8.0
+        ports: ['27017:27017']
+    env:
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: voltx_ci
+      JWT_SECRET: ci-only-secret-at-least-thirty-two-characters
+      APP_ENV: test
+      OTP_MODE: demo
+      CORS_ORIGINS: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r backend/requirements.txt -r backend/requirements-test.txt
+      - name: Start disposable API
+        run: |
+          cd backend
+          uvicorn server:app --port 8001 > /tmp/voltx-api.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:8001/api/; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/voltx-api.log
+          exit 1
+      - run: cd backend && python -m pytest
+        env:
+          REACT_APP_BACKEND_URL: http://localhost:8001
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable && cd frontend && yarn install --frozen-lockfile
+      - run: cd frontend && CI=true yarn test --watchAll=false --runInBand
+      - run: cd frontend && yarn build
