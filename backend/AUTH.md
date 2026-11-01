@@ -2,7 +2,8 @@
 
 The existing `/api/auth/*` lifecycle now uses challenges and cookie sessions.
 Existing users, roles, wallets, transactions, charging sessions, and repairs are
-retained. New users are created only after phone verification and registration.
+retained. SMS customers are created after phone verification and registration;
+Google customers are created after validated OIDC authentication.
 
 ## Local configuration (never commit `.env`)
 
@@ -92,10 +93,14 @@ or deleted. Resolve conflicts operationally with the account owner, not by reset
 financial/history data. Malformed legacy fixtures are preserved untouched but
 cannot authenticate until their phone is corrected to a valid Indian mobile.
 
-Unique indexes: `users.phone`, `users.user_id`, `wallets.user_id`.
+Unique indexes: `users.phone` (partial: string values only),
+`users.(auth_provider, auth_subject)` (partial: both string values),
+`users.user_id`, `wallets.user_id`.
 TTL indexes on `expires_at`: `auth_challenges`, `auth_limits`, `auth_registrations`,
-`auth_sessions`. Additional lookup index: `auth_challenges.phone`.
-Index conflicts/duplicates fail safely rather than dropping indexes or documents.
+`auth_sessions`, `auth_google_transactions`. Additional lookup index: `auth_challenges.phone`.
+Index conflicts/duplicates fail safely without deleting documents. The known full
+unique single-field phone indexes are replaced only after the partial unique
+phone index exists; other indexes are retained.
 Run migration during a maintenance window (stop old writers) before rolling out
 new backend workers. Future phone-writing features must use `normalize_phone`.
 TTL cleanup is asynchronous; all expiry checks are enforced in queries regardless

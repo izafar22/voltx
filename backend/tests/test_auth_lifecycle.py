@@ -252,3 +252,63 @@ def test_legacy_full_phone_index_migrates_without_data_loss():
         await service.initialize()
         assert await db.users.count_documents({}) == 5
     run(scenario)
+
+
+@pytest.mark.parametrize('legacy_index', ['phone_1', 'auth_phone_unique'])
+def test_representative_legacy_phone_migration_preserves_customer_history(legacy_index):
+    async def scenario(service, db, browser, clock):
+        from pymongo.errors import DuplicateKeyError
+        await db.users.drop_index('auth_phone_partial_unique')
+        await db.users.create_index('phone', unique=True, name=legacy_index)
+        existing = [
+            {'user_id': 'sms_customer', 'phone': '98765 43210', 'role': 'customer', 'name': 'Existing Customer', 'email': 'same@example.com'},
+            {'user_id': 'owner', 'phone': '+919000000002', 'role': 'owner', 'name': 'Existing Owner'},
+            {'user_id': 'admin', 'phone': '+919000000001', 'role': 'admin', 'name': 'Existing Admin'},
+            {'user_id': 'legacy_invalid', 'phone': 'legacy-invalid', 'role': 'customer'},
+            {'user_id': 'legacy_missing', 'role': 'customer'},
+        ]
+        await db.users.insert_many(existing)
+        await db.wallets.insert_many([{'user_id': u['user_id'], 'balance': 125.5} for u in existing])
+        await db.repairs.insert_one({'id': 'existing_repair', 'user_id': 'sms_customer', 'status': 'RECEIVED_AT_VOLTX', 'estimate': {'total': 1250}})
+        before_users = {u['user_id']: u async for u in db.users.find({})}
+        before_wallets = [w async for w in db.wallets.find({})]
+        before_repairs = [r async for r in db.repairs.find({})]
+        await service.initialize()
+        indexes = await db.users.index_information()
+        assert legacy_index not in indexes
+        assert indexes['auth_phone_partial_unique']['partialFilterExpression'] == {'phone': {'$type': 'string'}}
+        for uid, original in before_users.items():
+            expected = {**original, 'phone': '+919876543210'} if uid == 'sms_customer' else original
+            assert await db.users.find_one({'user_id': uid}) == expected
+        assert [w async for w in db.wallets.find({})] == before_wallets
+        assert [r async for r in db.repairs.find({})] == before_repairs
+        # SMS still signs into the original customer and retains the existing balance.
+        response = await verify(browser, await challenge(browser))
+        assert response.json()['user']['user_id'] == 'sms_customer'
+        assert (await db.wallets.find_one({'user_id': 'sms_customer'}))['balance'] == 125.5
+        google = await service.google.user({'sub': 'new-google', 'email': 'same@example.com', 'email_verified': True})
+        assert google['user_id'] != 'sms_customer' and google['role'] == 'customer'
+        await service.google.user({'sub': 'another-google'})
+        await db.users.insert_many([{'user_id': 'null1', 'phone': None}, {'user_id': 'null2', 'phone': None}])
+        with pytest.raises(DuplicateKeyError):
+            await db.users.insert_one({'user_id': 'duplicate_phone', 'phone': '+919876543210'})
+        with pytest.raises(DuplicateKeyError):
+            await db.users.insert_one({'user_id': 'duplicate_google', 'auth_provider': 'google', 'auth_subject': 'new-google'})
+        await service.initialize()  # Repeated startup is safe with phone-less users present.
+        assert await db.users.count_documents({}) == 9
+        assert await db.repairs.count_documents({}) == 1
+    run(scenario)
+
+
+def test_legacy_normalization_collision_leaves_records_and_index_untouched():
+    async def scenario(service, db, browser, clock):
+        await db.users.drop_index('auth_phone_partial_unique')
+        await db.users.create_index('phone', unique=True, name='phone_1')
+        await db.users.insert_many([{'user_id': 'a', 'phone': '98765 43210'}, {'user_id': 'b', 'phone': '+919876543210'}])
+        before = [u async for u in db.users.find({})]
+        with pytest.raises(RuntimeError, match='collision'):
+            await service.initialize()
+        assert [u async for u in db.users.find({})] == before
+        indexes = await db.users.index_information()
+        assert indexes['phone_1']['unique'] and 'auth_phone_partial_unique' not in indexes
+    run(scenario)

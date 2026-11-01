@@ -31,7 +31,7 @@ export default function RepairsList() {
           <div className="rounded-xl border border-border/60 p-8 text-center" data-testid="repairs-empty">
             <div className="mx-auto h-12 w-12 rounded-xl bg-charging/10 flex items-center justify-center"><Wrench className="h-6 w-6 text-charging" /></div>
             <p className="mt-3 font-medium">No repair requests yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Get an EV charger of any brand diagnosed and repaired by Voltx.</p>
+            <p className="text-sm text-muted-foreground mt-1">Get an EV charger of any brand diagnosed and repaired by RushX.</p>
             <Button onClick={() => navigate("/repairs/new")} data-testid="empty-new-repair-btn" className="mt-4 rounded-lg">Repair a Charger</Button>
           </div>
         ) : (

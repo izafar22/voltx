@@ -21,16 +21,16 @@ JWK = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(KEY.public_key()))
 JWK['kid'] = 'test-key'
 
 
-def run(scenario):
+def run(scenario, production=False):
     async def execute():
         with patch.dict('os.environ', GOOGLE_CLIENT_ID='client', GOOGLE_CLIENT_SECRET='secret',
-                        GOOGLE_REDIRECT_URI='http://localhost:3000/api/auth/google/callback'):
+                        GOOGLE_REDIRECT_URI=('https://evchargerrepair.in' if production else 'http://localhost:3000') + '/api/auth/google/callback'):
             service = AuthService(AsyncMongoMockClient(tz_aware=True).db,
-                                  AuthSettings('test-only-secret-with-thirty-two-characters', 'test', 'demo', True))
+                                  AuthSettings('test-only-secret-with-thirty-two-characters', 'production' if production else 'test', 'provider' if production else 'demo', not production, ('https://evchargerrepair.in',) if production else ('http://localhost:3000',)))
             await service.initialize()
             app = FastAPI()
             app.include_router(auth_router(service), prefix='/api')
-            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://localhost:3000') as browser:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='https://evchargerrepair.in' if production else 'http://localhost:3000') as browser:
                 await scenario(service, browser)
     asyncio.run(execute())
 
@@ -151,3 +151,35 @@ def test_unconfigured_google_preserves_sms_and_fixed_destination():
         assert params['redirect_uri'] == ['http://localhost:3000/api/auth/google/callback']
         assert 'return_to' not in params
     run(scenario)
+
+
+def test_production_same_origin_cookie_round_trip_rotation_and_logout():
+    from http.cookies import SimpleCookie
+    async def scenario(service, browser):
+        params = await start(service, browser)
+        assert params['redirect_uri'] == 'https://evchargerrepair.in/api/auth/google/callback'
+        binding = next(cookie for cookie in browser.cookies.jar if cookie.name == 'google_transaction')
+        assert binding.secure and binding.path == '/api/auth/google' and not binding.domain_specified
+        response = await callback(service, browser, params)
+        assert response.headers['location'] == '/login'
+        assert response.headers['cache-control'] == 'no-store'
+        assert response.headers['referrer-policy'] == 'no-referrer'
+        cookies = SimpleCookie()
+        for value in response.headers.get_list('set-cookie'):
+            cookies.load(value)
+        session = cookies['access_token']
+        assert session['secure'] and session['httponly'] and session['samesite'] == 'lax'
+        assert session['path'] == '/' and not session['domain']
+        assert cookies['google_transaction']['max-age'] == '0'
+        assert not browser.cookies.get('google_transaction')
+        assert (await browser.get('/api/auth/me')).json()['role'] == 'customer'
+        old_token = browser.cookies.get('access_token')
+        # Cookie jar refuses to send Secure cookies over HTTP.
+        assert (await browser.get('http://evchargerrepair.in/api/auth/me')).status_code == 401
+        assert (await callback(service, browser, await start(service, browser))).headers['location'] == '/login'
+        assert await service.db.auth_sessions.count_documents({}) == 1
+        assert (await browser.get('/api/auth/me', headers={'Cookie': 'access_token=' + old_token})).status_code == 401
+        current_token = browser.cookies.get('access_token')
+        assert (await browser.post('/api/auth/logout')).status_code == 200
+        assert (await browser.get('/api/auth/me', headers={'Cookie': 'access_token=' + current_token})).status_code == 401
+    run(scenario, production=True)

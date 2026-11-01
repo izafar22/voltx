@@ -9,7 +9,7 @@ jest.mock('react-router-dom', () => ({ Link: ({ children, to, onClick, ...props 
 jest.mock('@/lib/api', () => ({ api: { get: (...args) => mockGet(...args) } }), { virtual: true });
 jest.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { name: 'Customer', role: 'customer' }, logout: mockLogout }) }), { virtual: true });
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'light', toggle: jest.fn() }) }), { virtual: true });
-jest.mock('@/components/Logo', () => ({ Logo: () => <span>Voltx</span> }), { virtual: true });
+jest.mock('@/components/Logo', () => ({ Logo: () => <span>RushX</span> }), { virtual: true });
 jest.mock('@/components/ui/sheet', () => require('../ui/sheet'), { virtual: true });
 jest.mock('@/components/ui/badge', () => ({ Badge: ({ children }) => <span>{children}</span> }), { virtual: true });
 jest.mock('@/lib/utils', () => ({ cn: (...classes) => classes.filter(Boolean).join(' ') }), { virtual: true });
@@ -26,7 +26,7 @@ test('mobile navigation opens an accessible drawer and closes when selecting a r
     expect(menu.getAttribute('aria-expanded')).toBe('true');
     const drawer = document.querySelector('[data-testid="mobile-drawer"]');
     expect(drawer.getAttribute('role')).toBe('dialog');
-    expect(drawer.textContent).toContain('Voltx');
+    expect(drawer.textContent).toContain('RushX');
     expect(drawer.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs');
     expect(document.querySelector('[data-testid="nav-wallet"]')).toBeNull();
     expect(document.querySelector('[data-testid="nav-history"]')).toBeNull();

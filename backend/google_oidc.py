@@ -39,6 +39,10 @@ class GoogleOIDC:
     def cookie(self, response, value):
         response.set_cookie(COOKIE, value, max_age=300, httponly=True,
                             secure=self.auth.settings.environment == 'production', samesite='lax', path='/api/auth/google')
+        self.response_headers(response)
+
+    @staticmethod
+    def response_headers(response):
         response.headers['Cache-Control'] = 'no-store'
         response.headers['Referrer-Policy'] = 'no-referrer'
 
@@ -107,7 +111,7 @@ class GoogleOIDC:
 
     async def callback(self, request):
         response = RedirectResponse('/login?google_error=1', status_code=303)
-        self.cookie(response, '')
+        self.response_headers(response)
         response.delete_cookie(COOKIE, path='/api/auth/google', httponly=True,
                                secure=self.auth.settings.environment == 'production', samesite='lax')
         try:
