@@ -33,9 +33,14 @@ navigation to `/api/auth/google/login`. Production must keep the browser on
 [Render's routing documentation](https://render.com/docs/redirects-rewrites),
 the first matching rule wins and a rewrite preserves the browser URL.
 
-The required rule order is `/api/*` rewritten to the backend's public
-`https://<backend-host>/api/*`, followed by the SPA `/*` rewrite to `/index.html`.
-Use a rewrite, not a redirect. Preserve the `/api` prefix, callback query string,
+Authenticated read-only inspection in imran's workspace confirmed these exact
+rules on frontend service `srv-daaa1aoae00c73a70g70`, in this order:
+
+1. `/api/*` → `https://voltx-backend-lp42.onrender.com/api/*`, action **Rewrite**.
+2. `/*` → `/index.html`, action **Rewrite**.
+
+The Headers page has no custom response-header rules. No rules were edited or
+saved. These rules preserve the API path and put the API before SPA fallback. Preserve the `/api` prefix, callback query string,
 Origin and Cookie request headers, Set-Cookie and Location response headers,
 status codes and methods. Auth responses must not be cached. Callback query
 strings must be redacted from proxy/access logs.
@@ -45,14 +50,21 @@ HTTP 401 JSON (`Not authenticated`), `Cache-Control: no-store` and
 `x-render-origin-server: uvicorn`, without redirecting to another origin. This
 confirms that the deployed same-origin API path reaches FastAPI. One earlier
 request timed out; the retry succeeded. It does not prove callback query/cookie
-forwarding for this undeployed feature. Exact dashboard rule order/configuration
-requires a selected Render workspace; no production settings were changed.
+forwarding for this undeployed feature. Dashboard rule inspection is complete;
+no production settings were changed. Both frontend and backend services track
+`repair-mvp` with automatic deployment on commits, and PR previews are off.
+A merge into `repair-mvp` is therefore also a production deployment trigger,
+not a review-only step. No merge or deployment was performed.
 
 ## Deployment gates
 
 - Review green CI and approve rollout separately. This PR remains a draft.
-- Confirm the exact Render API rewrite, query/header forwarding, cache bypass and
-  proxy log redaction; complete a staging OAuth round trip before production.
+- The exact Render rewrite order/destination is confirmed. Verify query/header
+  forwarding, cache bypass and proxy log redaction in a staging OAuth round trip
+  before production. PR previews are currently off; this review did not create
+  or enable any staging infrastructure.
+- Account for automatic deployment of both services on `repair-mvp` commits:
+  separate rollout approval must precede a merge. No auto-deploy setting was changed.
 - Privately configure/verify GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and
   GOOGLE_REDIRECT_URI=https://evchargerrepair.in/api/auth/google/callback,
   matching Google Console registration and HTTPS CORS_ORIGINS. No secret values
