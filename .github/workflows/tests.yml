@@ -19,6 +19,8 @@ jobs:
       JWT_SECRET: ci-only-secret-at-least-thirty-two-characters
       APP_ENV: test
       OTP_MODE: demo
+      # Existing live auth regression asserts the demo code on this disposable test API.
+      EXPOSE_DEMO_OTP: 'true'
       CORS_ORIGINS: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
