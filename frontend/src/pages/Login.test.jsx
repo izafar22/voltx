@@ -8,7 +8,7 @@ jest.mock('../lib/api', () => ({ api: { post: (...args) => mockPost(...args) } }
 jest.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }));
 jest.mock('../components/ProtectedRoute', () => ({ homeFor: role => role === 'admin' ? '/admin' : role === 'owner' ? '/owner' : '/app' }));
 jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate, Navigate: ({ to }) => <span data-redirect={to} /> }), { virtual: true });
-jest.mock('../components/Logo', () => ({ Logo: () => <span>Voltx</span> }));
+jest.mock('../components/Logo', () => ({ Logo: () => <span>RushX</span> }));
 jest.mock('../components/ui/button', () => ({ Button: ({ children, variant, ...props }) => <button {...props}>{children}</button> }));
 jest.mock('../components/ui/input', () => ({ Input: props => <input {...props} /> }));
 let root, container;
@@ -88,4 +88,26 @@ test('repair release sign-in copy preserves the charging copy behind its flag', 
     FEATURES.charging = true; act(() => root.render(<Login />));
     expect(container.textContent).toContain('Find your next charge');
   } finally { FEATURES.charging = previous; }
+});
+
+test('dual login uses top-level Google navigation', () => {
+  const originalLocation = window.location;
+  const assign = jest.fn();
+  delete window.location;
+  window.location = { assign, search: '' };
+  render();
+  const google = [...container.querySelectorAll('button')].find(button => button.textContent === 'Continue with Google');
+  expect(google).toBeDefined();
+  act(() => google.click());
+  expect(assign).toHaveBeenCalledWith('/api/auth/google/login');
+  expect(mockPost).not.toHaveBeenCalled();
+  window.location = originalLocation;
+});
+
+test('Google callback failure shows a clear error and keeps SMS available', () => {
+  window.history.replaceState({}, '', '/login?google_error=1');
+  render();
+  expect(container.querySelector('[role="alert"]').textContent).toContain('Google sign-in could not be completed');
+  expect(container.querySelector('#phone')).not.toBeNull();
+  window.history.replaceState({}, '', '/login');
 });

@@ -1,1 +1,1 @@
-export const PRODUCT_NAME = "Voltx";
+export const PRODUCT_NAME = "RushX";

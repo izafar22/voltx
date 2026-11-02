@@ -191,7 +191,7 @@ export default function RepairNew() {
         <section className="repair-section" aria-labelledby="source-heading">
           <h2 id="source-heading">1. Choose your charger</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[{ v: "mine", icon: Server, t: "My Voltx charger", d: "Choose a charger already linked to your account" }, { v: "other", icon: PackagePlus, t: "Other charger", d: "Repair a charger from any brand" }].map((o) => (
+            {[{ v: "mine", icon: Server, t: "My RushX charger", d: "Choose a charger already linked to your account" }, { v: "other", icon: PackagePlus, t: "Other charger", d: "Repair a charger from any brand" }].map((o) => (
               <button type="button" key={o.v} onClick={() => chooseSource(o.v)} aria-pressed={source === o.v} data-testid={`source-${o.v}`}
                 className={`rounded-xl border-2 p-5 text-left transition-colors ${source === o.v ? "border-charging bg-charging/10" : "border-border hover:bg-secondary/50"}`}>
                 <div className="flex justify-between"><o.icon className={`h-6 w-6 ${source === o.v ? "text-charging" : "text-muted-foreground"}`} aria-hidden="true" />{source === o.v && <CheckCircle2 className="h-5 w-5 text-charging" aria-hidden="true" />}</div>

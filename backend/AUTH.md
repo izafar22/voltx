@@ -2,7 +2,8 @@
 
 The existing `/api/auth/*` lifecycle now uses challenges and cookie sessions.
 Existing users, roles, wallets, transactions, charging sessions, and repairs are
-retained. New users are created only after phone verification and registration.
+retained. SMS customers are created after phone verification and registration;
+Google customers are created after validated OIDC authentication.
 
 ## Local configuration (never commit `.env`)
 
@@ -92,10 +93,14 @@ or deleted. Resolve conflicts operationally with the account owner, not by reset
 financial/history data. Malformed legacy fixtures are preserved untouched but
 cannot authenticate until their phone is corrected to a valid Indian mobile.
 
-Unique indexes: `users.phone`, `users.user_id`, `wallets.user_id`.
+Unique indexes: `users.phone` (partial: string values only),
+`users.(auth_provider, auth_subject)` (partial: both string values),
+`users.user_id`, `wallets.user_id`.
 TTL indexes on `expires_at`: `auth_challenges`, `auth_limits`, `auth_registrations`,
-`auth_sessions`. Additional lookup index: `auth_challenges.phone`.
-Index conflicts/duplicates fail safely rather than dropping indexes or documents.
+`auth_sessions`, `auth_google_transactions`. Additional lookup index: `auth_challenges.phone`.
+Index conflicts/duplicates fail safely without deleting documents. The known full
+unique single-field phone indexes are replaced only after the partial unique
+phone index exists; other indexes are retained.
 Run migration during a maintenance window (stop old writers) before rolling out
 new backend workers. Future phone-writing features must use `normalize_phone`.
 TTL cleanup is asynchronous; all expiry checks are enforced in queries regardless
@@ -114,3 +119,41 @@ It creates charging/repair/payment test records; prefer a disposable demo DB.
 The adapters use real OTP requests and cookie sessions and honor rate limits.
 No auth bypass is present. Existing demo balances/activity are never copied to new
 customers.
+
+## Google OIDC (optional second customer login)
+
+Set `GOOGLE_CLIENT_ID` (public web client identifier), `GOOGLE_CLIENT_SECRET`
+(secret, stored only in Render's secret environment), and `GOOGLE_REDIRECT_URI`.
+For the production web client use client ID
+`534491246723-56tblqjhhtp3iks4c27dv0pondaiish6.apps.googleusercontent.com`
+and exact redirect URI `https://evchargerrepair.in/api/auth/google/callback`.
+The redirect origin must be in `CORS_ORIGINS`. No infrastructure changes are
+included. Missing configuration fails closed while SMS remains available.
+
+Google requests only `openid email profile`. The callback always returns to
+`/login`; the fresh page reloads `/api/auth/me` and follows existing dashboard
+routing. No browser-supplied return URL is accepted. Google subjects are separate
+customer identities; matching email never links accounts. Transactions expire
+in five minutes, are bound to an HttpOnly browser cookie and atomically consumed.
+Sessions and logout are shared with SMS. Existing strict Origin checks protect
+all mutating cookie endpoints (the signed WhatsApp webhook remains exempt).
+The Google callback uses state plus browser binding for login CSRF protection.
+Application access logging strips callback query strings. Configure any external
+proxy/access logs to redact callback query strings before a production rollout.
+
+### Review and rollout checklist (separate production approval required)
+
+- Confirm green CI, review OAuth security and preserve SMS/WhatsApp settings.
+- Back up users and audit phone/provider indexes in a staging copy first.
+- Startup builds `auth_phone_partial_unique` for string phones before removing
+  legacy full unique phone indexes, then adds the unique provider/subject index.
+  It preserves all users and aborts on normalized phone collisions/index errors.
+  Empty strings remain unique; absent/null phones may occur on multiple accounts.
+  Requires MongoDB 5.0+ for coexisting index options during migration (Atlas 8 supported).
+- Configure the three Google variables privately, verify exact Google Console
+  redirect registration and HTTPS cookie behavior, then approve rollout separately.
+- Smoke test new/existing Google customers, logout, SMS and repair authorization.
+- Rollback: disable Google entry by removing its secret configuration or revert
+  the application release. Preserve users, identities, sessions and partial phone
+  index. Do not restore a full phone index after phone-less customers exist.
+  Do not roll back to code that recreates that index without a reviewed migration.
