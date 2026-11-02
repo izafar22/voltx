@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { readRepairDestination, takeRepairDestination } from "../lib/repairDestination";
 import { FEATURES } from "../config/features";
 import { PRODUCT_NAME } from "../config/brand";
 import { api } from "../lib/api";
@@ -25,9 +26,15 @@ function authMessage(error, fallback) {
   if (status === 400) return "Incorrect, expired, or already used code. Try again or request a new code.";
   return fallback;
 }
+function AuthenticatedRedirect({ user, destination: completedDestination }) {
+  const [destination] = useState(() => completedDestination || readRepairDestination(homeFor(user.role)));
+  useEffect(() => { takeRepairDestination(homeFor(user.role)); }, [user.role]);
+  return <Navigate to={destination} replace />;
+}
 export default function Login() {
   const demoEnabled = process.env.NODE_ENV !== "production" && process.env.REACT_APP_DEMO_AUTH === "true";
   const navigate = useNavigate();
+  const completedDestination = useRef(null);
   const { user, loading: checking, login, authError, loadMe } = useAuth();
   const [step, setStep] = useState("phone");
   const [phone, setPhone] = useState("");
@@ -66,7 +73,7 @@ export default function Login() {
       setRemaining(data.resend_after); setStep("otp");
     }, "Unable to request a code. Please try again.");
   };
-  const complete = (data) => { login(data.user); navigate(homeFor(data.user.role), { replace: true }); };
+  const complete = (data) => { completedDestination.current = takeRepairDestination(homeFor(data.user.role)); login(data.user); navigate(completedDestination.current, { replace: true }); };
   const verify = (event) => {
     event.preventDefault();
     if (!/^\d{6}$/.test(otp)) { setError("Enter the six-digit code."); return; }
@@ -87,7 +94,7 @@ export default function Login() {
   };
   const changePhone = () => { setStep("phone"); setChallenge(null); setRegistrationToken(null); setOtp(""); setError(""); };
   if (checking) return <p role="status" className="p-8">Checking your session…</p>;
-  if (user) return <Navigate to={homeFor(user.role)} replace />;
+  if (user) return <AuthenticatedRedirect user={user} destination={completedDestination.current} />;
   return <div className="min-h-screen grid lg:grid-cols-2">
     <div className="hidden lg:flex flex-col justify-between bg-primary text-primary-foreground p-12">
       <Logo />{FEATURES.repair && !FEATURES.charging ? <div><h2 className="font-display text-5xl font-light leading-tight">Get your charger<br /><span className="text-charging font-medium">working again.</span></h2><p className="mt-5 opacity-70 max-w-sm">Repair AC, DC or portable chargers of any brand. Request a repair and track its progress with RushX.</p></div> : <div><h2 className="font-display text-5xl font-light leading-tight">Charge<br />as fast as<br /><span className="text-charging font-medium">you pay.</span></h2><p className="mt-5 opacity-70 max-w-sm">Find your next charge. Navigate, connect, and manage your charging across India.</p></div>}<p className="text-sm opacity-60">{PRODUCT_NAME} {FEATURES.repair && !FEATURES.charging ? "Charger Repair" : "Network"}</p>
