@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
 import { ProtectedRoute, homeFor } from "@/components/ProtectedRoute";
 import Login from "@/pages/Login";
+import AccountPhone from "@/pages/customer/AccountPhone";
 import CustomerHome from "@/pages/customer/CustomerHome";
 import ChargerPage from "@/pages/customer/ChargerPage";
 import LivePage from "@/pages/customer/LivePage";
@@ -35,6 +36,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/" element={<RootRedirect />} />
 
+              <Route path="/app/phone" element={<ProtectedRoute roles={["customer"]}><AccountPhone /></ProtectedRoute>} />
               <Route path="/app" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><CustomerHome /></ProtectedRoute>} />
               <Route path="/app/wallet" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.wallet ? <WalletPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
               <Route path="/app/history" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.charging ? <HistoryPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
