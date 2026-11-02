@@ -14,6 +14,7 @@ jest.mock('../components/ui/input', () => ({ Input: props => <input {...props} /
 let root, container;
 const originalDemo = process.env.REACT_APP_DEMO_AUTH;
 beforeEach(() => {
+  sessionStorage.clear();
   process.env.REACT_APP_DEMO_AUTH = "false";
   global.IS_REACT_ACT_ENVIRONMENT = true; jest.clearAllMocks();
   mockAuth = { user: null, loading: false, login: mockLogin };
@@ -110,4 +111,25 @@ test('Google callback failure shows a clear error and keeps SMS available', () =
   expect(container.querySelector('[role="alert"]').textContent).toContain('Google sign-in could not be completed');
   expect(container.querySelector('#phone')).not.toBeNull();
   window.history.replaceState({}, '', '/login');
+});
+
+test('OTP success returns to the pending repair request', async () => {
+  sessionStorage.setItem('rushx.repair-destination', '/repairs/new');
+  await request(); mockPost.mockResolvedValueOnce({ data: { user: { role: 'customer' } } });
+  fill('otp', '123456'); await submit();
+  expect(mockNavigate).toHaveBeenCalledWith('/repairs/new', { replace: true });
+});
+test('authenticated Google return resumes the pending repair request', () => {
+  sessionStorage.setItem('rushx.repair-destination', '/repairs/new'); mockAuth.user = { role: 'customer' }; render();
+  expect(container.querySelector('[data-redirect]').getAttribute('data-redirect')).toBe('/repairs/new');
+});
+test('untrusted stored destination cannot redirect outside the app', () => {
+  sessionStorage.setItem('rushx.repair-destination', 'https://example.com'); mockAuth.user = { role: 'customer' }; render();
+  expect(container.querySelector('[data-redirect]').getAttribute('data-redirect')).toBe('/app');
+});
+
+test('Google return keeps the saved destination under React Strict Mode', () => {
+  sessionStorage.setItem('rushx.repair-destination', '/repairs/new'); mockAuth.user = { role: 'customer' };
+  act(() => root.render(<React.StrictMode><Login /></React.StrictMode>));
+  expect(container.querySelector('[data-redirect]').getAttribute('data-redirect')).toBe('/repairs/new');
 });
