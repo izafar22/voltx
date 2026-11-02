@@ -3,11 +3,12 @@ import { createRoot } from 'react-dom/client';
 import RepairNew from './RepairNew';
 const mockInvalidate = jest.fn();
 const mockNavigate = jest.fn(), mockPost = jest.fn(), mockPatch = jest.fn(), mockError = jest.fn();
-let mockChargers = [], mockRole = 'customer';
+let mockChargers = [], mockRole = 'customer', mockPhoneVerified = true;
+const mockSetUser = jest.fn();
 jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }), { virtual: true });
 jest.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: mockChargers }), useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }));
 jest.mock('../../lib/api', () => ({ api: { post: (...args) => mockPost(...args), patch: (...args) => mockPatch(...args) } }));
-jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { role: mockRole } }) }));
+jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { role: mockRole, phone: '+919876543210', phone_verified: mockPhoneVerified }, setUser: mockSetUser }) }));
 jest.mock('../../components/layout/CustomerShell', () => ({ CustomerShell: ({ children }) => <main>{children}</main> }));
 jest.mock('sonner', () => ({ toast: { error: (...args) => mockError(...args), message: jest.fn() } }));
 jest.mock('framer-motion', () => ({ motion: { div: ({ children, initial, animate, ...props }) => <div {...props}>{children}</div> } }));
@@ -37,7 +38,7 @@ const submit = () => container.querySelector('form').dispatchEvent(new Event('su
 const fill = () => { change('brand-input', ' ABB '); change('model-input', 'Terra AC'); change('type-select', 'NOT_SURE'); change('description-input', 'Stops after a few seconds.'); };
 beforeEach(() => {
   Object.defineProperty(global, "crypto", { value: { randomUUID: jest.fn(() => "creation-key") }, configurable: true });
-  global.IS_REACT_ACT_ENVIRONMENT = true; jest.clearAllMocks(); mockRole = 'customer'; mockChargers = [];
+  global.IS_REACT_ACT_ENVIRONMENT = true; jest.clearAllMocks(); mockRole = 'customer'; mockChargers = []; mockPhoneVerified = true;
   mockPost.mockResolvedValue({ data: { id: 'r1', repair_request_number: 'REP-001' } }); mockPatch.mockResolvedValue({});
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
 });
@@ -112,4 +113,15 @@ test('ambiguous submission retry retains the same idempotency key', async () => 
   await act(async () => submit());
   expect(mockPost.mock.calls[0][1].idempotency_key).toBe(mockPost.mock.calls[1][1].idempotency_key);
   expect(mockPost.mock.calls[0][1].idempotency_key).toBeTruthy();
+});
+
+
+test('phone-less customers see verification instead of unusable WhatsApp consent', () => {
+  mockPhoneVerified = false; render();
+  expect(el('whatsapp-opt-in')).toBeNull();
+  const add = [...container.querySelectorAll('button')].find(b=>b.textContent==='Add and verify phone');
+  act(()=>add.click());
+  expect(container.querySelector('[aria-label="Verify your phone"]')).not.toBeNull();
+  expect(container.querySelector('form form')).toBeNull();
+  expect(container.textContent).toContain('Verification does not opt you in');
 });

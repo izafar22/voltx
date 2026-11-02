@@ -32,9 +32,10 @@ are now gated by `OTP_MODE=demo` and the optional charger seed retains its own f
 
 Set `APP_ENV=production`, `OTP_MODE=provider`, `EXPOSE_DEMO_OTP=false`, a strong
 random `JWT_SECRET` (at least 32 characters), and explicit HTTPS `CORS_ORIGINS`.
-There is deliberately no configured SMS vendor. `OtpProvider.send_otp(phone, code)`
-is the integration boundary; inject a real implementation when constructing
-`AuthService`. Until then, requests return 503 and do not pretend SMS was sent.
+The provider-independent `OtpProvider.send_otp(phone, code)` boundary now has a
+MSG91 delivery-only SMS implementation. Configure `SMS_PROVIDER=msg91` and its
+required variables as described in [SMS_SETUP.md](SMS_SETUP.md). Missing or invalid
+configuration returns 503 and never pretends SMS was sent.
 Provider mode generates random six-digit codes and never returns them or logs
 them. Production startup rejects demo auth, weak secrets, and non-HTTPS origins.
 Deployment should keep the frontend/API on the same site for SameSite=Lax cookies.
@@ -157,3 +158,13 @@ proxy/access logs to redact callback query strings before a production rollout.
   the application release. Preserve users, identities, sessions and partial phone
   index. Do not restore a full phone index after phone-less customers exist.
   Do not roll back to code that recreates that index without a reviewed migration.
+
+
+## Phone-first UX and verified phone linking
+
+See [SMS_SETUP.md](SMS_SETUP.md) for the MSG91 contract, DLT/Render checklist,
+verification markers, purpose-bound linking endpoints, WhatsApp consent behavior,
+local/CI test commands, visual evidence and staging/rollback procedure. Existing
+Google accounts and server-side sessions are preserved. OTP values and session
+JWTs are never persisted in browser storage. No production SMS/configuration/data
+changes are part of the implementation.

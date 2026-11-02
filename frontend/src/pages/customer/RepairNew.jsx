@@ -17,6 +17,8 @@ import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 import "./RepairNew.css";
+import PhoneAuthForm from "../../components/auth/PhoneAuthForm";
+import "../Login.css";
 
 const TYPE_OPTIONS = [
   { label: "AC Charger", value: "AC" },
@@ -35,7 +37,9 @@ const MAX_MB = 5;
 export default function RepairNew() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
+  const [showPhoneLink, setShowPhoneLink] = useState(false);
+  const canWhatsapp = user?.phone_verified === true && /^\+91[6-9]\d{9}$/.test(user?.phone || "");
   const [source, setSource] = useState("other");
   const [chargerId, setChargerId] = useState("");
   const [info, setInfo] = useState({ brand: "", model: "", charger_type: "", serial_number: "", power_rating: "", purchase_date: "" });
@@ -111,7 +115,7 @@ export default function RepairNew() {
         problem_description: description.trim(),
         reported_category: category || null,
         photos: photos.map((p) => p.data),
-        whatsapp_opt_in: whatsappOptIn,
+        whatsapp_opt_in: canWhatsapp && whatsappOptIn,
       };
       if (source === "mine") {
         payload.charger_id = chargerId;
@@ -186,6 +190,10 @@ export default function RepairNew() {
         <ShieldCheck className="h-6 w-6 text-charging shrink-0" aria-hidden="true" />
         <div><p className="text-base font-semibold">We repair EV chargers from any brand</p><p className="mt-2 text-base leading-relaxed text-muted-foreground">Home chargers, station chargers, AC, DC and portable chargers are supported.</p></div>
       </div>
+      {showPhoneLink && <section className="phone-link-panel" aria-label="Verify your phone">
+        <PhoneAuthForm mode="link" onComplete={data => { setUser(current => current?.user_id === data.user.user_id ? data.user : current); setWhatsappOptIn(false); setShowPhoneLink(false); }} />
+        <button type="button" className="auth-text-button" onClick={() => setShowPhoneLink(false)}>Cancel phone verification</button>
+      </section>}
       <form onSubmit={submit} noValidate>
         <p className="mt-6 text-sm text-muted-foreground">Fields marked * are required. Everything else is optional.</p>
         <section className="repair-section" aria-labelledby="source-heading">
@@ -276,7 +284,7 @@ export default function RepairNew() {
             <p className="font-semibold flex items-start gap-3"><ShieldCheck className="h-6 w-6 text-charging shrink-0" aria-hidden="true" />No payment is required to submit a repair request.</p>
             <p className="text-muted-foreground mt-3">After we receive and inspect your charger, we’ll share a repair estimate for your approval before work begins.</p>
           </div>
-          <label className="mt-6 grid w-full grid-cols-[20px_minmax(0,1fr)] items-start gap-3 text-base leading-relaxed cursor-pointer" htmlFor="whatsapp-opt-in">
+          {canWhatsapp ? <label className="mt-6 grid w-full grid-cols-[20px_minmax(0,1fr)] items-start gap-3 text-base leading-relaxed cursor-pointer" htmlFor="whatsapp-opt-in">
             <input id="whatsapp-opt-in" data-testid="whatsapp-opt-in" type="checkbox" checked={whatsappOptIn}
               onChange={(e) => setWhatsappOptIn(e.target.checked)}
               className="mt-1 shrink-0 cursor-pointer accent-green-500"
@@ -284,7 +292,10 @@ export default function RepairNew() {
             <span className="min-w-0 break-normal">
               I agree to receive RushX repair updates on WhatsApp (optional). Updates will be sent to my account phone number if one is available. I can still track my repair in the app without opting in.
             </span>
-          </label>
+          </label> : <div className="mt-6 rounded-xl border border-border p-4 text-sm">
+            <p>Add and verify a phone to receive optional WhatsApp repair updates. Verification does not opt you in.</p>
+            {user?.role === "customer" ? <button type="button" className="auth-text-button mt-2" onClick={() => setShowPhoneLink(true)}>Add and verify phone</button> : <p className="mt-2">Sign out and sign in with SMS to verify your existing account number.</p>}
+          </div>}
           <Button type="submit" disabled={submitting} aria-busy={submitting} data-testid="submit-repair-btn" className="w-full h-[52px] mt-6 rounded-lg text-base">
             {submitting ? <><Loader2 className="h-5 w-5 animate-spin mr-2" aria-hidden="true" />Submitting request…</> : <>Submit repair request <ArrowRight className="h-5 w-5 ml-2" aria-hidden="true" /></>}
           </Button>

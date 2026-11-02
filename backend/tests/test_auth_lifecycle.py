@@ -312,3 +312,28 @@ def test_legacy_normalization_collision_leaves_records_and_index_untouched():
         indexes = await db.users.index_information()
         assert indexes['phone_1']['unique'] and 'auth_phone_partial_unique' not in indexes
     run(scenario)
+
+
+def test_real_mongo_concurrent_google_phone_ownership_and_csrf():
+    async def scenario(service, db, browser, clock):
+        from fastapi import HTTPException
+        users = [await service.google.user({'sub': 'phone-race-' + str(i)}) for i in range(2)]
+        phone = '+919876543210'
+        first = await service.request_phone_link(users[0], phone, 'test')
+        clock[0] += timedelta(seconds=61)
+        second = await service.request_phone_link(users[1], phone, 'test')
+        outcomes = await asyncio.gather(*[
+            service.verify_phone_link(user, issued['challenge_id'], phone, '123456')
+            for user, issued in zip(users, [first, second])
+        ], return_exceptions=True)
+        assert sum(isinstance(value, dict) for value in outcomes) == 1
+        assert [v.status_code for v in outcomes if isinstance(v, HTTPException)] == [409]
+        assert await db.users.count_documents({'phone': phone}) == 1
+        assert await db.users.count_documents({}) == 2
+        assert await db.wallets.count_documents({}) == 2
+        # New mutation endpoints are covered by the actual server's Origin guard.
+        for path in ['/api/auth/phone/request-otp', '/api/auth/phone/verify-otp']:
+            assert (await browser.post(path, headers={'Origin':'https://evil.example'},json={'phone':phone})).status_code == 403
+        browser.headers.pop('Origin')
+        assert (await browser.post('/api/auth/phone/request-otp',json={'phone':phone})).status_code == 403
+    run(scenario)

@@ -31,10 +31,12 @@ def utcnow():
 
 
 def safe_user(user):
-    return {key: user.get(key, default) for key, default in {
+    result = {key: user.get(key, default) for key, default in {
         "user_id": "", "name": "", "phone": "", "email": "", "role": "customer",
         "status": "active", "onboarding_completed": True,
     }.items()}
+    result["phone_verified"] = bool(user.get("phone_verified_at"))
+    return result
 
 
 @dataclass(frozen=True)
@@ -83,6 +85,7 @@ class UnconfiguredOtpProvider:
 
 
 class PhoneRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     phone: str = Field(max_length=40)
 
 
@@ -106,7 +109,28 @@ class AuthService:
         except ImportError:
             from google_oidc import GoogleOIDC
         self.google = GoogleOIDC(self)
-        self.provider = provider or (DemoOtpProvider() if settings.otp_mode == "demo" else UnconfiguredOtpProvider())
+        self.provider = provider or self.configured_provider()
+
+    def configured_provider(self):
+        if self.settings.otp_mode == "demo":
+            return DemoOtpProvider()
+        if os.getenv("SMS_PROVIDER", "").lower() == "msg91":
+            try:
+                try:
+                    from .sms_provider import Msg91OtpProvider, Msg91Settings
+                except ImportError:
+                    from sms_provider import Msg91OtpProvider, Msg91Settings
+                return Msg91OtpProvider(Msg91Settings.from_env())
+            except ValueError:
+                pass
+        return UnconfiguredOtpProvider()
+
+    @staticmethod
+    def challenge_scope(purpose="login", user_id=None):
+        if purpose == "login":
+            return {"purpose": {"$in": ["login", None]}}
+        return {"purpose": "link_phone", "user_id": user_id}
+
 
     def digest(self, value):
         return hmac.new(self.settings.secret.encode(), value.encode(), hashlib.sha256).hexdigest()
@@ -157,7 +181,7 @@ class AuthService:
         except DuplicateKeyError:
             raise HTTPException(429, "Too many requests. Try again later.", headers={"Retry-After": str(seconds)}) from None
 
-    async def request_otp(self, phone: str, ip: str | None):
+    async def request_otp(self, phone: str, ip: str | None, purpose="login", user_id=None):
         ip = ip or "unknown"
         phone = normalize_phone(phone)
 
@@ -204,6 +228,7 @@ class AuthService:
         await self.db.auth_challenges.update_many(
             {
                 "phone": phone,
+                **self.challenge_scope(purpose, user_id),
                 "consumed": False,
             },
             {
@@ -217,6 +242,8 @@ class AuthService:
             {
                 "_id": cid,
                 "phone": phone,
+                "purpose": purpose,
+                "user_id": user_id,
                 "otp_hash": self.digest(f"{cid}:{phone}:{code}"),
                 "created_at": now,
                 "expires_at": now + timedelta(minutes=5),
@@ -256,13 +283,14 @@ class AuthService:
 
         return result
 
-    async def verify(self, cid, phone, code):
+    async def consume_otp(self, cid, phone, code, purpose="login", user_id=None):
         phone, now = normalize_phone(phone), self.clock()
-        challenge = await self.db.auth_challenges.find_one_and_update({"_id": cid, "phone": phone,
+        scope = self.challenge_scope(purpose, user_id)
+        challenge = await self.db.auth_challenges.find_one_and_update({"_id": cid, "phone": phone, **scope,
             "consumed": False, "delivered": True, "expires_at": {"$gt": now}, "attempts": {"$lt": 5}},
             {"$inc": {"attempts": 1}}, return_document=ReturnDocument.BEFORE)
         if not challenge:
-            old = await self.db.auth_challenges.find_one({"_id": cid, "phone": phone})
+            old = await self.db.auth_challenges.find_one({"_id": cid, "phone": phone, **scope})
             if old and old.get("attempts", 0) >= 5:
                 raise HTTPException(429, "Too many attempts. Request a new code.")
             raise HTTPException(400, "Code expired or already used. Request a new code.")
@@ -273,12 +301,23 @@ class AuthService:
         consumed = await self.db.auth_challenges.update_one({"_id": cid, "consumed": False, "expires_at": {"$gt": now}}, {"$set": {"consumed": True}})
         if not consumed.modified_count:
             raise HTTPException(400, "Code expired or already used. Request a new code.")
+        return phone
+
+    async def verify(self, cid, phone, code):
+        phone = await self.consume_otp(cid, phone, code)
         user = await self.db.users.find_one({"phone": phone})
         if user:
             self.ensure_active(user)
+            verified_at = self.clock().isoformat()
+            user = await self.db.users.find_one_and_update(
+                {"user_id": user["user_id"], "phone": phone, "status": user.get("status")},
+                {"$set": {"phone_verified_at": verified_at}}, return_document=ReturnDocument.AFTER)
+            if not user:
+                raise HTTPException(409, "Your account changed. Please sign in again.")
+            self.ensure_active(user)
             return user, None
         rid = secrets.token_urlsafe(24)
-        expires = now + timedelta(minutes=10)
+        expires = self.clock() + timedelta(minutes=10)
         await self.db.auth_registrations.insert_one({"_id": rid, "phone": phone, "expires_at": expires})
         return None, jwt.encode({"sub": phone, "jti": rid, "purpose": "registration", "exp": expires}, self.settings.secret, algorithm="HS256")
 
@@ -311,7 +350,7 @@ class AuthService:
         user_id = "user_" + self.digest("registration:" + data["jti"])[:24]
         now = self.clock().isoformat()
         document = {"user_id": user_id, "phone": data["sub"], "role": "customer", "name": name,
-            "email": email, "status": "active", "onboarding_completed": True, "created_at": now, "updated_at": now}
+            "email": email, "status": "active", "onboarding_completed": True, "phone_verified_at": now, "created_at": now, "updated_at": now}
         try:
             await self.db.users.update_one({"phone": data["sub"]}, {"$setOnInsert": document}, upsert=True)
         except DuplicateKeyError:
@@ -327,6 +366,41 @@ class AuthService:
         if not used.deleted_count:
             raise HTTPException(409, "Registration already completed. Please sign in.")
         return user
+
+    @staticmethod
+    def ensure_linkable(user):
+        if user.get("role") != "customer" or (user.get("auth_provider") != "google" and not user.get("phone")):
+            raise HTTPException(403, "Phone verification is available for customer accounts.")
+        if user.get("phone_verified_at"):
+            raise HTTPException(409, "A verified phone is already linked. Contact RushX support to change it.")
+
+    @staticmethod
+    def ensure_phone_target(user, phone):
+        # Historical SMS sessions can prove their already assigned number, but
+        # this endpoint cannot change that identity to a different phone.
+        if user.get("auth_provider") != "google" and normalize_phone(phone) != normalize_phone(user.get("phone")):
+            raise HTTPException(403, "Verify your existing account number or contact RushX support.")
+
+    async def request_phone_link(self, user, phone, ip):
+        self.ensure_linkable(user)
+        self.ensure_phone_target(user, phone)
+        return await self.request_otp(phone, ip, "link_phone", user["user_id"])
+
+    async def verify_phone_link(self, user, cid, phone, code):
+        self.ensure_linkable(user)
+        self.ensure_phone_target(user, phone)
+        phone = await self.consume_otp(cid, phone, code, "link_phone", user["user_id"])
+        try:
+            updated = await self.db.users.find_one_and_update({
+                "user_id": user["user_id"], "role": "customer", "auth_provider": user.get("auth_provider"),
+                "phone": user.get("phone"), "phone_verified_at": user.get("phone_verified_at"), "status": user.get("status"),
+            }, {"$set": {"phone": phone, "phone_verified_at": self.clock().isoformat(),
+                         "updated_at": self.clock().isoformat()}}, return_document=ReturnDocument.AFTER)
+        except DuplicateKeyError:
+            raise HTTPException(409, "This number is already linked to another account. Sign in with that number or contact RushX support for account recovery.") from None
+        if not updated:
+            raise HTTPException(409, "Your profile changed. Refresh and try again.")
+        return safe_user(updated)
 
     async def authenticate(self, request):
         # Legacy stateless bearer tokens deliberately expire at migration. No role is
@@ -376,6 +450,16 @@ def auth_router(service):
     @router.get("/google/callback")
     async def google_callback(request: Request):
         return await service.google.callback(request)
+
+    @router.post("/phone/request-otp")
+    async def request_phone(body: PhoneRequest, request: Request):
+        user = await service.authenticate(request)
+        return await service.request_phone_link(user, body.phone, request.client.host if request.client else None)
+
+    @router.post("/phone/verify-otp")
+    async def verify_phone(body: VerifyRequest, request: Request):
+        user = await service.authenticate(request)
+        return {"user": await service.verify_phone_link(user, body.challenge_id, body.phone, body.otp)}
 
     @router.post("/request-otp")
     async def request_otp(body: PhoneRequest, request: Request):

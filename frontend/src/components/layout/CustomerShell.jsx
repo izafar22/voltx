@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { FEATURES } from "../../config/features";
 
 const nav = [
+  { to: "/app/phone", icon: Shield, label: "Account phone", enabled: user => user?.role === "customer" },
   { to: "/app", icon: Home, label: "Home" },
   { to: "/app/wallet", icon: WalletIcon, enabled: () => FEATURES.wallet, label: "Wallet" },
   { to: "/app/history", icon: History, enabled: () => FEATURES.charging, label: "History" },
@@ -33,7 +34,7 @@ export const CustomerShell = ({ children }) => {
 
   const SideNav = () => (
     <nav aria-label="Customer navigation" className="flex flex-col gap-1 p-3">
-      {nav.filter((n) => !n.enabled || n.enabled()).map((n) => {
+      {nav.filter((n) => !n.enabled || n.enabled(user)).map((n) => {
         const active = loc.pathname === n.to || (n.to === "/repairs" && loc.pathname.startsWith("/repairs/"));
         return (
           <Link key={n.to} to={n.to} onClick={() => setOpen(false)} data-testid={`nav-${n.label.toLowerCase()}`} aria-current={active ? "page" : undefined}

@@ -108,6 +108,8 @@ def consent_record(opt_in, user, at):
     if not opt_in:
         return {"opted_in": False}
     phone = user.get("phone", "")
+    if not user.get("phone_verified_at"):
+        raise HTTPException(422, "Add and verify a phone number before opting in to WhatsApp updates")
     if not isinstance(phone, str) or not E164.fullmatch(phone):
         raise HTTPException(
             422,

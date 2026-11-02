@@ -22,6 +22,7 @@ jest.mock('@/context/ThemeContext', () => ({ ThemeProvider: ({ children }) => ch
 jest.mock('@/context/AuthContext', () => ({ AuthProvider: ({ children }) => children, useAuth: () => ({ user: mockUser, loading: mockLoading }) }), { virtual: true });
 jest.mock('@/components/ui/sonner', () => ({ Toaster: () => null }), { virtual: true });
 jest.mock('@/components/ProtectedRoute', () => require('./components/ProtectedRoute'), { virtual: true });
+jest.mock('@/pages/customer/AccountPhone', () => () => <p>Account phone</p>, { virtual: true });
 jest.mock('@/pages/Login', () => () => <p>Login screen</p>, { virtual: true });
 jest.mock('@/pages/customer/CustomerHome', () => () => <p>Customer dashboard</p>, { virtual: true });
 jest.mock('@/pages/customer/ChargerPage', () => () => { mockChargingMount(); return <p>Charger page</p>; }, { virtual: true });
