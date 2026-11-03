@@ -5,6 +5,10 @@ const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export default {
   staticDirs: [
+    {
+      from: "../public/assets/visual-storytelling",
+      to: "/assets/visual-storytelling",
+    },
     { from: "../public/assets/illustrations", to: "/assets/illustrations" },
   ],
   stories: ["../src/design-system/**/*.stories.jsx"],

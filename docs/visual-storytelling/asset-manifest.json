@@ -1,0 +1,414 @@
+{
+  "provenance": "User-provided fictional AI-generated pack, reviewed individually. Five rejected scenes replaced with built-in image generation, at user request. No actual RushX people, equipment, facilities or results.",
+  "assets": [
+    {
+      "id": "hero",
+      "file": "hero-diagnostic-workbench",
+      "alt": "Fictional diagnostic workbench with an open wallbox charger and probes; the meter reading is illustrative.",
+      "master": "frontend/visual-storytelling-sources/hero-diagnostic-workbench.webp",
+      "width": 542,
+      "height": 285,
+      "origin": {
+        "kind": "user-supplied AI-generated concept",
+        "archive": "RushX_Images_For_Codex_v2.zip",
+        "member": "rushx-visual-assets/hero-diagnostic-workbench.webp"
+      },
+      "masterSha256": "fdd3084206e6f3d08da402fa6b344312a95c54e8b5fb11bdc46b26cb6b0b7bb9",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/hero-diagnostic-workbench-320.webp",
+          "width": 320,
+          "height": 168,
+          "bytes": 13426,
+          "sha256": "151ecd6ed6e24432c5e7acf3ad6157e2943eef07c0aef88d1f61d8002a62aa44"
+        },
+        {
+          "src": "/assets/visual-storytelling/hero-diagnostic-workbench-542.webp",
+          "width": 542,
+          "height": 285,
+          "bytes": 27148,
+          "sha256": "686fbb04b3db5deb99658b3d57b3e12f880cb83dd0a26ec6ea1b7898a704034d"
+        }
+      ]
+    },
+    {
+      "id": "testing",
+      "file": "diagnostic-testing",
+      "alt": "Fictional electronics workbench with oscilloscope, multimeter and a disconnected charger control board; no test result is shown.",
+      "master": "frontend/visual-storytelling-sources/diagnostic-testing.webp",
+      "width": 1536,
+      "height": 1024,
+      "origin": {
+        "kind": "built-in image generation replacement",
+        "replaces": "diagnostic-testing-lab.webp",
+        "prompt": "Premium photorealistic editorial concept for RushX independent EV charger repair education. Match the supplied reference's natural workshop lighting, restrained charcoal and silver equipment, subtle green PCB/green accents and realistic scale. Landscape 3:2 composition, full frame with no contact-sheet borders, no collages. Fictional illustrative scene, not a real RushX facility. Absolutely no readable text, logos, numbers, prices, PASS labels, certification marks, customer information or watermarks. Keep electronics plausible, hands anatomically correct, equipment safely disconnected. Professional electronics workbench with a plausible oscilloscope, handheld multimeter and disconnected EV charger control board on an antistatic mat. Oscilloscope screen dark with a neutral unlabelled grid only, multimeter display blank/off; no numerical readings, waveforms, results or certifications. Leads rest separately and not connected to mains; no people, no laptop, no PASS/checkmark interface. Wide bench scene with carefully arranged instruments, realistic connectors and soldered components."
+      },
+      "masterSha256": "33e8ec877a824da7db3162c53045252dd6d0274fdcf6dc56dc7fc4c2ae4d560e",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/diagnostic-testing-320.webp",
+          "width": 320,
+          "height": 213,
+          "bytes": 16132,
+          "sha256": "03010a2016c27baf1a8fa507be9e211258a3d4e4afc2e9a2abc230e77901d349"
+        },
+        {
+          "src": "/assets/visual-storytelling/diagnostic-testing-640.webp",
+          "width": 640,
+          "height": 427,
+          "bytes": 50622,
+          "sha256": "9814f0af126812707d8c5f6753548836d966880523cb74644b9d7c9656f48896"
+        },
+        {
+          "src": "/assets/visual-storytelling/diagnostic-testing-1280.webp",
+          "width": 1280,
+          "height": 853,
+          "bytes": 163158,
+          "sha256": "cc1b3ca422ff0683da4155cebaa3175168d80051ad5ce613340dea0511dd6ec4"
+        }
+      ]
+    },
+    {
+      "id": "pcb",
+      "file": "pcb-joint-rework",
+      "alt": "Fictional close-up of a soldering iron contacting a component lead solder joint on a secured charger circuit board.",
+      "master": "frontend/visual-storytelling-sources/pcb-joint-rework.webp",
+      "width": 1536,
+      "height": 1024,
+      "origin": {
+        "kind": "built-in image generation replacement",
+        "replaces": "pcb-component-repair.webp",
+        "prompt": "Premium photorealistic editorial concept for RushX independent EV charger repair education. Match the supplied reference's natural workshop lighting, restrained charcoal and silver equipment, subtle green PCB/green accents and realistic scale. Landscape 3:2 composition, full frame with no contact-sheet borders, no collages. Fictional illustrative scene, not a real RushX facility. Absolutely no readable text, logos, numbers, prices, PASS labels, certification marks, customer information or watermarks. Keep electronics plausible, hands anatomically correct, equipment safely disconnected. Technically accurate macro electronics rework scene on a disconnected realistic green EV charger control PCB secured in a small board holder on antistatic mat. A soldering iron's fine metal tip visibly touches ONLY the solder fillet joining a through-hole component lead to a plated PCB pad near the board edge; thin solder wire approaches that SAME solder joint from the other side. Keep the target joint clearly visible in focus, integrated circuit packages away from the tip, no tool ever touching the top of an IC. Realistic capacitors and terminals in softly blurred background. No sparks, smoke cloud, energized LEDs or readable component lettering. Distinct close-up composition showing just the tools and board."
+      },
+      "masterSha256": "f2de4b43499541970d09ba35226f5d0c33aeac391c5a376ec4187353b1423556",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/pcb-joint-rework-320.webp",
+          "width": 320,
+          "height": 213,
+          "bytes": 14326,
+          "sha256": "d44d0b46849dfa67ae7758fce80847d30d9c7af109caf20aba6df1269dc0b36b"
+        },
+        {
+          "src": "/assets/visual-storytelling/pcb-joint-rework-640.webp",
+          "width": 640,
+          "height": 427,
+          "bytes": 39678,
+          "sha256": "3e6aa6664a98746300ab44d68da9acdf3c223710446595ef11d2e59893157f38"
+        },
+        {
+          "src": "/assets/visual-storytelling/pcb-joint-rework-1280.webp",
+          "width": 1280,
+          "height": 853,
+          "bytes": 114248,
+          "sha256": "22f548047fec0f7c934dff28c390091590a2c0e07fe59684cb9d6925f3254cbb"
+        }
+      ]
+    },
+    {
+      "id": "ac",
+      "file": "ac-wallbox",
+      "alt": "Conceptual wall-mounted AC charger with a coiled charging cable beside a parked vehicle.",
+      "master": "frontend/visual-storytelling-sources/ac-wallbox.webp",
+      "width": 420,
+      "height": 206,
+      "origin": {
+        "kind": "user-supplied AI-generated concept",
+        "archive": "RushX_Images_For_Codex_v2.zip",
+        "member": "rushx-visual-assets/ac-wallbox.webp"
+      },
+      "masterSha256": "a7e6333f17c8c1e38664e711d4d77e573c56b3bbba54c693727468b11e995a0f",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/ac-wallbox-320.webp",
+          "width": 320,
+          "height": 157,
+          "bytes": 9050,
+          "sha256": "1c83e34f8c898bc1c72a672244c1cd4d9bf5b0f9319c67349bfb428ca77c1080"
+        },
+        {
+          "src": "/assets/visual-storytelling/ac-wallbox-420.webp",
+          "width": 420,
+          "height": 206,
+          "bytes": 13920,
+          "sha256": "c315ef9a272a6ce53a04f00807d8012f1f5094b41ed02c101659a503094794e0"
+        }
+      ]
+    },
+    {
+      "id": "dc",
+      "file": "dc-fast-charger-station",
+      "alt": "Conceptual DC charging cabinet with two charging connectors in an outdoor charging setting.",
+      "master": "frontend/visual-storytelling-sources/dc-fast-charger-station.webp",
+      "width": 550,
+      "height": 285,
+      "origin": {
+        "kind": "user-supplied AI-generated concept",
+        "archive": "RushX_Images_For_Codex_v2.zip",
+        "member": "rushx-visual-assets/dc-fast-charger-station.webp"
+      },
+      "masterSha256": "7e9a51ca6fda6da2ce6e1828316338aec86f4d0a762524272102b60753222279",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/dc-fast-charger-station-320.webp",
+          "width": 320,
+          "height": 166,
+          "bytes": 16856,
+          "sha256": "5882cf8080fa61ac77e62be134724f74eaecc740552472c4efa8df77590e24d4"
+        },
+        {
+          "src": "/assets/visual-storytelling/dc-fast-charger-station-550.webp",
+          "width": 550,
+          "height": 285,
+          "bytes": 33850,
+          "sha256": "14f2a72bfbab4fd21bbb0831d1fadb27a7e7dffb7fa3094e989160f99d0823a1"
+        }
+      ]
+    },
+    {
+      "id": "power",
+      "file": "power-electronics",
+      "alt": "Conceptual power electronics board with heatsink, capacitors and copper-wound inductors.",
+      "master": "frontend/visual-storytelling-sources/power-electronics.webp",
+      "width": 394,
+      "height": 206,
+      "origin": {
+        "kind": "user-supplied AI-generated concept",
+        "archive": "RushX_Images_For_Codex_v2.zip",
+        "member": "rushx-visual-assets/power-electronics.webp"
+      },
+      "masterSha256": "77b7e169a01324c53650281173b113a6c21066c11872b1edd18b4bbd0c5fe2d8",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/power-electronics-320.webp",
+          "width": 320,
+          "height": 167,
+          "bytes": 13176,
+          "sha256": "1fd5bbb3715303242bb7c51645837515f6d31fa2a43e43507b986a8ebb6ea903"
+        },
+        {
+          "src": "/assets/visual-storytelling/power-electronics-394.webp",
+          "width": 394,
+          "height": 206,
+          "bytes": 17642,
+          "sha256": "34c78290612b65455d6f1a33f821f7a881fc3fc86f0057e93658e0b504c7f720"
+        }
+      ]
+    },
+    {
+      "id": "about",
+      "file": "exploded-ac-charger",
+      "alt": "Conceptual exploded wallbox charger showing enclosure layers and internal circuit boards.",
+      "master": "frontend/visual-storytelling-sources/exploded-ac-charger.webp",
+      "width": 547,
+      "height": 285,
+      "origin": {
+        "kind": "user-supplied AI-generated concept",
+        "archive": "RushX_Images_For_Codex_v2.zip",
+        "member": "rushx-visual-assets/exploded-ac-charger.webp"
+      },
+      "masterSha256": "c5895fed8dc2f8cabdca37d4dfb2f42ff9b6163b5b33c28e5dbe0089c2669ef0",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/exploded-ac-charger-320.webp",
+          "width": 320,
+          "height": 167,
+          "bytes": 9190,
+          "sha256": "0fb0e8a8be7672d6a66d7d356971ed872e2263e019d451945fe63b959adbaf93"
+        },
+        {
+          "src": "/assets/visual-storytelling/exploded-ac-charger-547.webp",
+          "width": 547,
+          "height": 285,
+          "bytes": 19138,
+          "sha256": "68a6ff3bdb56528892a2203553953f574078422a841ddfcb8b0c563e0f958dbb"
+        }
+      ]
+    },
+    {
+      "id": "step1",
+      "file": "repair-enquiry",
+      "alt": "Fictional customer using a laptop with a generic blank repair enquiry interface.",
+      "master": "frontend/visual-storytelling-sources/repair-enquiry.webp",
+      "width": 1536,
+      "height": 1024,
+      "origin": {
+        "kind": "built-in image generation replacement",
+        "replaces": "step-01-enquiry.webp",
+        "prompt": "Premium photorealistic editorial concept for RushX independent EV charger repair education. Match the supplied reference's natural workshop lighting, restrained charcoal and silver equipment, subtle green PCB/green accents and realistic scale. Landscape 3:2 composition, full frame with no contact-sheet borders, no collages. Fictional illustrative scene, not a real RushX facility. Absolutely no readable text, logos, numbers, prices, PASS labels, certification marks, customer information or watermarks. Keep electronics plausible, hands anatomically correct, equipment safely disconnected. A realistic laptop on a tidy desk, screen showing a clean generic repair enquiry interface made of soft neutral blocks, a few blank input outlines and one subtle green action rectangle. No readable labels, glyphs or customer information anywhere. Side three-quarter view with softly blurred home charging equipment in the background. Distinct domestic setting, no technician, no board on desk."
+      },
+      "masterSha256": "d6ff2ddbbe90c610a410aaf6797bd996156193795eb3d1600c2a2d75e6c7da1a",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/repair-enquiry-320.webp",
+          "width": 320,
+          "height": 213,
+          "bytes": 15096,
+          "sha256": "dc06e30dc64e2f3ef047f145ad2c73b3f2d466e63cfae93713fd7e5d227dccdb"
+        },
+        {
+          "src": "/assets/visual-storytelling/repair-enquiry-640.webp",
+          "width": 640,
+          "height": 427,
+          "bytes": 40536,
+          "sha256": "3482e2b799e402193f9e842cb8f283159f9976c38638889da942a7f39fa12ea2"
+        },
+        {
+          "src": "/assets/visual-storytelling/repair-enquiry-1280.webp",
+          "width": 1280,
+          "height": 853,
+          "bytes": 102878,
+          "sha256": "6f46def5ad58d45125b4fcc6fd1d47a05c7e91f74100e2977eeafb5e232841f7"
+        }
+      ]
+    },
+    {
+      "id": "step2",
+      "file": "step-02-assessment",
+      "alt": "Fictional technician examining a disconnected charger circuit board under a magnifying lamp.",
+      "master": "frontend/visual-storytelling-sources/step-02-assessment.webp",
+      "width": 1536,
+      "height": 1024,
+      "origin": {
+        "kind": "built-in image generation, reference-driven resolution recreation",
+        "reference": "step-02-assessment.webp",
+        "prompt": "Recreate this supplied fictional EV charger assessment concept as a crisp premium photorealistic landscape image, 3:2 framing, natural light, green PCB and neutral workshop colors. Preserve the concept of a technician in plain workwear and safety glasses examining a disconnected EV wallbox control board under a magnifying lamp. Make this a visual inspection: only use a plastic pointing tool to indicate a connector near the board edge, no soldering tip on ICs and no energized indicator LEDs. Plausible soldered electronics, anatomically correct hands, antistatic mat. No readable text, logos, numbers, prices, fabricated results, checkmarks, certifications or garbled markings. Clearly different from the later probe-testing scene; show the lamp prominently. No collage borders."
+      },
+      "masterSha256": "fa40511542eb944254078625bb4b7cf9fb6e6cef714b918c9865ef07988d5208",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/step-02-assessment-320.webp",
+          "width": 320,
+          "height": 213,
+          "bytes": 18198,
+          "sha256": "1ca7808a62187cee83818b4157e079fbaab7830a7cd9c832cd62ba3af15810bb"
+        },
+        {
+          "src": "/assets/visual-storytelling/step-02-assessment-640.webp",
+          "width": 640,
+          "height": 427,
+          "bytes": 55326,
+          "sha256": "315a535805a4ee2cb6155abb078abb0dc7c436bf5756a685ff3c12e19c56f71a"
+        },
+        {
+          "src": "/assets/visual-storytelling/step-02-assessment-1280.webp",
+          "width": 1280,
+          "height": 853,
+          "bytes": 159752,
+          "sha256": "f573ee0bc2b4d32ba6cdc0052fb3930645e5f50b373913b9a9604e03b4b9f3a4"
+        }
+      ]
+    },
+    {
+      "id": "step3",
+      "file": "estimate-consultation",
+      "alt": "Fictional technician and customer discussing a generic diagnostic report without prices or approval details.",
+      "master": "frontend/visual-storytelling-sources/estimate-consultation.webp",
+      "width": 1536,
+      "height": 1024,
+      "origin": {
+        "kind": "built-in image generation replacement",
+        "replaces": "step-03-estimate.webp",
+        "prompt": "Premium photorealistic editorial concept for RushX independent EV charger repair education. Match the supplied reference's natural workshop lighting, restrained charcoal and silver equipment, subtle green PCB/green accents and realistic scale. Landscape 3:2 composition, full frame with no contact-sheet borders, no collages. Fictional illustrative scene, not a real RushX facility. Absolutely no readable text, logos, numbers, prices, PASS labels, certification marks, customer information or watermarks. Keep electronics plausible, hands anatomically correct, equipment safely disconnected. An electronics technician in plain workwear reviewing a diagnostic report together with one adult customer at a consultation table. Two people viewed from the side, looking down at a paper with only abstract grey diagram blocks and a simple charger outline. No prices, readable text, approval status, checkmarks or quotation details. Closed generic wallbox charger sits to one side. Natural window light, relaxed consultation rather than repair action. No probes, no soldering tools."
+      },
+      "masterSha256": "7508052607cbbf007d56f7c97ccf677bde9afa12a468d61c3fbcacb0cc9904f4",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/estimate-consultation-320.webp",
+          "width": 320,
+          "height": 213,
+          "bytes": 15126,
+          "sha256": "86d11407870f0c1ffc7e4e1f35b908a21f53128068d1ea993363e370964b3989"
+        },
+        {
+          "src": "/assets/visual-storytelling/estimate-consultation-640.webp",
+          "width": 640,
+          "height": 427,
+          "bytes": 40238,
+          "sha256": "e80ef6409a3ed16593c31c5c9052e70a6f6f07e0c7da13aa566c6febf6f8d3e7"
+        },
+        {
+          "src": "/assets/visual-storytelling/estimate-consultation-1280.webp",
+          "width": 1280,
+          "height": 853,
+          "bytes": 122126,
+          "sha256": "0a8b125dc9d8e36b3c76cca66f47e45128e814cc0d6e2da04fb49c3211b31e82"
+        }
+      ]
+    },
+    {
+      "id": "step4",
+      "file": "step-04-repair-test",
+      "alt": "Fictional gloved technician using probes on a charger control board during an electronics assessment.",
+      "master": "frontend/visual-storytelling-sources/step-04-repair-test.webp",
+      "width": 1536,
+      "height": 1024,
+      "origin": {
+        "kind": "built-in image generation, reference-driven resolution recreation",
+        "reference": "step-04-repair-test.webp",
+        "prompt": "Recreate this supplied fictional EV charger repair/testing concept as a crisp premium photorealistic landscape image, 3:2 framing, natural workshop light, subtle green and neutral palette. A qualified technician's gloved hands using red and black multimeter probes at two clearly separate exposed low-voltage terminal test points on a disconnected wallbox control assembly, on an antistatic workbench. Off/blank multimeter screen is visible to the side with NO readings or printed labels. No plugged-in mains, energized LEDs, soldering iron or sparks. Plausible relays, terminal connectors and components, realistic probe-to-terminal contact. Keep composition focused on the work area with no faces, unlike the assessment scene. No readable text, logos, letters, garbled marks, numbers, prices, PASS results, checkmarks or certifications. No collage border."
+      },
+      "masterSha256": "934f777ee6175e333eb1cf11f33d1d0190d0e2e2a0f9144bbee4459d50e6a6ec",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/step-04-repair-test-320.webp",
+          "width": 320,
+          "height": 213,
+          "bytes": 18386,
+          "sha256": "0f5c3149a342f9473d5c4f70dcb13fd9bc5adefc563e6341c7656ed945fa3480"
+        },
+        {
+          "src": "/assets/visual-storytelling/step-04-repair-test-640.webp",
+          "width": 640,
+          "height": 427,
+          "bytes": 54540,
+          "sha256": "22120aa60b3a9791e520da441577bdf1f7b02688990e056dd39964bb0422f4e9"
+        },
+        {
+          "src": "/assets/visual-storytelling/step-04-repair-test-1280.webp",
+          "width": 1280,
+          "height": 853,
+          "bytes": 157344,
+          "sha256": "5cce4e775a2abdc868e5466979bde99e1e53a05bcc1cb5a924df5223f0dbd614"
+        }
+      ]
+    },
+    {
+      "id": "step5",
+      "file": "secure-return",
+      "alt": "Fictional wallbox charger and coiled cable protected by fitted packaging, beside an unlabelled documentation folder.",
+      "master": "frontend/visual-storytelling-sources/secure-return.webp",
+      "width": 1536,
+      "height": 1024,
+      "origin": {
+        "kind": "built-in image generation replacement",
+        "replaces": "step-05-return.webp",
+        "prompt": "Premium photorealistic editorial concept for RushX independent EV charger repair education. Match the supplied reference's natural workshop lighting, restrained charcoal and silver equipment, subtle green PCB/green accents and realistic scale. Landscape 3:2 composition, full frame with no contact-sheet borders, no collages. Fictional illustrative scene, not a real RushX facility. Absolutely no readable text, logos, numbers, prices, PASS labels, certification marks, customer information or watermarks. Keep electronics plausible, hands anatomically correct, equipment safely disconnected. Securely packaged generic EV wallbox charger in an open plain kraft shipping carton, snug molded protective foam, cable coiled in its own compartment, with a blank generic documentation folder resting beside the carton. Show actual packaging protection and the charger shape. No printed shipping branding, labels, stamps, text, warranty or repaired/tested claims. Natural light, clean dispatch tabletop, no people or tools. Not a closed branded cardboard box."
+      },
+      "masterSha256": "633514534f38055b7a1014374b83aea5fe95bd5c8d7041d291dc2a78b015724a",
+      "outputs": [
+        {
+          "src": "/assets/visual-storytelling/secure-return-320.webp",
+          "width": 320,
+          "height": 213,
+          "bytes": 10686,
+          "sha256": "7a8a7cc5e1f0fa7cbd37d18c5e3c4229947468b96e6213ae9ced1e96ddd85b6b"
+        },
+        {
+          "src": "/assets/visual-storytelling/secure-return-640.webp",
+          "width": 640,
+          "height": 427,
+          "bytes": 28686,
+          "sha256": "e227051b5643d5438b2213bece40613a6a5d05a8618cc6e55da6c97e0bd6dbdb"
+        },
+        {
+          "src": "/assets/visual-storytelling/secure-return-1280.webp",
+          "width": 1280,
+          "height": 853,
+          "bytes": 108374,
+          "sha256": "81609c3ea451b2149276946ebab62287e97d9591eb93816330b62cbc9f9e6e74"
+        }
+      ]
+    }
+  ]
+}
