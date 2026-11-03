@@ -55,7 +55,8 @@ export default {
       },
     },
   },
-  initialGlobals: { theme: "light" },
+  // Playwright owns automated axe scans; avoid a concurrent addon engine.
+  initialGlobals: { theme: "light", a11y: { manual: true } },
   parameters: {
     layout: "fullscreen",
     options: {
