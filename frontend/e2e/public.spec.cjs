@@ -336,13 +336,13 @@ test("Google entry remains same-origin and resumes the pending repair after call
   await expect(page.locator("h1")).toContainText(/repair/i);
 });
 for (const [route, count] of [
-  ["/", 1],
+  ["/", 2],
   ["/services", 4],
-  ["/how-it-works", 0],
+  ["/how-it-works", 5],
   ["/about", 1],
 ])
   for (const theme of ["light", "dark"])
-    test(`technical art ${route} / ${theme}`, async ({ page }) => {
+    test(`visual storytelling ${route} / ${theme}`, async ({ page }) => {
       await page.addInitScript((t) => {
         localStorage.setItem("rushx-theme", t);
         window.__artCLS = 0;
@@ -354,14 +354,14 @@ for (const [route, count] of [
       await page.goto(route);
       await expect(page.locator("h1")).toBeVisible();
       const titleBefore = await page.locator("h1").boundingBox();
-      const images = page.locator("img.rx-technical-image");
+      const images = page.locator(".rx-story-image img");
       await expect(images).toHaveCount(count);
       for (const img of await images.all()) {
         expect((await img.getAttribute("alt")).length).toBeGreaterThan(30);
-        expect(await img.getAttribute("srcset")).toContain("480w");
+        expect(await img.getAttribute("srcset")).toMatch(/\d+w/);
         expect(await img.getAttribute("sizes")).toBeTruthy();
-        expect(await img.getAttribute("width")).toBe("1440");
-        expect(await img.getAttribute("height")).toBe("960");
+        expect(Number(await img.getAttribute("width"))).toBeGreaterThan(0);
+        expect(Number(await img.getAttribute("height"))).toBeGreaterThan(0);
         await img.scrollIntoViewIfNeeded();
         await img.evaluate((i) => i.decode());
         expect(
@@ -373,15 +373,24 @@ for (const [route, count] of [
           ),
         ).toBe(true);
         expect(await img.getAttribute("loading")).toBe(
-          route === "/" ? "eager" : "lazy",
+          (await img.getAttribute("fetchpriority")) === "high"
+            ? "eager"
+            : "lazy",
         );
-        expect(await img.getAttribute("fetchpriority")).toBe(
-          route === "/" ? "high" : null,
+        expect(await img.getAttribute("src")).toContain(
+          "/assets/visual-storytelling/",
         );
       }
-      await expect(page.locator(".rx-process-art")).toHaveCount(
-        route === "/how-it-works" ? 5 : 0,
-      );
+      await expect(page.locator(".rx-process-art")).toHaveCount(0);
+      await expect(page.locator(".rx-story-coverage")).toHaveCount(1);
+      await expect(page.locator(".rx-final")).toHaveCount(0);
+      const assetIds = await page
+        .locator("[data-story-asset]")
+        .evaluateAll((nodes) => nodes.map((n) => n.dataset.storyAsset));
+      expect(new Set(assetIds).size).toBe(count);
+      await expect(
+        page.locator('.rx-story-image img[fetchpriority="high"]'),
+      ).toHaveCount(route === "/" || route === "/about" ? 1 : 0);
       await page.evaluate(() => scrollTo(0, 0));
       await page.evaluate(
         () =>
