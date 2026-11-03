@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Loader2, Wrench, MapPin, Info, ShieldCheck, FileText, Calendar, Check, X, XCircle } from "lucide-react";
 import { api, inr } from "@/lib/api";
 import { CustomerShell } from "@/components/layout/CustomerShell";
+import { RepairStatus } from "../../components/patterns/RepairStatus";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -95,7 +96,7 @@ export default function RepairDetail() {
                   <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(r.created_at).toLocaleString("en-IN")}</p>
                 </div>
               </div>
-              <Badge className="rounded-full bg-secondary text-foreground" data-testid="detail-status">{STATUS_LABEL[r.status] || r.status}</Badge>
+              <RepairStatus status={r.status} data-testid="detail-status" />
             </div>
 
             <div className="mt-6 rounded-xl border border-border/60 p-4">

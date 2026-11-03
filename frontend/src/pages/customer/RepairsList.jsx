@@ -4,9 +4,8 @@ import { motion } from "framer-motion";
 import { Wrench, ChevronRight, Plus, Calendar } from "lucide-react";
 import { CustomerShell } from "@/components/layout/CustomerShell";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { RepairStatus } from "../../components/patterns/RepairStatus";
 
-import { REPAIR_STATUS_LABEL as STATUS_LABEL } from "../../lib/repairStatus";
 
 export default function RepairsList() {
   const navigate = useNavigate();
@@ -43,7 +42,7 @@ export default function RepairsList() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-semibold">{r.repair_request_number}</span>
-                    <Badge className="rounded-full bg-secondary text-foreground text-[11px]">{STATUS_LABEL[r.status] || r.status}</Badge>
+                    <RepairStatus status={r.status} />
                   </div>
                   <p className="text-sm text-muted-foreground truncate mt-0.5">
                     {(r.charger_info?.brand || r.charger_id || "Charger")}{r.charger_info?.model ? ` · ${r.charger_info.model}` : ""} — {r.problem_description}

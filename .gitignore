@@ -96,3 +96,8 @@ frontend/node_modules/.cache/default-development/6.pack
 
 # Local browser test artifacts
 frontend/e2e/test-results/
+
+# Local Storybook output
+frontend/storybook-static/
+
+frontend/e2e/test-results-storybook/
