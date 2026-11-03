@@ -4,7 +4,7 @@ The living reference is React Storybook (`cd frontend && yarn storybook`). The i
 
 ## Audit and provenance
 
-Issue #15 builds on PR #14 at `1eb3a6f`, which remains unmerged. The new branch is stacked on `feature/rushx-public-service-education`; its draft PR targets that branch so reviewers see only design-system work. Merge/review #14 separately first, then retarget this PR to `repair-mvp` and rerun checks. Do not overwrite #14 or cherry-pick its pages into production as part of this task. OTP PR #12 is not included. Its shared App/Login/CI work needs integration testing when it is eventually reviewed; this branch does not change auth endpoints, OTP logic, cookies, Google OIDC, WhatsApp consent or backend state machines. Existing Git stashes are retained.
+Issue #17 is implemented on `feature/rushx-unified-design-system`, based on unmerged PR #14 at `1eb3a6f`. Its draft targets `feature/rushx-public-service-education`. It reuses the two reviewed foundation patches from PR #16 (`3417171`, `355beaa`) by cherry-pick, then extends login/dashboard presentation, qualified copy, public navigation and regression coverage. PR #14 and PR #16 remain untouched and unmerged. This consolidates the overlapping design-system work: do not independently merge duplicate foundation patches from both #16 and this PR. Review the consolidation, merge #14 separately when authorized, then retarget/rebase the chosen design-system PR onto `repair-mvp` and rerun checks. OTP PR #12 is excluded. Authentication handlers, cookies, endpoints, repair state transitions and WhatsApp consent remain unchanged; existing stashes are preserved.
 
 ### Existing source facts
 
@@ -64,7 +64,7 @@ Do not use bright `text-charging` for small text on a white surface. Use `brand-
 
 Storybook's toolbar controls this same provider through its optional `theme` / `onThemeChange` props. The shared ThemeToggle updates the toolbar and persistence; there is no independent Storybook theme stylesheet. Background controls are disabled intentionally so the canvas always reflects the semantic app background. Viewport controls cover 320/375 mobile, 768 tablet and 1280 desktop. The preview iframe changes theme; the Storybook manager chrome follows Storybook's own defaults.
 
-The manageable migration includes Button/Input touch sizes and focus, shared ThemeToggle in public/customer/owner/admin shells, token-based public interface colors, dashboard card geometry, extracted ServiceCard/RepairJourney/FAQ, and RepairStatus used in list/detail screens. Authentication forms and repair business behavior remain untouched. Other legacy one-off colors, estimate-status combinations, map/chart UI, unused Navbar/Footer and remaining layout dimensions are explicitly outside this first migration; do not interpret this as a full visual certification of every screen.
+The manageable migration includes Button/Input touch sizes and focus, shared ThemeToggle in public/customer/owner/admin shells, token-based public interface colors, dashboard card geometry, extracted ServiceCard/RepairJourney/FAQ, and RepairStatus used in list/detail screens. Authentication handlers and repair business behavior remain untouched; login presentation now uses a shared LoginLayout without moving form state or provider calls. Other legacy one-off colors, estimate-status combinations, map/chart UI, unused Navbar/Footer and remaining layout dimensions are explicitly outside this first migration; do not interpret this as a full visual certification of every screen.
 
 - Button: primary for the next action, outline/secondary for alternatives, destructive only for destructive actions. Navigation uses `asChild` with a Link. Keep a visible label when loading, disable duplicate actions, and use `aria-busy`; do not replace meaning with a spinner alone. Loading is shown as a composition of existing props, not new business logic.
 - Input: always provide a visible label, stable id and help/error association. Use `aria-invalid` and `aria-describedby` for errors. Do not use placeholders as labels. Disabled is not read-only; choose deliberately.
@@ -110,12 +110,21 @@ No deployment is configured for Storybook. `storybook-static` is ignored build o
 
 ## Evidence for this draft
 
-Local validation: **151 frontend tests**, **99 Storybook browser checks** (23 stories in two themes/two widths plus visual/theme/manager checks) and **36 public/app browser checks** passed. Both production app build and static Storybook build pass; `yarn storybook --ci` served the manager successfully on loopback. The public homepage is additionally checked with axe in light and dark modes. Representative reviewed screenshots:
+Local validation for issue #17: **158 frontend tests**, **119 Storybook browser checks** (28 stories in two themes/two widths plus visual/theme/manager checks) and **52 public/app browser checks** passed. Both production app build and static Storybook build pass; `yarn storybook --ci` served the manager successfully on loopback. The public homepage is additionally checked with axe in light and dark modes. Representative reviewed screenshots:
 
 - [Storybook desktop / dark](design-system/screenshots/storybook-desktop-dark.png)
-- [Public homepage / dark](design-system/screenshots/public-desktop-dark.png)
-- [Illustrative customer screen / dark](design-system/screenshots/customer-desktop-dark.png)
+- [Public homepage / dark](unified-design-system/screenshots/after/1280/home-dark.png)
+- [Illustrative customer screen / dark](unified-design-system/screenshots/after/1280/dashboard-dark.png)
 - [Mobile service cards / light](../frontend/e2e/storybook-snapshots/darwin/375/services-light.png)
 - [Mobile service cards / dark](../frontend/e2e/storybook-snapshots/darwin/375/services-dark.png)
 
 Linux baselines were generated on Ubuntu 22.04 in bootstrap run `41582642965`, then reviewed and committed. Normal CI uses strict comparisons with no automatic updates. The initial runner exposed a concurrent axe-engine conflict: the addon is now manual-on-demand, while Playwright is the sole automated accessibility runner to prevent overlapping scans with different engine versions. All displayed customer data is synthetic.
+
+
+## Issue #17 migration notes
+
+LoginLayout preserves the desktop two-column shell and mobile form layout while sharing Logo, ThemeToggle and semantic surfaces. Both desktop and mobile show the repair-first mission; model/fault/parts/testing caveats replace claims about repairing any brand. Form state, OTP payloads, Google entry URL and the existing allowlisted return destination remain in Login. RepairCTA and EmptyState are pure presentation used by the real customer dashboard and Storybook. SidebarLinks preserves the customer routes, active states and mobile drawer callback while adding Explore RushX. Owner/admin shells also expose a public-site return. No API is imported by these presentation components.
+
+`public/theme-init.js` performs a read-only pre-paint initialization before application bundles load. It mirrors the validated `rushx-theme`/system fallback contract; it owns no state, listeners or persistence and introduces no second theme provider. ThemeContext remains authoritative after React mounts. Unit tests cover invalid/blocked storage and preference precedence; a browser regression blocks React bundles to verify early theme application.
+
+The expanded Storybook adds real LoginLayout, SidebarLinks, EmptyState and RepairCTA, plus a synthetic dashboard composition. The existing FAQ story is the native accessible accordion. Live authentication is deliberately not mounted in stories. The new public/app browser regressions audit all three real screens in both themes at 320, 375, 768 and 1280px, exercise navigation back to the public site and persistence across refresh, and intercept the same-origin Google entry before simulating callback completion. Provider delivery is not inferred from these mocks. See [before/after QA and outstanding issues](unified-design-system/QA.md).

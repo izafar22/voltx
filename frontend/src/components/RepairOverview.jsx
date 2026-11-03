@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Wrench } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useMyRepairs } from "../hooks/useMyRepairs";
 import { REPAIR_STATUS_LABEL } from "../lib/repairStatus";
+import { EmptyState } from "./patterns/CustomerPatterns";
 import { Button } from "./ui/button";
 
 export function RepairOverview() {
@@ -18,7 +19,7 @@ export function RepairOverview() {
     ) : isError ? (
       <div role="alert" className="dashboard-card p-5"><p>Unable to load repair requests.</p><Button variant="outline" className="mt-3 min-h-11" onClick={() => refetch()}>Retry</Button></div>
     ) : repairs.length === 0 ? (
-      <div className="dashboard-card p-6"><Wrench aria-hidden="true" className="h-6 w-6 text-muted-foreground mb-3" /><p className="font-medium">No repair requests yet</p><p className="text-sm text-muted-foreground mt-2">Start with Repair a Charger. Your requests and status updates will appear here.</p></div>
+      <EmptyState title="No repair requests yet" description="Start with Repair a Charger. Your requests and status updates will appear here." />
     ) : (
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {repairs.slice(0, 6).map((repair) => (

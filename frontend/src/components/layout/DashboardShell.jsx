@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { PublicSiteLink } from "./SidebarLinks";
 import { ThemeToggle } from "../ThemeToggle";
 import { Logo } from "@/components/Logo";
 
@@ -27,6 +28,7 @@ export const DashboardShell = ({ children, nav, title }) => {
           </Link>
         );
       })}
+      <PublicSiteLink onClick={() => setOpen(false)} />
     </nav>
   );
 
