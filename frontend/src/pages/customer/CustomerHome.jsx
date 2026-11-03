@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { QrCode, Plus, Zap, ArrowRight, Navigation, Wrench } from "lucide-react";
+import { QrCode, Plus, Zap, ArrowRight, Navigation } from "lucide-react";
 import { api, inr } from "../../lib/api";
 import { getStatusGroup } from "../../lib/stationStatus";
 import { useAuth } from "../../context/AuthContext";
@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
 import { FEATURES } from "../../config/features";
+import { RepairCTA } from "../../components/patterns/CustomerPatterns";
 import { RepairOverview } from "../../components/RepairOverview";
 import "./CustomerHome.css";
 
@@ -69,10 +70,7 @@ export default function CustomerHome() {
     <div><p className="text-sm text-muted-foreground">Welcome back</p><h1 className="font-display text-2xl lg:text-3xl font-semibold tracking-tight break-words">{user?.name || "Your repair dashboard"}</h1></div>
     {FEATURES.charging && active && <button onClick={() => navigate(`/app/live/${active.session_id}`)} data-testid="active-session-banner" className="dashboard-active"><span><strong>Charging in progress</strong><span className="block text-sm">{active.charger_name}</span></span><ArrowRight aria-hidden="true" className="h-5 w-5" /></button>}
     {FEATURES.repair && <>
-      <section className="dashboard-repair-hero dashboard-card" aria-labelledby="repair-title">
-        <div><p className="text-sm text-muted-foreground mb-2">Charger repair, any brand</p><h2 id="repair-title" className="font-display text-2xl font-semibold">Get your charger working again</h2><p className="text-sm text-muted-foreground mt-3">Request a repair for your AC, DC or portable charger and track its progress with RushX.</p></div>
-        <Button data-testid="repair-charger-btn" onClick={() => navigate("/repairs/new")} className="dashboard-repair-cta"><Wrench aria-hidden="true" className="h-5 w-5 mr-2 shrink-0" />Repair a Charger<ArrowRight aria-hidden="true" className="h-4 w-4 ml-2 shrink-0" /></Button>
-      </section>
+      <RepairCTA onRequest={() => navigate("/repairs/new")} />
       <RepairOverview />
     </>}
     {(showMap || showSupport) && <div className={`dashboard-grid${showMap ? " dashboard-grid-with-map" : ""}`}>

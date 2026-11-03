@@ -58,3 +58,15 @@ jobs:
         with:
           name: public-education-browser-results
           path: frontend/e2e/test-results
+      - name: Build isolated RushX Storybook
+        run: cd frontend && yarn build-storybook
+      - name: Storybook smoke, accessibility and visual checks
+        run: cd frontend/e2e && npx playwright test --config storybook.playwright.config.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: storybook-review-results
+          path: |
+            frontend/e2e/test-results
+            frontend/e2e/test-results-storybook
+            frontend/e2e/storybook-snapshots

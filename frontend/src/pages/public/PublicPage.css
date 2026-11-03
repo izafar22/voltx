@@ -1,10 +1,10 @@
 .rx-public {
-  --ink: #172e25;
-  --muted: #536359;
-  --line: #d9e1d4;
-  background: #fafbf7;
+  --ink: hsl(var(--foreground));
+  --muted: hsl(var(--muted-foreground));
+  --line: hsl(var(--border));
+  background: hsl(var(--background));
   color: var(--ink);
-  font-family: Manrope, sans-serif;
+  font-family: var(--font-body);
   line-height: 1.7;
 }
 .rx-public * {
@@ -15,13 +15,13 @@
   text-decoration: none;
 }
 .rx-public :is(a, button, summary):focus-visible {
-  outline: 3px solid #38764a;
+  outline: 3px solid hsl(var(--ring));
   outline-offset: 5px;
 }
 .rx-public h1,
 .rx-public h2,
 .rx-public h3 {
-  font-family: Outfit, sans-serif;
+  font-family: var(--font-display);
   font-weight: 500;
   letter-spacing: -0.035em;
   line-height: 1.12;
@@ -41,7 +41,7 @@
 }
 .rx-public em {
   font-style: normal;
-  color: #507549;
+  color: hsl(var(--brand-foreground));
 }
 .rx-wrap {
   max-width: 1280px;
@@ -71,7 +71,7 @@
 }
 .rx-header nav a:hover,
 .rx-header nav .active {
-  color: #39703b;
+  color: hsl(var(--brand-foreground));
   text-decoration: underline;
   text-underline-offset: 7px;
 }
@@ -79,7 +79,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid #a6b4a9;
+  border: 1px solid hsl(var(--input));
   border-radius: 7px;
   padding: 10px 15px;
 }
@@ -91,7 +91,7 @@
   font-size: 11px;
   letter-spacing: 0.12em;
   font-weight: 700;
-  color: #426449;
+  color: hsl(var(--brand-foreground));
   margin: 0 0 22px;
   display: flex;
   align-items: center;
@@ -130,14 +130,14 @@
   gap: 25px;
   padding: 15px 22px;
   border-radius: 7px;
-  background: var(--ink);
-  color: white !important;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground)) !important;
   font-weight: 600;
   font-size: 14px;
   border: 1px solid var(--ink);
 }
 .rx-button:hover {
-  background: #31553e;
+  background: hsl(var(--primary) / 0.9);
 }
 .rx-button.rx-secondary {
   background: transparent;
@@ -159,6 +159,7 @@
   margin-top: 26px;
 }
 .rx-illustration {
+  color: #172e25; /* Fixed light illustration surface in both UI themes. */
   position: relative;
   height: 390px;
   border-radius: 12px;
@@ -333,50 +334,8 @@
   max-width: 350px;
   font-size: 14px;
 }
-.rx-service-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-.rx-service-card {
-  padding: 26px 22px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: white;
-  transition:
-    transform 0.15s,
-    border-color 0.15s;
-}
-.rx-service-card:hover {
-  transform: translateY(-4px);
-  border-color: #6a895b;
-}
-.rx-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  margin-bottom: 40px;
-  color: #507546;
-}
-.rx-card-top > span {
-  font-family: monospace;
-  font-size: 11px;
-  color: #778677;
-}
-.rx-service-card p {
-  font-size: 13px;
-  min-height: 64px;
-}
-.rx-card-link {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  font-weight: 600;
-  margin-top: 24px;
-}
 .rx-mission {
-  background: #edf1e7;
+  background: hsl(var(--secondary));
   padding: 65px 0;
 }
 .rx-split {
@@ -386,33 +345,6 @@
 }
 .rx-split > div {
   max-width: 650px;
-}
-.rx-journey {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 25px;
-  list-style: none;
-  padding: 0;
-  margin: 40px 0 0;
-}
-.rx-step {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 39px;
-  height: 39px;
-  background: #e5edda;
-  border: 1px solid #cedcbc;
-  border-radius: 50%;
-  font-family: monospace;
-  font-size: 12px;
-  margin-bottom: 24px;
-}
-.rx-journey h3 {
-  font-size: 18px;
-}
-.rx-journey p {
-  font-size: 12px;
 }
 .rx-coverage {
   border-block: 1px solid var(--line);
@@ -432,7 +364,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid #cbd7c2;
+  border: 1px solid hsl(var(--brand-border));
   border-radius: 25px;
   padding: 8px 14px;
   font-size: 13px;
@@ -448,42 +380,12 @@
 .rx-faq-preview .rx-text-link {
   margin-top: 24px;
 }
-.rx-questions details {
-  border-bottom: 1px solid var(--line);
-}
-.rx-questions summary {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 22px;
-  padding: 23px 0;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.rx-questions summary::-webkit-details-marker {
-  display: none;
-}
-.rx-questions summary > span {
-  font-size: 22px;
-  font-weight: 400;
-  flex-shrink: 0;
-}
-.rx-questions details[open] summary > span {
-  transform: rotate(45deg);
-}
-.rx-questions details p {
-  font-size: 14px;
-  margin-top: 0;
-  padding-right: 28px;
-}
 .rx-final {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 35px;
-  background: #daeac5;
+  background: hsl(var(--brand-surface));
   padding: 45px 50px;
   border-radius: 12px;
   margin-bottom: 75px;
@@ -498,7 +400,7 @@
   flex-shrink: 0;
 }
 .rx-footer {
-  background: #f0f3ec;
+  background: hsl(var(--secondary));
   border-top: 1px solid var(--line);
   padding-top: 45px;
 }
@@ -562,10 +464,10 @@
 }
 .rx-service-detail > div > svg {
   margin-bottom: 20px;
-  color: #53774b;
+  color: hsl(var(--brand-foreground));
 }
 .rx-detail-notes {
-  background: #eff3e9;
+  background: hsl(var(--secondary));
   padding: 28px;
   border-radius: 10px;
 }
@@ -598,8 +500,8 @@
   flex-shrink: 0;
 }
 .rx-notice {
-  background: #eff2e9;
-  border-left: 3px solid #708c59;
+  background: hsl(var(--secondary));
+  border-left: 3px solid hsl(var(--brand-border));
   padding: 22px;
   font-size: 14px;
   margin-bottom: 50px !important;
@@ -615,13 +517,13 @@
   margin-bottom: 20px;
 }
 .rx-about-statement {
-  background: var(--ink);
-  color: #f5f7eb;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   border-radius: 12px;
   padding: 45px;
 }
 .rx-about-statement em {
-  color: #c9f374;
+  color: hsl(var(--brand-foreground));
 }
 .rx-about-statement h2 {
   margin-top: 45px;
@@ -647,9 +549,9 @@
   top: -100px;
   left: 16px;
   z-index: 99;
-  background: white;
+  background: hsl(var(--card));
   padding: 12px 20px;
-  border: 2px solid #28784b;
+  border: 2px solid hsl(var(--ring));
 }
 .rx-skip:focus {
   top: 10px;
@@ -678,16 +580,6 @@
   .rx-board {
     right: 6%;
     width: 108px;
-  }
-  .rx-service-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .rx-service-card p {
-    min-height: 0;
-  }
-  .rx-journey {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 30px;
   }
   .rx-section {
     padding-block: 55px;
@@ -725,13 +617,13 @@
     top: 100%;
     left: 0;
     right: 0;
-    background: #fafbf7;
+    background: hsl(var(--background));
     border-bottom: 1px solid var(--line);
     padding: 15px 22px;
     flex-direction: column;
     align-items: stretch;
     gap: 0;
-    box-shadow: 0 15px 20px #152b2410;
+    box-shadow: 0 15px 20px hsl(var(--foreground) / 0.08);
   }
   .rx-header nav.is-open {
     display: flex;
@@ -792,21 +684,6 @@
   .rx-section-heading > .rx-text-link {
     margin-top: 20px;
   }
-  .rx-service-grid {
-    gap: 12px;
-  }
-  .rx-service-card {
-    padding: 20px 16px;
-  }
-  .rx-card-top {
-    margin-bottom: 30px;
-  }
-  .rx-service-card h3 {
-    font-size: 20px;
-  }
-  .rx-card-link {
-    font-size: 11px;
-  }
   .rx-split,
   .rx-coverage,
   .rx-faq-preview,
@@ -817,36 +694,6 @@
   }
   .rx-mission {
     padding: 45px 0;
-  }
-  .rx-journey {
-    grid-template-columns: 1fr;
-    gap: 0;
-    margin-top: 30px;
-  }
-  .rx-journey li {
-    position: relative;
-    padding: 0 0 28px 65px;
-    min-height: 100px;
-  }
-  .rx-journey li:not(:last-child):before {
-    content: "";
-    position: absolute;
-    left: 19px;
-    top: 40px;
-    bottom: 0;
-    border-left: 1px solid #ccd9c2;
-  }
-  .rx-step {
-    position: absolute;
-    left: 0;
-    top: 0;
-  }
-  .rx-journey h3 {
-    padding-top: 7px;
-  }
-  .rx-journey p {
-    font-size: 14px;
-    margin-top: 12px;
   }
   .rx-final {
     display: block;
@@ -893,25 +740,10 @@
   .rx-about-statement h2 {
     font-size: 3rem;
   }
-  .rx-questions summary {
-    font-size: 14px;
-  }
-  .rx-questions details p {
-    padding-right: 0;
-  }
 }
 @media (max-width: 360px) {
   .rx-wrap {
     padding-inline: 18px;
-  }
-  .rx-service-grid {
-    grid-template-columns: 1fr;
-  }
-  .rx-service-card p {
-    font-size: 14px;
-  }
-  .rx-card-top {
-    margin-bottom: 25px;
   }
   .rx-public h1 {
     font-size: 2.5rem;
@@ -957,5 +789,59 @@
 @media (max-width: 760px) {
   .rx-about-statement h2 {
     font-size: clamp(1.8rem, 8vw, 3rem);
+  }
+}
+
+.rx-about-statement em {
+  color: hsl(var(--primary-foreground));
+}
+
+.rx-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  order: 3;
+}
+@media (max-width: 760px) {
+  .rx-header-actions {
+    margin-left: auto;
+  }
+}
+/* Match the application's tablet navigation density without squeezing links. */
+@media (min-width: 761px) and (max-width: 900px) {
+  .rx-menu-toggle {
+    display: flex;
+    padding: 9px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: transparent;
+  }
+  .rx-header-actions {
+    margin-left: auto;
+  }
+  .rx-header nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: hsl(var(--background));
+    border-bottom: 1px solid var(--line);
+    padding: 15px 30px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    box-shadow: var(--shadow-overlay);
+  }
+  .rx-header nav.is-open {
+    display: flex;
+  }
+  .rx-header nav a {
+    padding: 12px;
+    font-size: 14px;
+  }
+  .rx-account {
+    margin-top: 8px;
+    justify-content: space-between;
   }
 }

@@ -18,7 +18,7 @@ jest.mock('react-router-dom', () => {
   return require(entry);
 }, { virtual: true });
 jest.mock('@/App.css', () => ({}), { virtual: true });
-jest.mock('@/context/ThemeContext', () => ({ ThemeProvider: ({ children }) => children }), { virtual: true });
+jest.mock('@/context/ThemeContext', () => ({ ThemeProvider: ({ children }) => children, useTheme: () => ({ theme: "light", toggle: jest.fn() }) }), { virtual: true });
 jest.mock('@/context/AuthContext', () => ({ AuthProvider: ({ children }) => children, useAuth: () => ({ user: mockUser, loading: mockLoading }) }), { virtual: true });
 jest.mock('./context/AuthContext', () => ({ useAuth: () => ({ user: mockUser, loading: mockLoading }) }));
 jest.mock('@/components/ui/sonner', () => ({ Toaster: () => null }), { virtual: true });

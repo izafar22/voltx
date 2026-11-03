@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { readRepairDestination, takeRepairDestination } from "../lib/repairDestination";
 import { FEATURES } from "../config/features";
-import { PRODUCT_NAME } from "../config/brand";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { homeFor } from "../components/ProtectedRoute";
-import { Logo } from "../components/Logo";
+import { LoginLayout } from "../components/layout/LoginLayout";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 
@@ -95,12 +94,7 @@ export default function Login() {
   const changePhone = () => { setStep("phone"); setChallenge(null); setRegistrationToken(null); setOtp(""); setError(""); };
   if (checking) return <p role="status" className="p-8">Checking your session…</p>;
   if (user) return <AuthenticatedRedirect user={user} destination={completedDestination.current} />;
-  return <div className="min-h-screen grid lg:grid-cols-2">
-    <div className="hidden lg:flex flex-col justify-between bg-primary text-primary-foreground p-12">
-      <Logo />{FEATURES.repair && !FEATURES.charging ? <div><h2 className="font-display text-5xl font-light leading-tight">Get your charger<br /><span className="text-charging font-medium">working again.</span></h2><p className="mt-5 opacity-70 max-w-sm">Repair AC, DC or portable chargers of any brand. Request a repair and track its progress with RushX.</p></div> : <div><h2 className="font-display text-5xl font-light leading-tight">Charge<br />as fast as<br /><span className="text-charging font-medium">you pay.</span></h2><p className="mt-5 opacity-70 max-w-sm">Find your next charge. Navigate, connect, and manage your charging across India.</p></div>}<p className="text-sm opacity-60">{PRODUCT_NAME} {FEATURES.repair && !FEATURES.charging ? "Charger Repair" : "Network"}</p>
-    </div>
-    <div className="flex items-center justify-center p-6"><div className="w-full max-w-sm space-y-6">
-      <div className="lg:hidden"><Logo /></div>
+  return <LoginLayout repairMode={FEATURES.repair && !FEATURES.charging}>
       {authError && <div role="alert"><p>{authError}</p><button onClick={loadMe} className="underline">Retry session check</button></div>}
       {error && <p id="auth-error" role="alert" className="text-sm text-destructive">{error}</p>}
       {step === "phone" && <form onSubmit={(event) => { event.preventDefault(); requestCode(); }} className="space-y-5" data-testid="phone-step">
@@ -126,6 +120,5 @@ export default function Login() {
         <Button type="submit" disabled={busy} className="w-full h-12">{busy ? "Creating account…" : "Create account"}</Button>
       </form>}
       {step !== "phone" && <button type="button" onClick={changePhone} disabled={busy} className="text-sm underline focus-visible:outline focus-visible:outline-2" data-testid="change-phone-btn">Change phone number</button>}
-    </div></div>
-  </div>;
+  </LoginLayout>;
 }

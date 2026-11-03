@@ -9,9 +9,15 @@ import {
   Check,
   MapPin,
 } from "lucide-react";
+import { ThemeToggle } from "../../components/ThemeToggle";
 import { Logo } from "../../components/Logo";
 import { useAuth } from "../../context/AuthContext";
 import { homeFor } from "../../components/ProtectedRoute";
+import {
+  RepairJourney,
+  FAQ,
+  ServiceCard,
+} from "../../components/patterns/RepairPatterns";
 import { services, steps, faqs } from "./content";
 import "./PublicPage.css";
 const nav = [
@@ -51,34 +57,6 @@ const RepairLink = ({ children = "Request a repair", secondary = false }) => (
     <ArrowUpRight size={18} aria-hidden="true" />
   </Link>
 );
-function Journey() {
-  return (
-    <ol className="rx-journey">
-      {steps.map(([title, text], i) => (
-        <li key={title}>
-          <span className="rx-step">0{i + 1}</span>
-          <h3>{title}</h3>
-          <p>{text}</p>
-        </li>
-      ))}
-    </ol>
-  );
-}
-function Questions({ compact = false }) {
-  return (
-    <div className="rx-questions">
-      {faqs.slice(0, compact ? 4 : undefined).map(([q, a]) => (
-        <details key={q}>
-          <summary>
-            {q}
-            <span aria-hidden="true">+</span>
-          </summary>
-          <p>{a}</p>
-        </details>
-      ))}
-    </div>
-  );
-}
 function Coverage() {
   return (
     <section className="rx-coverage rx-section">
@@ -237,15 +215,18 @@ export default function PublicPage() {
           <Link to="/" aria-label="RushX home">
             <Logo />
           </Link>
-          <button
-            className="rx-menu-toggle"
-            aria-label={open ? "Close menu" : "Open menu"}
-            aria-expanded={open}
-            aria-controls="public-navigation"
-            onClick={() => setOpen(!open)}
-          >
-            {open ? <X /> : <Menu />}
-          </button>
+          <div className="rx-header-actions">
+            <ThemeToggle />
+            <button
+              className="rx-menu-toggle"
+              aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+              aria-controls="public-navigation"
+              onClick={() => setOpen(!open)}
+            >
+              {open ? <X /> : <Menu />}
+            </button>
+          </div>
           <nav
             id="public-navigation"
             aria-label="Main navigation"
@@ -333,23 +314,8 @@ export default function PublicPage() {
                 </p>
               </div>
               <div className="rx-service-grid">
-                {services.map(({ id, icon: Icon, name, short }, i) => (
-                  <Link
-                    className="rx-service-card"
-                    to={`/services#${id}`}
-                    key={id}
-                  >
-                    <div className="rx-card-top">
-                      <Icon size={30} aria-hidden="true" />
-                      <span>0{i + 1}</span>
-                    </div>
-                    <h3>{name}</h3>
-                    <p>{short}</p>
-                    <span className="rx-card-link">
-                      Explore service{" "}
-                      <ArrowUpRight size={18} aria-hidden="true" />
-                    </span>
-                  </Link>
+                {services.map((service, i) => (
+                  <ServiceCard key={service.id} service={service} index={i} />
                 ))}
               </div>
             </section>
@@ -384,7 +350,7 @@ export default function PublicPage() {
                   See the full process <ArrowRight size={18} />
                 </Link>
               </div>
-              <Journey />
+              <RepairJourney steps={steps} />
             </section>
             <div className="rx-wrap">
               <Coverage />
@@ -396,7 +362,7 @@ export default function PublicPage() {
                     All questions <ArrowRight size={18} />
                   </Link>
                 </div>
-                <Questions compact />
+                <FAQ items={faqs.slice(0, 4)} />
               </section>
               <FinalCTA />
             </div>
@@ -482,7 +448,7 @@ export default function PublicPage() {
             )}
             {pathname === "/how-it-works" && (
               <>
-                <Journey />
+                <RepairJourney steps={steps} />
                 <section className="rx-preparation rx-section">
                   <div>
                     <p className="rx-eyebrow">Prepare your enquiry</p>
@@ -584,7 +550,7 @@ export default function PublicPage() {
             )}
             {pathname === "/faq" && (
               <section className="rx-all-faq">
-                <Questions />
+                <FAQ items={faqs} />
                 <p className="rx-notice">
                   Have an equipment-specific question?{" "}
                   <Link to="/repairs/new">Submit a repair enquiry</Link> with
