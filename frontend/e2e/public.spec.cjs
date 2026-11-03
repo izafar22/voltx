@@ -1,11 +1,13 @@
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
+const AxeBuilder = require("@axe-core/playwright").default;
 const path = require("path");
 const pages = ["/", "/services", "/about", "/how-it-works", "/faq"];
 test.beforeEach(async ({ page }) => {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (url.origin !== "http://127.0.0.1:3100") return route.abort();
+    if (url.pathname === "/api/repairs") return route.fulfill({ json: [] });
     if (url.pathname === "/api/auth/me")
       return route.fulfill({ status: 401, json: { detail: "Sign in" } });
     return route.continue();
@@ -35,7 +37,7 @@ for (const pathname of pages)
     await expect(
       page.getByRole("link", { name: "Request a repair", exact: true }).first(),
     ).toHaveAttribute("href", "/repairs/new");
-    if (Number(info.project.name) < 761) {
+    if (Number(info.project.name) < 901) {
       await page.getByRole("button", { name: "Open menu" }).click();
       await expect(
         page.getByRole("navigation", { name: "Main navigation" }),
@@ -136,9 +138,51 @@ test("Google callback session resumes intended repair and public home stays acce
   await expect(page).toHaveURL(/\/repairs\/new$/);
   await page.goto("/");
   await expect(page.locator("h1")).toContainText("Repair when possible.");
-  if (test.info().project.name === "320" || test.info().project.name === "375")
+  if (
+    test.info().project.name === "320" ||
+    test.info().project.name === "375" ||
+    test.info().project.name === "768"
+  )
     await page.getByRole("button", { name: "Open menu" }).click();
   await expect(
     page.getByRole("link", { name: "My account", exact: true }),
   ).toHaveAttribute("href", "/app");
+});
+
+test("public theme persists through existing login and an authenticated screen", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".rx-public")).toBeVisible();
+  expect((await new AxeBuilder({page}).include(".rx-public").withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze()).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))).toEqual([]);
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(page.locator("html")).toHaveCSS("color-scheme", "dark");
+  expect((await new AxeBuilder({page}).include(".rx-public").withTags(["wcag2a","wcag2aa","wcag21aa"]).analyze()).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))).toEqual([]);
+  const publicSurface = await page
+    .locator(".rx-public")
+    .evaluate((el) => getComputedStyle(el).backgroundColor);
+  await page
+    .getByRole("link", { name: "Request a repair", exact: true })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.locator("html")).toHaveCSS("color-scheme", "dark");
+  await page.route("**/api/auth/me", (r) =>
+    r.fulfill({
+      json: {
+        user_id: "demo",
+        role: "customer",
+        name: "Illustrative Customer",
+      },
+    }),
+  );
+  await page.goto("/app");
+  await expect(page.locator(".customer-shell")).toBeVisible();
+  expect(
+    await page
+      .locator(".customer-shell")
+      .evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).toBe(publicSurface);
+  await page.getByRole("button", { name: "Switch to light theme" }).click();
+  await expect(page.locator("html")).toHaveCSS("color-scheme", "light");
 });
