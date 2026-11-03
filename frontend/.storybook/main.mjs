@@ -4,6 +4,9 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export default {
+  staticDirs: [
+    { from: "../public/assets/illustrations", to: "/assets/illustrations" },
+  ],
   stories: ["../src/design-system/**/*.stories.jsx"],
   framework: { name: "@storybook/react-webpack5", options: {} },
   addons: [

@@ -17,6 +17,7 @@ http
       ".js": "application/javascript",
       ".css": "text/css",
       ".svg": "image/svg+xml",
+      ".webp": "image/webp",
       ".png": "image/png",
       ".woff2": "font/woff2",
     };

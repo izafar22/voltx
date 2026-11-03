@@ -335,3 +335,78 @@ test("Google entry remains same-origin and resumes the pending repair after call
   await expect(page).toHaveURL(/\/repairs\/new$/);
   await expect(page.locator("h1")).toContainText(/repair/i);
 });
+for (const [route, count] of [
+  ["/", 1],
+  ["/services", 4],
+  ["/how-it-works", 0],
+  ["/about", 1],
+])
+  for (const theme of ["light", "dark"])
+    test(`technical art ${route} / ${theme}`, async ({ page }) => {
+      await page.addInitScript((t) => {
+        localStorage.setItem("rushx-theme", t);
+        window.__artCLS = 0;
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries())
+            if (!e.hadRecentInput) window.__artCLS += e.value;
+        }).observe({ type: "layout-shift", buffered: true });
+      }, theme);
+      await page.goto(route);
+      await expect(page.locator("h1")).toBeVisible();
+      const titleBefore = await page.locator("h1").boundingBox();
+      const images = page.locator("img.rx-technical-image");
+      await expect(images).toHaveCount(count);
+      for (const img of await images.all()) {
+        expect((await img.getAttribute("alt")).length).toBeGreaterThan(30);
+        expect(await img.getAttribute("srcset")).toContain("480w");
+        expect(await img.getAttribute("sizes")).toBeTruthy();
+        expect(await img.getAttribute("width")).toBe("1440");
+        expect(await img.getAttribute("height")).toBe("960");
+        await img.scrollIntoViewIfNeeded();
+        await img.evaluate((i) => i.decode());
+        expect(
+          await img.evaluate(
+            (i) =>
+              i.naturalWidth > 0 &&
+              i.naturalHeight > 0 &&
+              new URL(i.currentSrc).origin === location.origin,
+          ),
+        ).toBe(true);
+        expect(await img.getAttribute("loading")).toBe(
+          route === "/" ? "eager" : "lazy",
+        );
+        expect(await img.getAttribute("fetchpriority")).toBe(
+          route === "/" ? "high" : null,
+        );
+      }
+      await expect(page.locator(".rx-process-art")).toHaveCount(
+        route === "/how-it-works" ? 5 : 0,
+      );
+      await page.evaluate(() => scrollTo(0, 0));
+      await page.evaluate(
+        () =>
+          new Promise((r) =>
+            requestAnimationFrame(() => requestAnimationFrame(r)),
+          ),
+      );
+      const titleAfter = await page.locator("h1").boundingBox();
+      expect(Math.abs(titleAfter.y - titleBefore.y)).toBeLessThan(1);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      expect(await page.evaluate(() => window.__artCLS)).toBeLessThanOrEqual(
+        0.02,
+      );
+      const a11y = await new AxeBuilder({ page })
+        .include(".rx-public")
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze();
+      expect(
+        a11y.violations.map((v) => ({
+          id: v.id,
+          nodes: v.nodes.map((n) => n.target),
+        })),
+      ).toEqual([]);
+    });

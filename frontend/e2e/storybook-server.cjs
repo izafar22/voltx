@@ -26,6 +26,7 @@ http
         ".json": "application/json",
         ".css": "text/css",
         ".svg": "image/svg+xml",
+        ".webp": "image/webp",
         ".woff2": "font/woff2",
       }[path.extname(file)] || "application/octet-stream",
     );

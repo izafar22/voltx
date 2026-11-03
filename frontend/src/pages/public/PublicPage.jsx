@@ -1,14 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import {
-  ArrowUpRight,
-  ArrowRight,
-  Menu,
-  X,
-  Zap,
-  Check,
-  MapPin,
-} from "lucide-react";
+import { ArrowUpRight, ArrowRight, Menu, X, Check, MapPin } from "lucide-react";
+import { TechnicalIllustration } from "../../components/illustrations/TechnicalIllustration";
+import { ProcessIllustration } from "../../components/illustrations/ProcessIllustration";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { Logo } from "../../components/Logo";
 import { useAuth } from "../../context/AuthContext";
@@ -109,40 +103,16 @@ function FinalCTA() {
 }
 function Illustration() {
   return (
-    <div
-      className="rx-illustration"
-      role="img"
-      aria-label="Illustration of a charger connected to a diagnostic control board"
-    >
-      <div className="rx-diagram-label">
-        A closer look. A considered next step.
-      </div>
-      <div className="rx-charger">
-        <Zap size={42} aria-hidden="true" />
-        <div className="rx-charger-screen">
-          <span />
-          DIAGNOSTICS
-        </div>
-        <div className="rx-charger-lines" />
-        <div className="rx-cable" />
-      </div>
-      <div className="rx-board">
-        <div className="rx-chip">
-          <Zap size={30} aria-hidden="true" />
-        </div>
-        {[1, 2, 3, 4].map((n) => (
-          <i key={n} />
-        ))}
-        <span>CONTROL BOARD</span>
-      </div>
-      <div className="rx-diagram-note">
-        <Check size={17} aria-hidden="true" />
-        Understand the fault first
-      </div>
-      <span className="rx-illustrative">
-        ILLUSTRATIVE DIAGRAM · NOT A FACILITY PHOTO
-      </span>
-    </div>
+    <figure className="rx-technical-hero">
+      <TechnicalIllustration
+        asset="hero"
+        priority
+        sizes="(max-width:760px) calc(100vw - 44px), (max-width:1000px) 44vw, 526px"
+      />
+      <figcaption className="rx-art-caption">
+        Conceptual hardware illustration · not a supported-model guarantee.
+      </figcaption>
+    </figure>
   );
 }
 export default function PublicPage() {
@@ -405,24 +375,24 @@ export default function PublicPage() {
                     </a>
                   ))}
                 </div>
+                <p className="rx-art-notice">
+                  The following images are conceptual hardware illustrations,
+                  not RushX inventory or a list of supported models. Technical
+                  eligibility must be confirmed for your equipment.
+                </p>
                 {services.map(
-                  (
-                    {
-                      id,
-                      icon: Icon,
-                      name,
-                      description,
-                      symptoms,
-                      eligibility,
-                    },
-                    i,
-                  ) => (
+                  ({ id, name, description, symptoms, eligibility }, i) => (
                     <section id={id} className="rx-service-detail" key={id}>
                       <div>
                         <span className="rx-eyebrow">
                           0{i + 1} / Service enquiry
                         </span>
-                        <Icon size={38} aria-hidden="true" />
+                        <figure className="rx-service-art">
+                          <TechnicalIllustration
+                            asset={id}
+                            sizes="(max-width:360px) calc(100vw - 56px), 320px"
+                          />
+                        </figure>
                         <h2>{name}</h2>
                         <p>{description}</p>
                         <RepairLink secondary>Request an assessment</RepairLink>
@@ -448,7 +418,12 @@ export default function PublicPage() {
             )}
             {pathname === "/how-it-works" && (
               <>
-                <RepairJourney steps={steps} />
+                <RepairJourney
+                  steps={steps}
+                  illustrations={steps.map((_, step) => (
+                    <ProcessIllustration key={step} step={step} />
+                  ))}
+                />
                 <section className="rx-preparation rx-section">
                   <div>
                     <p className="rx-eyebrow">Prepare your enquiry</p>
@@ -489,7 +464,16 @@ export default function PublicPage() {
               <>
                 <section className="rx-about-grid">
                   <div className="rx-about-statement">
-                    <Zap size={44} aria-hidden="true" />
+                    <figure className="rx-about-art">
+                      <TechnicalIllustration
+                        asset="about"
+                        sizes="(max-width:760px) calc(100vw - 104px), 380px"
+                      />
+                      <figcaption className="rx-art-caption">
+                        Conceptual assessment · not RushX equipment or
+                        facilities.
+                      </figcaption>
+                    </figure>
                     <h2>
                       Good decisions
                       <br />
