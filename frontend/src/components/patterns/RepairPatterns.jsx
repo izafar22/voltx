@@ -2,12 +2,13 @@ import "./RepairPatterns.css";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 // Pure presentation: callers supply approved content. No auth, effects or APIs.
-export function RepairJourney({ steps }) {
+export function RepairJourney({ steps, illustrations }) {
   return (
     <ol className="rx-journey">
       {steps.map(([title, text], index) => (
         <li key={title}>
           <span className="rx-step">{String(index + 1).padStart(2, "0")}</span>
+          {illustrations?.[index]}
           <h3>{title}</h3>
           <p>{text}</p>
         </li>
