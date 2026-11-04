@@ -234,3 +234,33 @@ def test_privileged_unverified_inactive_and_unknown_roles_fail_callback(change, 
         assert response.headers['location'].endswith('google_error=1')
         assert await service.db.auth_sessions.count_documents({}) == 0
     run(scenario)
+
+
+@pytest.mark.parametrize('role', ['admin', 'owner'])
+def test_verified_email_change_preserves_subject_role_and_original_provisioning_audit(role):
+    from production_admin import provision_admin
+    async def scenario(service, browser):
+        await callback(service, browser, await start(service, browser))
+        original = await service.db.users.find_one({'auth_subject': 'subject'})
+        if role == 'admin':
+            await provision_admin(service.db, 'subject', 'same@example.com', 'Operator', True)
+        else:
+            await service.db.users.update_one({'user_id': original['user_id']}, {'$set': {'role': 'owner'}})
+        stored = await service.db.users.find_one({'auth_subject': 'subject'})
+        response = await callback(service, browser, await start(service, browser), overrides={'email': 'changed@example.test'})
+        assert response.headers['location'] == '/login'
+        me = (await browser.get('/api/auth/me')).json()
+        assert me['role'] == role and me['user_id'] == original['user_id']
+        assert me['email'] == 'changed@example.test'
+        current = await service.db.users.find_one({'auth_subject': 'subject'})
+        assert current.get('admin_provisioning') == stored.get('admin_provisioning')
+        assert current['google_verified_email'] == 'changed@example.test'
+        assert current['auth_subject'] == original['auth_subject']
+        # Email reuse on a different subject is an independent customer, never
+        # account linking or access to the privileged identity.
+        other = await service.google.user({'sub': 'different-subject', 'email': 'changed@example.test', 'email_verified': True})
+        assert other['role'] == 'customer' and other['user_id'] != original['user_id']
+        denied = await callback(service, browser, await start(service, browser), overrides={'email': 'unverified@example.test', 'email_verified': False})
+        assert denied.headers['location'].endswith('google_error=1')
+        assert (await service.db.users.find_one({'auth_subject': 'subject'}))['email'] == 'changed@example.test'
+    run(scenario, production=True)
