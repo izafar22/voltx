@@ -111,7 +111,11 @@ class AuthService:
     def digest(self, value):
         return hmac.new(self.settings.secret.encode(), value.encode(), hashlib.sha256).hexdigest()
 
-    async def initialize(self):
+    async def initialize(self, migrate_legacy=True):
+        try:
+            from .services.index_contract import AUTH_INDEXES, ensure_index
+        except ImportError:
+            from services.index_contract import AUTH_INDEXES, ensure_index
         # Audit all normalized identities BEFORE changing any existing phone values.
         seen, changes = {}, []
         async for user in self.db.users.find({}, {"phone": 1, "user_id": 1}):
@@ -125,25 +129,23 @@ class AuthService:
             seen[normalized] = user["_id"]
             if normalized != user["phone"]:
                 changes.append((user["_id"], user["phone"], normalized))
+        if changes and not migrate_legacy:
+            raise RuntimeError("Legacy phone normalization required; bootstrap will not modify user records")
         try:
-            # Build replacement before removing legacy full indexes; no uniqueness gap.
-            partial = {"phone": {"$type": "string"}}
-            await self.db.users.create_index("phone", unique=True, name="auth_phone_partial_unique", partialFilterExpression=partial)
-            indexes = await self.db.users.index_information()
-            for name, spec in indexes.items():
-                if spec.get("key") == [("phone", 1)] and not spec.get("partialFilterExpression"):
-                    if not spec.get("unique"):
-                        continue
-                    await self.db.users.drop_index(name)
-            await self.db.users.create_index([("auth_provider", 1), ("auth_subject", 1)], unique=True,
-                name="auth_provider_subject_unique", partialFilterExpression={"auth_provider": {"$type": "string"}, "auth_subject": {"$type": "string"}})
-            await self.db.users.create_index("user_id", unique=True, name="auth_user_id_unique")
-            await self.db.wallets.create_index("user_id", unique=True, name="auth_wallet_user_unique")
+            # Startup retains the previously reviewed legacy-phone migration. The
+            # operator bootstrap explicitly disables both normalization and drops.
+            collection, keys, options = AUTH_INDEXES[0]
+            await ensure_index(self.db, collection, keys, options, allow_legacy_phone=migrate_legacy)
+            if migrate_legacy:
+                indexes = await self.db.users.index_information()
+                for name, spec in indexes.items():
+                    if spec.get("key") == [("phone", 1)] and spec.get("unique") and not spec.get("partialFilterExpression"):
+                        await self.db.users.drop_index(name)
+            for collection, keys, options in AUTH_INDEXES[1:]:
+                await ensure_index(self.db, collection, keys, options)
             for uid, old, phone in changes:
                 await self.db.users.update_one({"_id": uid, "phone": old}, {"$set": {"phone": phone}})
-            for collection in (self.db.auth_challenges, self.db.auth_limits, self.db.auth_sessions, self.db.auth_registrations, self.db.auth_google_transactions):
-                await collection.create_index("expires_at", expireAfterSeconds=0)
-            await self.db.auth_challenges.create_index("phone")
+
         except OperationFailure:
             raise RuntimeError("Auth index initialization failed; audit existing duplicate/index conflicts without deleting customer data") from None
 
@@ -342,6 +344,8 @@ class AuthService:
         if not user:
             raise HTTPException(401, "Not authenticated")
         self.ensure_active(user)
+        if session.get("auth_epoch", 0) != user.get("auth_epoch", 0):
+            raise HTTPException(401, "Session expired. Please sign in again.")
         return user
 
     async def login_response(self, user, response, request):
@@ -349,7 +353,7 @@ class AuthService:
         await self.revoke(request)
         sid = secrets.token_urlsafe(24)
         expires = self.clock() + timedelta(seconds=self.settings.session_seconds)
-        await self.db.auth_sessions.insert_one({"_id": sid, "user_id": user["user_id"], "expires_at": expires})
+        await self.db.auth_sessions.insert_one({"_id": sid, "user_id": user["user_id"], "auth_epoch": user.get("auth_epoch", 0), "expires_at": expires})
         token = jwt.encode({"sub": user["user_id"], "role": user["role"], "jti": sid, "purpose": "session", "exp": expires}, self.settings.secret, algorithm="HS256")
         response.set_cookie("access_token", token, max_age=self.settings.session_seconds, httponly=True,
             secure=self.settings.environment == "production", samesite="lax", path="/")

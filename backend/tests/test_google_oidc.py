@@ -134,7 +134,7 @@ def test_duplicate_identity_and_role_guard():
     async def scenario(service, browser):
         users = await asyncio.gather(*[service.google.user({'sub': 'subject'}) for _ in range(2)])
         assert users[0]['user_id'] == users[1]['user_id']
-        await service.db.users.update_many({}, {'$set': {'role': 'admin'}})
+        await service.db.users.update_many({}, {'$set': {'role': 'unsupported'}})
         with pytest.raises(ValueError):
             await service.google.user({'sub': 'subject'})
     run(scenario)
@@ -183,3 +183,54 @@ def test_production_same_origin_cookie_round_trip_rotation_and_logout():
         assert (await browser.post('/api/auth/logout')).status_code == 200
         assert (await browser.get('/api/auth/me', headers={'Cookie': 'access_token=' + current_token})).status_code == 401
     run(scenario, production=True)
+
+
+@pytest.mark.parametrize('role', ['admin', 'owner'])
+def test_preprovisioned_roles_callback_and_backend_authorization(role):
+    from fastapi import Depends
+    from production_admin import provision_admin
+    import server
+    async def scenario(service, browser):
+        app = browser._transport.app
+        @app.get('/api/operator-check')
+        async def operator_check(user=Depends(server.require('admin'))):
+            return {'role': user['role']}
+        with patch.object(server, 'auth_service', service):
+            assert (await browser.get('/api/operator-check')).status_code == 401
+            params = await start(service, browser)
+            await callback(service, browser, params)
+            assert (await browser.get('/api/operator-check')).status_code == 403
+            old_token = browser.cookies.get('access_token')
+            user = await service.db.users.find_one({'auth_subject': 'subject'})
+            if role == 'admin':
+                await provision_admin(service.db, 'subject', 'same@example.com', 'Operator', True)
+                assert (await browser.get('/api/auth/me', headers={'Cookie': 'access_token=' + old_token})).status_code == 401
+            else:
+                await service.db.users.update_one({'user_id': user['user_id']}, {'$set': {'role': 'owner'}})
+            response = await callback(service, browser, await start(service, browser))
+            assert response.headers['location'] == '/login'
+            assert (await browser.get('/api/auth/me')).json()['role'] == role
+            assert (await browser.get('/api/operator-check')).status_code == (200 if role == 'admin' else 403)
+            token = jwt.decode(browser.cookies.get('access_token'), service.settings.secret, algorithms=['HS256'])
+            assert token['role'] == role
+            # Token claims cannot grant a role absent from the stored account.
+            await service.db.users.update_one({'user_id': user['user_id']}, {'$set': {'role': 'customer'}})
+            assert (await browser.get('/api/operator-check')).status_code == 403
+    run(scenario, production=True)
+
+
+@pytest.mark.parametrize('change,claims', [
+    ({'role': 'admin'}, {'email_verified': False}),
+    ({'role': 'owner'}, {'email_verified': False}),
+    ({'role': 'admin', 'status': 'disabled'}, {}),
+    ({'role': 'customer', 'status': 'disabled'}, {}),
+    ({'role': 'unsupported'}, {}),
+])
+def test_privileged_unverified_inactive_and_unknown_roles_fail_callback(change, claims):
+    async def scenario(service, browser):
+        await service.google.user({'sub': 'subject', 'email': 'same@example.com', 'email_verified': True})
+        await service.db.users.update_one({'auth_subject': 'subject'}, {'$set': change})
+        response = await callback(service, browser, await start(service, browser), overrides=claims)
+        assert response.headers['location'].endswith('google_error=1')
+        assert await service.db.auth_sessions.count_documents({}) == 0
+    run(scenario)

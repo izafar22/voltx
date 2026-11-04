@@ -61,8 +61,11 @@ test.each([['/app/wallet', 'wallet'], ['/app/history', 'charging'], ['/app/charg
 test.each([['owner', '/owner', 'Owner console'], ['admin', '/admin', 'Admin console']])('%s console remains directly accessible', async (role, path, text) => {
   mockUser = { role }; await mount(path); expect(window.location.pathname).toBe(path); expect(container.textContent).toContain(text);
 });
-test('customer cannot access an admin console', async () => {
-  await mount('/admin'); expect(window.location.pathname).toBe('/app'); expect(container.textContent).not.toContain('Admin console');
+test.each([['customer', '/app'], ['owner', '/owner']])('%s cannot access an admin console', async (role, destination) => {
+  mockUser = { role }; await mount('/admin'); expect(window.location.pathname).toBe(destination); expect(container.textContent).not.toContain('Admin console');
+});
+test('signed-out admin route requires login', async () => {
+  mockUser = null; await mount('/admin'); expect(window.location.pathname).toBe('/login'); expect(container.textContent).not.toContain('Admin console');
 });
 
 test.each(['/', '/services', '/about', '/how-it-works', '/faq'])('public page %s renders without a session', async path => {
