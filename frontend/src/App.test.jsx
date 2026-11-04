@@ -18,8 +18,9 @@ jest.mock('react-router-dom', () => {
   return require(entry);
 }, { virtual: true });
 jest.mock('@/App.css', () => ({}), { virtual: true });
-jest.mock('@/context/ThemeContext', () => ({ ThemeProvider: ({ children }) => children }), { virtual: true });
+jest.mock('@/context/ThemeContext', () => ({ ThemeProvider: ({ children }) => children, useTheme: () => ({ theme: "light", toggle: jest.fn() }) }), { virtual: true });
 jest.mock('@/context/AuthContext', () => ({ AuthProvider: ({ children }) => children, useAuth: () => ({ user: mockUser, loading: mockLoading }) }), { virtual: true });
+jest.mock('./context/AuthContext', () => ({ useAuth: () => ({ user: mockUser, loading: mockLoading }) }));
 jest.mock('@/components/ui/sonner', () => ({ Toaster: () => null }), { virtual: true });
 jest.mock('@/components/ProtectedRoute', () => require('./components/ProtectedRoute'), { virtual: true });
 jest.mock('@/pages/Login', () => () => <p>Login screen</p>, { virtual: true });
@@ -36,6 +37,7 @@ jest.mock('@/pages/admin/AdminDashboard', () => () => <p>Admin console</p>, { vi
 let container, root;
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true; jest.clearAllMocks(); Object.assign(FEATURES, defaults);
+  window.scrollTo = jest.fn(); sessionStorage.clear();
   mockUser = { role: 'customer' }; mockLoading = false;
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
 });
@@ -56,9 +58,21 @@ test('session loading does not prematurely redirect', async () => {
 test.each([['/app/wallet', 'wallet'], ['/app/history', 'charging'], ['/app/charger/IND000001', 'charging'], ['/app/live/s1', 'charging']])('enabled route %s renders preserved page', async (path, feature) => {
   FEATURES[feature] = true; await mount(path); expect(window.location.pathname).toBe(path); expect(mockChargingMount).toHaveBeenCalled();
 });
-test.each([['owner', '/owner', 'Owner console'], ['admin', '/admin', 'Admin console']])('%s console and role landing are preserved', async (role, path, text) => {
-  mockUser = { role }; await mount('/'); expect(window.location.pathname).toBe(path); expect(container.textContent).toContain(text);
+test.each([['owner', '/owner', 'Owner console'], ['admin', '/admin', 'Admin console']])('%s console remains directly accessible', async (role, path, text) => {
+  mockUser = { role }; await mount(path); expect(window.location.pathname).toBe(path); expect(container.textContent).toContain(text);
 });
 test('customer cannot access an admin console', async () => {
   await mount('/admin'); expect(window.location.pathname).toBe('/app'); expect(container.textContent).not.toContain('Admin console');
+});
+
+test.each(['/', '/services', '/about', '/how-it-works', '/faq'])('public page %s renders without a session', async path => {
+  mockUser = null; await mount(path); expect(window.location.pathname).toBe(path);
+  expect(container.querySelector('h1')).not.toBeNull();
+  expect(container.textContent).toContain('Independent, multi-brand service');
+  expect(document.querySelector('link[rel="canonical"]').href).toBe('https://evchargerrepair.in' + path);
+  expect(container.querySelector('a[href="/repairs/new"]')).not.toBeNull();
+});
+test('repair destination is retained at the existing login boundary', async () => {
+  mockUser = null; await mount('/repairs/new');
+  expect(sessionStorage.getItem('rushx.repair-destination')).toBe('/repairs/new');
 });

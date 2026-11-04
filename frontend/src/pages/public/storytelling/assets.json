@@ -1,0 +1,315 @@
+{
+  "hero": {
+    "file": "hero-diagnostic-workbench",
+    "alt": "Fictional diagnostic workbench with an open wallbox charger and probes; the meter reading is illustrative.",
+    "width": 542,
+    "height": 285,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/hero-diagnostic-workbench-320.webp",
+        "width": 320,
+        "height": 168,
+        "bytes": 13426,
+        "sha256": "151ecd6ed6e24432c5e7acf3ad6157e2943eef07c0aef88d1f61d8002a62aa44"
+      },
+      {
+        "src": "/assets/visual-storytelling/hero-diagnostic-workbench-542.webp",
+        "width": 542,
+        "height": 285,
+        "bytes": 27148,
+        "sha256": "686fbb04b3db5deb99658b3d57b3e12f880cb83dd0a26ec6ea1b7898a704034d"
+      }
+    ]
+  },
+  "testing": {
+    "file": "diagnostic-testing",
+    "alt": "Fictional electronics workbench with oscilloscope, multimeter and a disconnected charger control board; no test result is shown.",
+    "width": 1536,
+    "height": 1024,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/diagnostic-testing-320.webp",
+        "width": 320,
+        "height": 213,
+        "bytes": 16132,
+        "sha256": "03010a2016c27baf1a8fa507be9e211258a3d4e4afc2e9a2abc230e77901d349"
+      },
+      {
+        "src": "/assets/visual-storytelling/diagnostic-testing-640.webp",
+        "width": 640,
+        "height": 427,
+        "bytes": 50622,
+        "sha256": "9814f0af126812707d8c5f6753548836d966880523cb74644b9d7c9656f48896"
+      },
+      {
+        "src": "/assets/visual-storytelling/diagnostic-testing-1280.webp",
+        "width": 1280,
+        "height": 853,
+        "bytes": 163158,
+        "sha256": "cc1b3ca422ff0683da4155cebaa3175168d80051ad5ce613340dea0511dd6ec4"
+      }
+    ]
+  },
+  "pcb": {
+    "file": "pcb-joint-rework",
+    "alt": "Fictional close-up of a soldering iron contacting a component lead solder joint on a secured charger circuit board.",
+    "width": 1536,
+    "height": 1024,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/pcb-joint-rework-320.webp",
+        "width": 320,
+        "height": 213,
+        "bytes": 14326,
+        "sha256": "d44d0b46849dfa67ae7758fce80847d30d9c7af109caf20aba6df1269dc0b36b"
+      },
+      {
+        "src": "/assets/visual-storytelling/pcb-joint-rework-640.webp",
+        "width": 640,
+        "height": 427,
+        "bytes": 39678,
+        "sha256": "3e6aa6664a98746300ab44d68da9acdf3c223710446595ef11d2e59893157f38"
+      },
+      {
+        "src": "/assets/visual-storytelling/pcb-joint-rework-1280.webp",
+        "width": 1280,
+        "height": 853,
+        "bytes": 114248,
+        "sha256": "22f548047fec0f7c934dff28c390091590a2c0e07fe59684cb9d6925f3254cbb"
+      }
+    ]
+  },
+  "ac": {
+    "file": "ac-wallbox",
+    "alt": "Conceptual wall-mounted AC charger with a coiled charging cable beside a parked vehicle.",
+    "width": 420,
+    "height": 206,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/ac-wallbox-320.webp",
+        "width": 320,
+        "height": 157,
+        "bytes": 9050,
+        "sha256": "1c83e34f8c898bc1c72a672244c1cd4d9bf5b0f9319c67349bfb428ca77c1080"
+      },
+      {
+        "src": "/assets/visual-storytelling/ac-wallbox-420.webp",
+        "width": 420,
+        "height": 206,
+        "bytes": 13920,
+        "sha256": "c315ef9a272a6ce53a04f00807d8012f1f5094b41ed02c101659a503094794e0"
+      }
+    ]
+  },
+  "dc": {
+    "file": "dc-fast-charger-station",
+    "alt": "Conceptual DC charging cabinet with two charging connectors in an outdoor charging setting.",
+    "width": 550,
+    "height": 285,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/dc-fast-charger-station-320.webp",
+        "width": 320,
+        "height": 166,
+        "bytes": 16856,
+        "sha256": "5882cf8080fa61ac77e62be134724f74eaecc740552472c4efa8df77590e24d4"
+      },
+      {
+        "src": "/assets/visual-storytelling/dc-fast-charger-station-550.webp",
+        "width": 550,
+        "height": 285,
+        "bytes": 33850,
+        "sha256": "14f2a72bfbab4fd21bbb0831d1fadb27a7e7dffb7fa3094e989160f99d0823a1"
+      }
+    ]
+  },
+  "power": {
+    "file": "power-electronics",
+    "alt": "Conceptual power electronics board with heatsink, capacitors and copper-wound inductors.",
+    "width": 394,
+    "height": 206,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/power-electronics-320.webp",
+        "width": 320,
+        "height": 167,
+        "bytes": 13176,
+        "sha256": "1fd5bbb3715303242bb7c51645837515f6d31fa2a43e43507b986a8ebb6ea903"
+      },
+      {
+        "src": "/assets/visual-storytelling/power-electronics-394.webp",
+        "width": 394,
+        "height": 206,
+        "bytes": 17642,
+        "sha256": "34c78290612b65455d6f1a33f821f7a881fc3fc86f0057e93658e0b504c7f720"
+      }
+    ]
+  },
+  "about": {
+    "file": "exploded-ac-charger",
+    "alt": "Conceptual exploded wallbox charger showing enclosure layers and internal circuit boards.",
+    "width": 547,
+    "height": 285,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/exploded-ac-charger-320.webp",
+        "width": 320,
+        "height": 167,
+        "bytes": 9190,
+        "sha256": "0fb0e8a8be7672d6a66d7d356971ed872e2263e019d451945fe63b959adbaf93"
+      },
+      {
+        "src": "/assets/visual-storytelling/exploded-ac-charger-547.webp",
+        "width": 547,
+        "height": 285,
+        "bytes": 19138,
+        "sha256": "68a6ff3bdb56528892a2203553953f574078422a841ddfcb8b0c563e0f958dbb"
+      }
+    ]
+  },
+  "step1": {
+    "file": "repair-enquiry",
+    "alt": "Fictional customer using a laptop with a generic blank repair enquiry interface.",
+    "width": 1536,
+    "height": 1024,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/repair-enquiry-320.webp",
+        "width": 320,
+        "height": 213,
+        "bytes": 15096,
+        "sha256": "dc06e30dc64e2f3ef047f145ad2c73b3f2d466e63cfae93713fd7e5d227dccdb"
+      },
+      {
+        "src": "/assets/visual-storytelling/repair-enquiry-640.webp",
+        "width": 640,
+        "height": 427,
+        "bytes": 40536,
+        "sha256": "3482e2b799e402193f9e842cb8f283159f9976c38638889da942a7f39fa12ea2"
+      },
+      {
+        "src": "/assets/visual-storytelling/repair-enquiry-1280.webp",
+        "width": 1280,
+        "height": 853,
+        "bytes": 102878,
+        "sha256": "6f46def5ad58d45125b4fcc6fd1d47a05c7e91f74100e2977eeafb5e232841f7"
+      }
+    ]
+  },
+  "step2": {
+    "file": "step-02-assessment",
+    "alt": "Fictional technician examining a disconnected charger circuit board under a magnifying lamp.",
+    "width": 1536,
+    "height": 1024,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/step-02-assessment-320.webp",
+        "width": 320,
+        "height": 213,
+        "bytes": 18198,
+        "sha256": "1ca7808a62187cee83818b4157e079fbaab7830a7cd9c832cd62ba3af15810bb"
+      },
+      {
+        "src": "/assets/visual-storytelling/step-02-assessment-640.webp",
+        "width": 640,
+        "height": 427,
+        "bytes": 55326,
+        "sha256": "315a535805a4ee2cb6155abb078abb0dc7c436bf5756a685ff3c12e19c56f71a"
+      },
+      {
+        "src": "/assets/visual-storytelling/step-02-assessment-1280.webp",
+        "width": 1280,
+        "height": 853,
+        "bytes": 159752,
+        "sha256": "f573ee0bc2b4d32ba6cdc0052fb3930645e5f50b373913b9a9604e03b4b9f3a4"
+      }
+    ]
+  },
+  "step3": {
+    "file": "estimate-consultation",
+    "alt": "Fictional technician and customer discussing a generic diagnostic report without prices or approval details.",
+    "width": 1536,
+    "height": 1024,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/estimate-consultation-320.webp",
+        "width": 320,
+        "height": 213,
+        "bytes": 15126,
+        "sha256": "86d11407870f0c1ffc7e4e1f35b908a21f53128068d1ea993363e370964b3989"
+      },
+      {
+        "src": "/assets/visual-storytelling/estimate-consultation-640.webp",
+        "width": 640,
+        "height": 427,
+        "bytes": 40238,
+        "sha256": "e80ef6409a3ed16593c31c5c9052e70a6f6f07e0c7da13aa566c6febf6f8d3e7"
+      },
+      {
+        "src": "/assets/visual-storytelling/estimate-consultation-1280.webp",
+        "width": 1280,
+        "height": 853,
+        "bytes": 122126,
+        "sha256": "0a8b125dc9d8e36b3c76cca66f47e45128e814cc0d6e2da04fb49c3211b31e82"
+      }
+    ]
+  },
+  "step4": {
+    "file": "step-04-repair-test",
+    "alt": "Fictional gloved technician using probes on a charger control board during an electronics assessment.",
+    "width": 1536,
+    "height": 1024,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/step-04-repair-test-320.webp",
+        "width": 320,
+        "height": 213,
+        "bytes": 18386,
+        "sha256": "0f5c3149a342f9473d5c4f70dcb13fd9bc5adefc563e6341c7656ed945fa3480"
+      },
+      {
+        "src": "/assets/visual-storytelling/step-04-repair-test-640.webp",
+        "width": 640,
+        "height": 427,
+        "bytes": 54540,
+        "sha256": "22120aa60b3a9791e520da441577bdf1f7b02688990e056dd39964bb0422f4e9"
+      },
+      {
+        "src": "/assets/visual-storytelling/step-04-repair-test-1280.webp",
+        "width": 1280,
+        "height": 853,
+        "bytes": 157344,
+        "sha256": "5cce4e775a2abdc868e5466979bde99e1e53a05bcc1cb5a924df5223f0dbd614"
+      }
+    ]
+  },
+  "step5": {
+    "file": "secure-return",
+    "alt": "Fictional wallbox charger and coiled cable protected by fitted packaging, beside an unlabelled documentation folder.",
+    "width": 1536,
+    "height": 1024,
+    "outputs": [
+      {
+        "src": "/assets/visual-storytelling/secure-return-320.webp",
+        "width": 320,
+        "height": 213,
+        "bytes": 10686,
+        "sha256": "7a8a7cc5e1f0fa7cbd37d18c5e3c4229947468b96e6213ae9ced1e96ddd85b6b"
+      },
+      {
+        "src": "/assets/visual-storytelling/secure-return-640.webp",
+        "width": 640,
+        "height": 427,
+        "bytes": 28686,
+        "sha256": "e227051b5643d5438b2213bece40613a6a5d05a8618cc6e55da6c97e0bd6dbdb"
+      },
+      {
+        "src": "/assets/visual-storytelling/secure-return-1280.webp",
+        "width": 1280,
+        "height": 853,
+        "bytes": 108374,
+        "sha256": "81609c3ea451b2149276946ebab62287e97d9591eb93816330b62cbc9f9e6e74"
+      }
+    ]
+  }
+}

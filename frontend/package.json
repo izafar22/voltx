@@ -65,7 +65,9 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
-    "test": "craco test"
+    "test": "craco test",
+    "storybook": "storybook dev -p 6006 --host 127.0.0.1 --no-open",
+    "build-storybook": "storybook build"
   },
   "browserslist": {
     "production": [
@@ -84,6 +86,10 @@
     "@craco/craco": "7.1.0",
     "@emergentbase/visual-edits": "https://assets.emergent.sh/npm/emergentbase-visual-edits-1.0.13.tgz",
     "@eslint/js": "9.23.0",
+    "@storybook/addon-a11y": "10.6.5",
+    "@storybook/addon-docs": "10.6.5",
+    "@storybook/addon-webpack5-compiler-swc": "4.0.3",
+    "@storybook/react-webpack5": "10.6.5",
     "@types/lodash": "4.17.24",
     "autoprefixer": "10.4.20",
     "dotenv": "16.4.5",
@@ -95,6 +101,7 @@
     "globals": "15.15.0",
     "http-proxy-middleware": "^2.0.10",
     "postcss": "8.5.23",
+    "storybook": "10.6.5",
     "tailwindcss": "3.4.17"
   },
   "resolutions": {

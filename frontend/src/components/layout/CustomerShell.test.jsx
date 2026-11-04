@@ -49,3 +49,11 @@ test('logout stays available and enabled charging navigation/notifications retur
     expect(mockLogout).toHaveBeenCalledTimes(1);
   } finally { act(() => root.unmount()); container.remove(); }
 });
+
+test('authenticated navigation offers a public-site return without replacing repair routes', () => {
+  const container = document.createElement('div'); const root = createRoot(container);
+  act(() => root.render(<CustomerShell><p>Dashboard content</p></CustomerShell>));
+  expect(container.querySelector('a[href="/"]').textContent).toContain('Explore RushX');
+  expect(container.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs');
+  act(() => root.unmount());
+});

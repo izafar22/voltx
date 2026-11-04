@@ -109,3 +109,21 @@ The backend separately requires `OTP_MODE=demo`; optional code responses require
 `EXPOSE_DEMO_OTP=true`. Restart CRA after changing `.env`. Production builds strip
 the demo controls even if the flag is accidentally set. See `backend/AUTH.md` for
 trusted origins, cookie settings, SMS integration, migration, and tests.
+
+## RushX design system & Storybook
+
+Use Node 22.12+ and the repository's Yarn 1.22.22 (`corepack enable`). In `frontend`:
+
+```sh
+yarn install --frozen-lockfile
+yarn storybook        # http://127.0.0.1:6006
+yarn build-storybook  # local storybook-static; never auto-published
+```
+
+Start with [the design-system contract](../docs/DESIGN_SYSTEM.md). Use the theme and viewport toolbars to review light/dark at 320, 375, 768 and 1280px. Stories show real app components, not copies; public patterns are extracted from PR #14. Do not mount AuthProvider, import API clients, or use customer data in stories. Live fetch/XHR endpoints are blocked in preview.
+
+To add a component, first check existing `src/components/ui` and `src/components/patterns`. Reuse semantic roles from `src/design-system/tokens.css`. Add a CSF story under `src/design-system`, controls for meaningful props and states, a labelled keyboard-accessible example, and no external requests. The static story manifest automatically feeds every story into Playwright/axe checks in both themes at mobile and desktop widths. Run `yarn build-storybook`, then `cd e2e && npm ci && npx playwright install chromium && npx playwright test --config storybook.playwright.config.cjs`.
+
+For Codex and human reviews: inspect both themes, keyboard focus, hover, disabled/error/loading states, 320px overflow, text contrast, reduced motion and long content. Use the existing Logo and Lucide icons; do not invent another palette. See DESIGN_SYSTEM.md for token provenance, visual-baseline updates and PR #14/#12 integration notes. Public browser regressions still run with `cd e2e && npm test` after an app build.
+
+Issue #17's [before/after QA and integration notes](../docs/unified-design-system/QA.md) cover the real homepage, login and dashboard in both themes. Storybook also includes production LoginLayout, SidebarLinks, EmptyState and RepairCTA with safe synthetic compositions. The read-only `public/theme-init.js` bootstraps the persisted/system theme before React; ThemeContext remains the sole state owner.
