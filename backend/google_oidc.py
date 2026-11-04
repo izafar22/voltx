@@ -103,10 +103,24 @@ class GoogleOIDC:
         except DuplicateKeyError:
             pass
         user = await self.auth.db.users.find_one(identity)
-        if not user or user.get('role') != 'customer':
+        if not user or user.get('role') not in ('customer', 'owner', 'admin'):
             raise ValueError('Unavailable identity')
         self.auth.ensure_active(user)
+        verified = (claims.get('email_verified') is True and isinstance(claims.get('email'), str)
+                    and 0 < len(claims['email']) <= 254)
+        if user['role'] in ('admin', 'owner') and (not verified or user.get('status') != 'active'):
+            raise ValueError('Verified Google email required')
+        if verified:
+            # Verified email is mutable contact metadata. Privilege stays bound
+            # exclusively to the immutable subject; provisioning's original email
+            # remains immutable audit evidence, not an ongoing email allowlist.
+            # Server-written enrollment evidence: never trust a browser profile
+            # update or infer privilege from matching email/domain.
+            await self.auth.db.users.update_one(identity, {'$set': {
+                'email': claims['email'], 'google_verified_email': claims['email'], 'google_verified_at': now}})
         await self.auth.db.wallets.update_one({'user_id': user['user_id']}, {'$setOnInsert': {'balance': 0.0}}, upsert=True)
+        if verified:
+            user = {**user, 'email': claims['email']}
         return user
 
     async def callback(self, request):
