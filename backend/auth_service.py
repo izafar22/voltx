@@ -79,7 +79,7 @@ class DemoOtpProvider:
 
 class UnconfiguredOtpProvider:
     async def send_otp(self, phone, code):
-        raise HTTPException(503, "SMS delivery is not configured")
+        raise HTTPException(503, "OTP delivery is not configured")
 
 
 class PhoneRequest(BaseModel):
@@ -106,7 +106,18 @@ class AuthService:
         except ImportError:
             from google_oidc import GoogleOIDC
         self.google = GoogleOIDC(self)
-        self.provider = provider or (DemoOtpProvider() if settings.otp_mode == "demo" else UnconfiguredOtpProvider())
+        if provider is not None:
+            self.provider = provider
+        elif settings.otp_mode == "demo":
+            self.provider = DemoOtpProvider()
+        elif os.getenv("OTP_DELIVERY_PROVIDER", "").lower() == "whatsapp":
+            try:
+                from .whatsapp_otp_provider import WhatsAppOtpProvider
+            except ImportError:
+                from whatsapp_otp_provider import WhatsAppOtpProvider
+            self.provider = WhatsAppOtpProvider()
+        else:
+            self.provider = UnconfiguredOtpProvider()
 
     def digest(self, value):
         return hmac.new(self.settings.secret.encode(), value.encode(), hashlib.sha256).hexdigest()
@@ -221,7 +232,7 @@ class AuthService:
                 "phone": phone,
                 "otp_hash": self.digest(f"{cid}:{phone}:{code}"),
                 "created_at": now,
-                "expires_at": now + timedelta(minutes=5),
+                "expires_at": now + timedelta(minutes=10),
                 "attempts": 0,
                 "consumed": False,
                 "delivered": False,
@@ -249,7 +260,7 @@ class AuthService:
         result = {
             "ok": True,
             "challenge_id": cid,
-            "expires_in": 300,
+            "expires_in": 600,
             "resend_after": 60,
         }
 
