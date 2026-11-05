@@ -47,6 +47,22 @@ for (const pathname of pages)
         page.getByRole("button", { name: "Open menu" }),
       ).toBeFocused();
     }
+    if (pathname === "/") {
+      const hero = page.locator('[data-story-asset="hero"]');
+      const image = hero.locator("img");
+      await expect(image).toHaveAttribute("src", /rushx-workshop-1280\.webp$/);
+      await expect(hero.locator("figcaption")).toHaveCount(0);
+      await expect(image).toBeVisible();
+      await expect.poll(() => image.evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true);
+      expect(await image.evaluate((img) => img.currentSrc)).toContain("/rushx-workshop-");
+      const geometry = await image.evaluate((img) => ({
+        width: img.getBoundingClientRect().width,
+        height: img.getBoundingClientRect().height,
+        fit: getComputedStyle(img).objectFit,
+      }));
+      expect(geometry.width / geometry.height).toBeCloseTo(1.5, 1);
+      expect(geometry.fit).toBe("cover");
+    }
     if (pathname === "/faq") {
       const question = page.locator("summary").first();
       await question.focus();

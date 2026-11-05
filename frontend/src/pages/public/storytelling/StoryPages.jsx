@@ -53,11 +53,7 @@ export function HomeStory() {
             <TextLink to="/services">Explore our services</TextLink>
           </div>
         </div>
-        <StoryImage
-          asset="hero"
-          priority
-          caption="Fictional diagnostic scene. Equipment and readings are illustrative."
-        />
+        <StoryImage asset="hero" priority />
       </section>
       <section
         className="rx-story-services"

@@ -1,35 +1,40 @@
 {
-  "provenance": "User-provided fictional AI-generated pack, reviewed individually. Five rejected scenes replaced with built-in image generation, at user request. No actual RushX people, equipment, facilities or results.",
+  "provenance": "Hero: user-supplied RushX workshop image already in the repository; no additional provenance asserted. Other scenes: User-provided fictional AI-generated pack, reviewed individually. Five rejected scenes replaced with built-in image generation, at user request. No actual RushX people, equipment, facilities or results.",
   "assets": [
     {
       "id": "hero",
-      "file": "hero-diagnostic-workbench",
-      "alt": "Fictional diagnostic workbench with an open wallbox charger and probes; the meter reading is illustrative.",
-      "master": "frontend/visual-storytelling-sources/hero-diagnostic-workbench.webp",
-      "width": 542,
-      "height": 285,
-      "origin": {
-        "kind": "user-supplied AI-generated concept",
-        "archive": "RushX_Images_For_Codex_v2.zip",
-        "member": "rushx-visual-assets/hero-diagnostic-workbench.webp"
-      },
-      "masterSha256": "fdd3084206e6f3d08da402fa6b344312a95c54e8b5fb11bdc46b26cb6b0b7bb9",
+      "file": "rushx-workshop",
+      "alt": "Technicians working on an open EV charger at a workbench with RushX workshop branding.",
+      "width": 1536,
+      "height": 1024,
       "outputs": [
         {
-          "src": "/assets/visual-storytelling/hero-diagnostic-workbench-320.webp",
+          "src": "/assets/visual-storytelling/rushx-workshop-320.webp",
           "width": 320,
-          "height": 168,
-          "bytes": 13426,
-          "sha256": "151ecd6ed6e24432c5e7acf3ad6157e2943eef07c0aef88d1f61d8002a62aa44"
+          "height": 213,
+          "bytes": 19652,
+          "sha256": "9b57db3ed16868f87d72c331bce647e3d252ab984b0925cf83da9178ea151252"
         },
         {
-          "src": "/assets/visual-storytelling/hero-diagnostic-workbench-542.webp",
-          "width": 542,
-          "height": 285,
-          "bytes": 27148,
-          "sha256": "686fbb04b3db5deb99658b3d57b3e12f880cb83dd0a26ec6ea1b7898a704034d"
+          "src": "/assets/visual-storytelling/rushx-workshop-640.webp",
+          "width": 640,
+          "height": 427,
+          "bytes": 56700,
+          "sha256": "aca58a6a6f2d3ad5a1e3cd38894a4510af3d7eee17a06561bcc9a0dd363636fc"
+        },
+        {
+          "src": "/assets/visual-storytelling/rushx-workshop-1280.webp",
+          "width": 1280,
+          "height": 853,
+          "bytes": 145354,
+          "sha256": "06a65d09e892075dfb45d59c41b57e8f32a5e76952705bc64dffc0dfe5ecf6f9"
         }
-      ]
+      ],
+      "master": "frontend/public/assets/visual-storytelling/rushx-workshop.webp",
+      "origin": {
+        "kind": "user-supplied repository image"
+      },
+      "masterSha256": "6241dade84a57b3ff3471578b0df395dcca9d497255a5d0c2a2c8ee8011a97de"
     },
     {
       "id": "testing",
