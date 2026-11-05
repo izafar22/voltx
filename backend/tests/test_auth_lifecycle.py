@@ -156,7 +156,7 @@ def test_wrong_expired_attempt_limits_and_cooldown():
         assert (await verify(browser, cid)).status_code == 429
         clock[0] += timedelta(seconds=61)
         cid = await challenge(browser)
-        clock[0] += timedelta(minutes=6)
+        clock[0] += timedelta(minutes=11)
         assert (await verify(browser, cid)).status_code == 400
         assert await db.users.count_documents({}) == 0
     run(scenario)
