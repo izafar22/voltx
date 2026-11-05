@@ -4,7 +4,7 @@ import json
 from unittest.mock import patch
 import httpx
 import pytest
-from backend.whatsapp_otp_provider import WhatsAppOtpProvider
+from whatsapp_otp_provider import WhatsAppOtpProvider
 
 def make_provider(monkeypatch):
     monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "test-token")
@@ -24,7 +24,7 @@ def test_otp_template_payload(monkeypatch):
     real_client = httpx.AsyncClient
     def fake_client(*args, **kwargs):
         return real_client(*args, transport=transport, **kwargs)
-    with patch("backend.whatsapp_otp_provider.httpx.AsyncClient", side_effect=fake_client):
+    with patch("whatsapp_otp_provider.httpx.AsyncClient", side_effect=fake_client):
         asyncio.run(provider.send_otp("+917982237681", "654321"))
     assert len(calls) == 1
     request = calls[0]
@@ -43,7 +43,7 @@ def test_otp_template_payload(monkeypatch):
 def test_meta_error_fails_closed(monkeypatch):
     provider = make_provider(monkeypatch)
     real_client = httpx.AsyncClient
-    with patch("backend.whatsapp_otp_provider.httpx.AsyncClient",
+    with patch("whatsapp_otp_provider.httpx.AsyncClient",
                side_effect=lambda *a, **kw: real_client(*a, transport=httpx.MockTransport(
                    lambda request: httpx.Response(400, json={"error": {"message": "Invalid template"}})), **kw)):
         with pytest.raises(httpx.HTTPStatusError):
