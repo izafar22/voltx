@@ -1,5 +1,6 @@
 """Meta WhatsApp Cloud API OTP provider for explicitly allowlisted staging recipients."""
 import os
+import re
 import httpx
 from fastapi import HTTPException
 
@@ -16,9 +17,9 @@ class WhatsAppOtpProvider:
     def from_env(cls):
         return cls(
             token=os.getenv("WHATSAPP_ACCESS_TOKEN", ""),
-            phone_number_id=os.getenv("WHATSAPP_TEST_PHONE_NUMBER_ID", ""),
+            phone_number_id=os.getenv("WHATSAPP_TEST_PHONE_NUMBER_ID", os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")),
             recipients=[x.strip() for x in os.getenv("WHATSAPP_TEST_RECIPIENTS", "").split(",") if x.strip()],
-            template=os.getenv("WHATSAPP_AUTH_TEMPLATE", "rushx_authentication_otp_v1"),
+            template=os.getenv("WHATSAPP_OTP_TEMPLATE", "rushx_authentication_otp_v1"),
             version=os.getenv("WHATSAPP_API_VERSION", "v25.0"),
         )
 
@@ -27,7 +28,7 @@ class WhatsAppOtpProvider:
             raise HTTPException(503, "WhatsApp OTP is not configured")
         if phone not in self.recipients:
             raise HTTPException(403, "Phone is not an authorized staging test recipient")
-        if not self.version.startswith("v") or not self.version[1:].replace(".", "").isdigit():
+        if not re.fullmatch(r"v[0-9]+\.[0-9]+", self.version):
             raise HTTPException(503, "Invalid WhatsApp API version")
         payload = {
             "messaging_product": "whatsapp",
