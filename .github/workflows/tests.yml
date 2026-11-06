@@ -18,6 +18,7 @@ jobs:
       DB_NAME: voltx_ci
       JWT_SECRET: ci-only-secret-at-least-thirty-two-characters
       APP_ENV: test
+      RUSHX_ENABLE_LEGACY_NETWORK: 'true'
       OTP_MODE: demo
       # Existing live auth regression asserts the demo code on this disposable test API.
       EXPOSE_DEMO_OTP: 'true'
