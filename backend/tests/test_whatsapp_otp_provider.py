@@ -32,3 +32,7 @@ async def test_provider_posts_otp_template(monkeypatch):
     assert seen["url"] == "https://graph.facebook.com/v25.0/123/messages"
     assert seen["kwargs"]["json"]["template"]["name"] == "rushx_authentication_otp_v1"
     assert seen["kwargs"]["json"]["template"]["components"][0]["parameters"][0]["text"] == "123456"
+    button = seen["kwargs"]["json"]["template"]["components"][1]
+    assert button["type"] == "button"
+    assert button["sub_type"] == "url"
+    assert button["parameters"][0]["text"] == "123456"
