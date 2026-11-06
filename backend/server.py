@@ -63,6 +63,13 @@ SIM_SPEED = 120  # demo time acceleration: 1 real second = 2 simulated minutes
 
 ADMIN_EMAIL = "crazycoder4192@gmail.com"
 
+# RushX 1.0: fail closed for parked charging/network business APIs.
+# Explicit opt-in is for a separately reviewed future release, not a frontend toggle.
+async def require_legacy_network_enabled():
+    if os.getenv("RUSHX_ENABLE_LEGACY_NETWORK", "").strip().lower() != "true":
+        raise HTTPException(status_code=404, detail="Not found")
+
+
 
 def now_utc():
     return datetime.now(timezone.utc)
@@ -205,12 +212,12 @@ def require_demo_finance():
 
 
 # ---------------- Wallet (customer) ----------------
-@api_router.get("/wallet")
+@api_router.get("/wallet", dependencies=[Depends(require_legacy_network_enabled)])
 async def wallet(user=Depends(get_current_user)):
     return {"balance": await get_balance(user["user_id"])}
 
 
-@api_router.post("/wallet/topup")
+@api_router.post("/wallet/topup", dependencies=[Depends(require_legacy_network_enabled)])
 async def topup(body: TopupBody, user=Depends(get_current_user)):
     require_demo_finance()
     if body.amount <= 0:
@@ -220,7 +227,7 @@ async def topup(body: TopupBody, user=Depends(get_current_user)):
     return {"ok": True, "balance": bal}
 
 
-@api_router.get("/wallet/transactions")
+@api_router.get("/wallet/transactions", dependencies=[Depends(require_legacy_network_enabled)])
 async def wallet_txns(user=Depends(get_current_user)):
     return await db.transactions.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
 
@@ -237,13 +244,13 @@ async def charger_public(c):
     }
 
 
-@api_router.get("/stations")
+@api_router.get("/stations", dependencies=[Depends(require_legacy_network_enabled)])
 async def list_stations(user=Depends(get_current_user)):
     chargers = await db.chargers.find({}, {"_id": 0}).sort("charger_id", 1).to_list(500)
     return [await charger_public(c) for c in chargers]
 
 
-@api_router.get("/chargers/{charger_id}")
+@api_router.get("/chargers/{charger_id}", dependencies=[Depends(require_legacy_network_enabled)])
 async def get_charger(charger_id: str, user=Depends(get_current_user)):
     c = await db.chargers.find_one({"charger_id": charger_id}, {"_id": 0})
     if not c:
@@ -252,7 +259,7 @@ async def get_charger(charger_id: str, user=Depends(get_current_user)):
 
 
 # ---------------- Charging sessions ----------------
-@api_router.post("/sessions/start")
+@api_router.post("/sessions/start", dependencies=[Depends(require_legacy_network_enabled)])
 async def start_session(body: StartBody, user=Depends(get_current_user)):
     require_demo_finance()
     c = await db.chargers.find_one({"charger_id": body.charger_id}, {"_id": 0})
@@ -281,7 +288,7 @@ async def start_session(body: StartBody, user=Depends(get_current_user)):
     return session
 
 
-@api_router.get("/sessions/{session_id}/live")
+@api_router.get("/sessions/{session_id}/live", dependencies=[Depends(require_legacy_network_enabled)])
 async def session_live(session_id: str, user=Depends(get_current_user)):
     s = await db.sessions.find_one({"session_id": session_id}, {"_id": 0})
     if not s or s["user_id"] != user["user_id"]:
@@ -292,7 +299,7 @@ async def session_live(session_id: str, user=Depends(get_current_user)):
     return {**s, "live": live}
 
 
-@api_router.post("/sessions/{session_id}/stop")
+@api_router.post("/sessions/{session_id}/stop", dependencies=[Depends(require_legacy_network_enabled)])
 async def stop_session(session_id: str, user=Depends(get_current_user)):
     require_demo_finance()
     s = await db.sessions.find_one({"session_id": session_id}, {"_id": 0})
@@ -322,7 +329,7 @@ async def stop_session(session_id: str, user=Depends(get_current_user)):
     return {"ok": True, "energy_kwh": energy, "cost": cost, "owner_amount": owner_amt, "company_amount": company_amt, "balance": new_bal}
 
 
-@api_router.get("/sessions")
+@api_router.get("/sessions", dependencies=[Depends(require_legacy_network_enabled)])
 async def my_sessions(user=Depends(get_current_user)):
     return await db.sessions.find({"user_id": user["user_id"]}, {"_id": 0}).sort("start_time", -1).to_list(200)
 
@@ -348,7 +355,7 @@ async def owner_earnings_window(owner_id, since):
     return round(total, 2)
 
 
-@api_router.get("/owner/summary")
+@api_router.get("/owner/summary", dependencies=[Depends(require_legacy_network_enabled)])
 async def owner_summary(user=Depends(require("owner", "admin"))):
     oid = user["user_id"]
     today = now_utc().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -367,18 +374,18 @@ async def owner_summary(user=Depends(require("owner", "admin"))):
     }
 
 
-@api_router.get("/owner/chargers")
+@api_router.get("/owner/chargers", dependencies=[Depends(require_legacy_network_enabled)])
 async def owner_chargers(user=Depends(require("owner", "admin"))):
     chargers = await db.chargers.find({"owner_id": user["user_id"]}, {"_id": 0}).sort("charger_id", 1).to_list(500)
     return [telemetry(c) for c in chargers]
 
 
-@api_router.get("/owner/transactions")
+@api_router.get("/owner/transactions", dependencies=[Depends(require_legacy_network_enabled)])
 async def owner_txns(user=Depends(require("owner", "admin"))):
     return await db.owner_transactions.find({"owner_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
 
 
-@api_router.post("/owner/withdraw")
+@api_router.post("/owner/withdraw", dependencies=[Depends(require_legacy_network_enabled)])
 async def owner_withdraw(body: WithdrawBody, user=Depends(require("owner", "admin"))):
     require_demo_finance()
     bal = (await db.owner_wallets.find_one({"user_id": user["user_id"]}, {"_id": 0}) or {}).get("balance", 0.0)
@@ -392,7 +399,7 @@ async def owner_withdraw(body: WithdrawBody, user=Depends(require("owner", "admi
     return {"ok": True, "withdrawal": wd}
 
 
-@api_router.get("/owner/withdrawals")
+@api_router.get("/owner/withdrawals", dependencies=[Depends(require_legacy_network_enabled)])
 async def owner_withdrawals(user=Depends(require("owner", "admin"))):
     return await db.withdrawals.find({"owner_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
 
@@ -419,7 +426,7 @@ def telemetry(c):
 
 
 # ---------------- Admin ----------------
-@api_router.get("/admin/summary")
+@api_router.get("/admin/summary", dependencies=[Depends(require_legacy_network_enabled)])
 async def admin_summary(user=Depends(require("admin"))):
     chargers = await db.chargers.find({}, {"_id": 0}).to_list(1000)
     sessions = await db.sessions.find({"status": "completed"}, {"_id": 0}).to_list(5000)
@@ -438,7 +445,7 @@ async def admin_summary(user=Depends(require("admin"))):
     }
 
 
-@api_router.get("/admin/chargers")
+@api_router.get("/admin/chargers", dependencies=[Depends(require_legacy_network_enabled)])
 async def admin_chargers(user=Depends(require("admin"))):
     chargers = await db.chargers.find({}, {"_id": 0}).sort("charger_id", 1).to_list(1000)
     out = []
@@ -450,7 +457,7 @@ async def admin_chargers(user=Depends(require("admin"))):
     return out
 
 
-@api_router.post("/admin/chargers")
+@api_router.post("/admin/chargers", dependencies=[Depends(require_legacy_network_enabled)])
 async def create_charger(body: ChargerCreate, user=Depends(require("admin"))):
     counter = await db.counters.find_one_and_update(
         {"_id": "charger"}, {"$inc": {"seq": 1}}, upsert=True, return_document=ReturnDocument.AFTER)
@@ -465,7 +472,7 @@ async def create_charger(body: ChargerCreate, user=Depends(require("admin"))):
     return {"ok": True, "charger": c}
 
 
-@api_router.post("/admin/chargers/{charger_id}/restart")
+@api_router.post("/admin/chargers/{charger_id}/restart", dependencies=[Depends(require_legacy_network_enabled)])
 async def restart_charger(charger_id: str, user=Depends(require("admin"))):
     c = await db.chargers.find_one({"charger_id": charger_id}, {"_id": 0})
     if not c:
@@ -475,7 +482,7 @@ async def restart_charger(charger_id: str, user=Depends(require("admin"))):
     return {"ok": True}
 
 
-@api_router.post("/admin/chargers/{charger_id}/status")
+@api_router.post("/admin/chargers/{charger_id}/status", dependencies=[Depends(require_legacy_network_enabled)])
 async def set_charger_status(charger_id: str, body: dict, user=Depends(require("admin"))):
     status = body.get("status")
     if status not in ("Available", "Offline", "Fault"):
@@ -487,7 +494,7 @@ async def set_charger_status(charger_id: str, body: dict, user=Depends(require("
     return {"ok": True}
 
 
-@api_router.get("/admin/owners")
+@api_router.get("/admin/owners", dependencies=[Depends(require_legacy_network_enabled)])
 async def admin_owners(user=Depends(require("admin"))):
     owners = await db.users.find({"role": "owner"}, {"_id": 0}).sort("created_at", -1).to_list(500)
     for o in owners:
@@ -496,7 +503,7 @@ async def admin_owners(user=Depends(require("admin"))):
     return owners
 
 
-@api_router.post("/admin/owners")
+@api_router.post("/admin/owners", dependencies=[Depends(require_legacy_network_enabled)])
 async def create_owner(body: OwnerCreate, user=Depends(require("admin"))):
     body.phone = normalize_phone(body.phone)
     if await db.users.find_one({"phone": body.phone}):
@@ -516,7 +523,7 @@ async def admin_users(user=Depends(require("admin"))):
     return users
 
 
-@api_router.post("/admin/wallet/adjust")
+@api_router.post("/admin/wallet/adjust", dependencies=[Depends(require_legacy_network_enabled)])
 async def admin_wallet_adjust(body: WalletAdjust, user=Depends(require("admin"))):
     require_demo_finance()
     bal = await add_wallet_txn(body.user_id, "adjustment", body.amount, body.note)
@@ -524,17 +531,17 @@ async def admin_wallet_adjust(body: WalletAdjust, user=Depends(require("admin"))
     return {"ok": True, "balance": bal}
 
 
-@api_router.get("/admin/faults")
+@api_router.get("/admin/faults", dependencies=[Depends(require_legacy_network_enabled)])
 async def admin_faults(user=Depends(require("admin"))):
     return await db.fault_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
 
 
-@api_router.get("/admin/withdrawals")
+@api_router.get("/admin/withdrawals", dependencies=[Depends(require_legacy_network_enabled)])
 async def admin_withdrawals(user=Depends(require("admin"))):
     return await db.withdrawals.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
 
 
-@api_router.patch("/admin/withdrawals/{wid}")
+@api_router.patch("/admin/withdrawals/{wid}", dependencies=[Depends(require_legacy_network_enabled)])
 async def update_withdrawal(wid: str, body: dict, user=Depends(require("admin"))):
     require_demo_finance()
     status = body.get("status")
@@ -549,7 +556,7 @@ async def update_withdrawal(wid: str, body: dict, user=Depends(require("admin"))
     return {"ok": True}
 
 
-@api_router.get("/admin/sessions")
+@api_router.get("/admin/sessions", dependencies=[Depends(require_legacy_network_enabled)])
 async def admin_sessions(user=Depends(require("admin"))):
     return await db.sessions.find({}, {"_id": 0}).sort("start_time", -1).to_list(500)
 
