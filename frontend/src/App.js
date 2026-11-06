@@ -14,6 +14,7 @@ import HistoryPage from "@/pages/customer/HistoryPage";
 import RepairNew from "@/pages/customer/RepairNew";
 import RepairDetail from "@/pages/customer/RepairDetail";
 import RepairsList from "@/pages/customer/RepairsList";
+import RepairAdmin from "@/pages/admin/RepairAdmin";
 
 import { FEATURES } from "./config/features";
 
@@ -38,7 +39,8 @@ function App() {
               <Route path="/repairs/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.repair ? <RepairDetail /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
 
               <Route path="/owner" element={<ProtectedRoute roles={["owner", "admin"]}><Navigate to="/app" replace /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><Navigate to="/repairs" replace /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><Navigate to="/admin/repairs" replace /></ProtectedRoute>} />
+              <Route path="/admin/repairs" element={<ProtectedRoute roles={["admin"]}><RepairAdmin /></ProtectedRoute>} />
 
               <Route path="*" element={<Navigate to="/app" replace />} />
             </Routes>
