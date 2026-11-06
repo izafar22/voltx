@@ -42,6 +42,10 @@ jobs:
       - run: cd backend && python -m pytest
         env:
           REACT_APP_BACKEND_URL: http://localhost:8001
+      - name: Verify default-off release isolation independently
+        run: cd backend && python -m pytest tests/test_release_feature_isolation.py -q
+        env:
+          RUSHX_ENABLE_LEGACY_NETWORK: 'false'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
