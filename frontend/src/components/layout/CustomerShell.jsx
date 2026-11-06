@@ -34,10 +34,10 @@ export const CustomerShell = ({ children }) => {
   const SideNav = () => (
     <SidebarLinks items={nav.filter(n => !n.enabled || n.enabled())} onNavigate={() => setOpen(false)}>
       {(user?.role === "owner" || user?.role === "admin") && (
-        <button onClick={() => navigate(user.role === "admin" ? "/admin" : "/owner")} data-testid="nav-console"
+        <button onClick={() => navigate(user.role === "admin" ? "/admin/repairs" : "/repairs")} data-testid="nav-console"
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-colors duration-200 mt-2">
           {user.role === "admin" ? <Shield className="h-4.5 w-4.5" strokeWidth={1.5} /> : <LayoutDashboard className="h-4.5 w-4.5" strokeWidth={1.5} />}
-          {user.role === "admin" ? "Admin Console" : "Owner Console"}
+          {user.role === "admin" ? "Manage Repairs" : "Repairs"}
         </button>
       )}
     </SidebarLinks>
