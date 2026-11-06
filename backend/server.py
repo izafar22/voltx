@@ -55,7 +55,7 @@ api_router = APIRouter(prefix="/api")
 JWT_SECRET = os.environ['JWT_SECRET']
 auth_settings = AuthSettings.from_env()
 otp_provider = None
-if os.getenv("APP_ENV") == "test" and os.getenv("OTP_MODE", "provider") == "provider" and os.getenv("WHATSAPP_ENABLED", "false").lower() == "true":
+if os.getenv("APP_ENV") == "test" and os.getenv("OTP_MODE", "provider") == "provider" and os.getenv("OTP_DELIVERY_PROVIDER", "").lower() == "whatsapp":
     try:
         from .whatsapp_otp_provider import WhatsAppOtpProvider
     except ImportError:
