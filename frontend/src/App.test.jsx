@@ -34,6 +34,7 @@ jest.mock('@/pages/customer/RepairDetail', () => () => <p>Existing repair detail
 jest.mock('@/pages/customer/RepairsList', () => () => <p>Existing repair list</p>, { virtual: true });
 jest.mock('@/pages/owner/OwnerDashboard', () => () => <p>Owner console</p>, { virtual: true });
 jest.mock('@/pages/admin/AdminDashboard', () => () => <p>Admin console</p>, { virtual: true });
+jest.mock('@/pages/admin/RepairAdmin', () => () => <p>Repair administration</p>, { virtual: true });
 let container, root;
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true; jest.clearAllMocks(); Object.assign(FEATURES, defaults);
@@ -58,7 +59,7 @@ test('session loading does not prematurely redirect', async () => {
 test.each([['/app/wallet', 'wallet'], ['/app/history', 'charging'], ['/app/charger/IND000001', 'charging'], ['/app/live/s1', 'charging']])('enabled route %s renders preserved page', async (path, feature) => {
   FEATURES[feature] = true; await mount(path); expect(window.location.pathname).toBe(path); expect(mockChargingMount).toHaveBeenCalled();
 });
-test.each([['owner', '/owner', '/app', 'Customer dashboard'], ['admin', '/admin', '/repairs', 'Existing repair list']])('%s legacy console redirects to active RushX release page', async (role, path, destination, content) => {
+test.each([['owner', '/owner', '/app', 'Customer dashboard'], ['admin', '/admin', '/admin/repairs', 'Repair administration']])('%s legacy console redirects to active RushX release page', async (role, path, destination, content) => {
   mockUser = { role }; await mount(path); expect(window.location.pathname).toBe(destination); expect(container.textContent).toContain(content);
   expect(container.textContent).not.toContain('Owner console');
   expect(container.textContent).not.toContain('Admin console');
@@ -66,8 +67,11 @@ test.each([['owner', '/owner', '/app', 'Customer dashboard'], ['admin', '/admin'
 test.each([['customer', '/app'], ['owner', '/app']])('%s cannot access an admin console', async (role, destination) => {
   mockUser = { role }; await mount('/admin'); expect(window.location.pathname).toBe(destination); expect(container.textContent).not.toContain('Admin console');
 });
-test('admin retains access to repair list and detail routes', async () => {
-  mockUser = { role: 'admin' }; await mount('/repairs'); expect(container.textContent).toContain('Existing repair list');
+test('admin can access repair administration directly', async () => {
+  mockUser = { role: 'admin' }; await mount('/admin/repairs'); expect(container.textContent).toContain('Repair administration');
+});
+test.each(['customer', 'owner'])('%s cannot access repair administration', async role => {
+  mockUser = { role }; await mount('/admin/repairs'); expect(window.location.pathname).toBe('/app'); expect(container.textContent).not.toContain('Repair administration');
 });
 test('owner retains access to own repair routes without access to network console', async () => {
   mockUser = { role: 'owner' }; await mount('/repairs'); expect(container.textContent).toContain('Existing repair list');
