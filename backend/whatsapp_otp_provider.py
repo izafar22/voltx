@@ -36,8 +36,7 @@ class WhatsAppOtpProvider:
             "template": {
                 "name": self.template,
                 "language": {"code": "en_US"},
-                "components": [{"type": "button", "sub_type": "url", "index": "0",
-                                "parameters": [{"type": "text", "text": code}]}],
+                "components": [{"type": "body", "parameters": [{"type": "text", "text": code}]}],
             },
         }
         try:
