@@ -58,11 +58,19 @@ test('session loading does not prematurely redirect', async () => {
 test.each([['/app/wallet', 'wallet'], ['/app/history', 'charging'], ['/app/charger/IND000001', 'charging'], ['/app/live/s1', 'charging']])('enabled route %s renders preserved page', async (path, feature) => {
   FEATURES[feature] = true; await mount(path); expect(window.location.pathname).toBe(path); expect(mockChargingMount).toHaveBeenCalled();
 });
-test.each([['owner', '/owner', 'Owner console'], ['admin', '/admin', 'Admin console']])('%s console remains directly accessible', async (role, path, text) => {
-  mockUser = { role }; await mount(path); expect(window.location.pathname).toBe(path); expect(container.textContent).toContain(text);
+test.each([['owner', '/owner', '/app', 'Customer dashboard'], ['admin', '/admin', '/repairs', 'Existing repair list']])('%s legacy console redirects to active RushX release page', async (role, path, destination, content) => {
+  mockUser = { role }; await mount(path); expect(window.location.pathname).toBe(destination); expect(container.textContent).toContain(content);
+  expect(container.textContent).not.toContain('Owner console');
+  expect(container.textContent).not.toContain('Admin console');
 });
-test.each([['customer', '/app'], ['owner', '/owner']])('%s cannot access an admin console', async (role, destination) => {
+test.each([['customer', '/app'], ['owner', '/app']])('%s cannot access an admin console', async (role, destination) => {
   mockUser = { role }; await mount('/admin'); expect(window.location.pathname).toBe(destination); expect(container.textContent).not.toContain('Admin console');
+});
+test('admin retains access to repair list and detail routes', async () => {
+  mockUser = { role: 'admin' }; await mount('/repairs'); expect(container.textContent).toContain('Existing repair list');
+});
+test('owner retains access to own repair routes without access to network console', async () => {
+  mockUser = { role: 'owner' }; await mount('/repairs'); expect(container.textContent).toContain('Existing repair list');
 });
 test('signed-out admin route requires login', async () => {
   mockUser = null; await mount('/admin'); expect(window.location.pathname).toBe('/login'); expect(container.textContent).not.toContain('Admin console');
