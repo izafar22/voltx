@@ -103,7 +103,7 @@ class GoogleOIDC:
         except DuplicateKeyError:
             pass
         user = await self.auth.db.users.find_one(identity)
-        if not user or user.get('role') != 'customer':
+        if not user or user.get('role') not in ('customer', 'admin', 'owner'):
             raise ValueError('Unavailable identity')
         self.auth.ensure_active(user)
         await self.auth.db.wallets.update_one({'user_id': user['user_id']}, {'$setOnInsert': {'balance': 0.0}}, upsert=True)
