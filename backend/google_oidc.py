@@ -104,7 +104,10 @@ class GoogleOIDC:
                     'email': str(claims.get('email', ''))[:254] if claims.get('email_verified') is True else '',
                     'onboarding_completed': True, 'created_at': now, 'updated_at': now}
         email = document['email']
-        if email and await self.auth.db.users.find_one({'email': {'$regex': '^' + re.escape(email) + '
+        if email and await self.auth.db.users.find_one({'email': {'$regex': '^' + re.escape(email) + '$', '$options': 'i'}}):
+            raise ExistingAccountLinkRequired('Existing account requires explicit linking')
+        try:
+            await self.auth.db.users.update_one(identity, {'$setOnInsert': document}, upsert=True)
         except DuplicateKeyError:
             pass
         user = await self.auth.db.users.find_one(identity)
