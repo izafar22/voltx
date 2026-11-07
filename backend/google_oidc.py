@@ -130,3 +130,40 @@ class GoogleOIDC:
             binding = request.cookies.get(COOKIE, '')
             if not 20 <= len(state) <= 200 or not 20 <= len(binding) <= 200:
                 return response
+            # Atomic consumption prevents concurrent callbacks and replay, even on denial/failure.
+            transaction = await self.auth.db.auth_google_transactions.find_one_and_delete({
+                '_id': self.auth.digest(state), 'binding': self.auth.digest(binding),
+                'expires_at': {'$gt': self.auth.clock()}})
+            code = request.query_params.get('code', '')
+            if not transaction or request.query_params.get('error') or not 1 <= len(code) <= 4096:
+                return response
+            async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+                result = await client.post(TOKEN, data={'grant_type': 'authorization_code', 'code': code,
+                    'client_id': self.client_id, 'client_secret': self.client_secret,
+                    'redirect_uri': self.redirect_uri, 'code_verifier': transaction['verifier']})
+                result.raise_for_status()
+                claims = await self.claims(client, result.json()['id_token'], transaction['nonce'])
+            if transaction.get('link_user_id'):
+                current = await self.auth.authenticate(request)
+                if current['user_id'] != transaction['link_user_id']:
+                    raise ValueError('Linking session changed')
+                identity = {'auth_provider': 'google', 'auth_subject': claims['sub']}
+                existing = await self.auth.db.users.find_one(identity)
+                if existing and existing['user_id'] != current['user_id']:
+                    raise ValueError('Google identity already linked')
+                if current.get('auth_subject') and (current.get('auth_provider') != 'google' or current.get('auth_subject') != claims['sub']):
+                    raise ValueError('Account already linked to another identity')
+                result = await self.auth.db.users.update_one({'_id': current['_id'], '$or': [{'auth_subject': {'$exists': False}}, identity]}, {'$set': identity})
+                if result.matched_count != 1:
+                    raise ValueError('Unable to link identity')
+                response.headers['location'] = '/admin' if current.get('role') == 'admin' else '/owner' if current.get('role') == 'owner' else '/app'
+            else:
+                user = await self.user(claims)
+                await self.auth.login_response(user, response, request)
+                response.headers['location'] = '/login'
+        except ExistingAccountLinkRequired:
+            response.headers['location'] = '/login?google_error=link_required'
+        except (DuplicateKeyError, HTTPException, httpx.HTTPError, jwt.PyJWTError, ValueError, KeyError, TypeError):
+            # Never include provider error payloads, codes, tokens or secrets in errors/logs.
+            pass
+        return response
