@@ -60,6 +60,7 @@ export const DashboardShell = ({ children, nav, title }) => {
             <h1 className="font-display text-lg font-semibold">{title}</h1>
           </div>
           <div className="flex items-center gap-1">
+            {(user?.role === "admin" || user?.role === "owner") && <a href="/api/auth/google/link" data-testid="link-google" className="px-3 py-2 text-xs rounded-lg border hover:bg-secondary">Link Google</a>}
             <button onClick={toggle} data-testid="theme-toggle" className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
