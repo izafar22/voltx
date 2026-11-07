@@ -54,7 +54,14 @@ api_router = APIRouter(prefix="/api")
 
 JWT_SECRET = os.environ['JWT_SECRET']
 auth_settings = AuthSettings.from_env()
-auth_service = AuthService(db, auth_settings)
+otp_provider = None
+if os.getenv("APP_ENV") == "test" and os.getenv("OTP_MODE", "provider") == "provider" and os.getenv("OTP_DELIVERY_PROVIDER", "").lower() == "whatsapp":
+    try:
+        from .whatsapp_otp_provider import WhatsAppOtpProvider
+    except ImportError:
+        from whatsapp_otp_provider import WhatsAppOtpProvider
+    otp_provider = WhatsAppOtpProvider.from_env()
+auth_service = AuthService(db, auth_settings, provider=otp_provider)
 MIN_START_BALANCE = 100.0
 OWNER_SHARE = 0.90
 COMPANY_SHARE = 0.10
