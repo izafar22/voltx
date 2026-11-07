@@ -98,7 +98,10 @@ def test_authenticated_admin_can_link_and_sign_in():
         from starlette.requests import Request
         response = Response()
         await service.login_response(admin, response, Request({'type': 'http', 'headers': [], 'method': 'GET', 'path': '/', 'query_string': b'', 'client': ('127.0.0.1', 1)}))
-        browser.cookies.set('access_token', response.cookies['access_token'])
+        from http.cookies import SimpleCookie
+        cookies = SimpleCookie()
+        cookies.load(response.headers['set-cookie'])
+        browser.cookies.set('access_token', cookies['access_token'].value)
         link = await browser.get('/api/auth/google/link')
         assert link.status_code == 303
         params = {k: v[0] for k, v in parse_qs(urlparse(link.headers['location']).query).items()}
