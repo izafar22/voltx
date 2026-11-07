@@ -21,6 +21,10 @@ JWKS = 'https://www.googleapis.com/oauth2/v3/certs'
 COOKIE = 'google_transaction'
 
 
+class ExistingAccountLinkRequired(ValueError):
+    pass
+
+
 class GoogleOIDC:
     def __init__(self, auth):
         self.auth = auth
@@ -154,12 +158,14 @@ class GoogleOIDC:
                 user = await self.user(claims)
                 await self.auth.login_response(user, response, request)
                 response.headers['location'] = '/login'
-        except (HTTPException, httpx.HTTPError, jwt.PyJWTError, ValueError, KeyError, TypeError):
+        except ExistingAccountLinkRequired:
+            response.headers['location'] = '/login?google_error=link_required'
+        except (DuplicateKeyError, HTTPException, httpx.HTTPError, jwt.PyJWTError, ValueError, KeyError, TypeError):
             # Never include provider error payloads, codes, tokens or secrets in errors/logs.
             pass
         return response
 , '$options': 'i'}}):
-            raise ValueError('Existing email must be linked from an authenticated account')
+            raise ExistingAccountLinkRequired('Existing account requires explicit linking')
         try:
             await self.auth.db.users.update_one(identity, {'$setOnInsert': document}, upsert=True)
         except DuplicateKeyError:
