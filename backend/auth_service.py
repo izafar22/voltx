@@ -219,7 +219,7 @@ class AuthService:
                 "phone": phone,
                 "otp_hash": self.digest(f"{cid}:{phone}:{code}"),
                 "created_at": now,
-                "expires_at": now + timedelta(minutes=5),
+                "expires_at": now + timedelta(minutes=int(os.getenv("OTP_TTL_MINUTES", "5"))),
                 "attempts": 0,
                 "consumed": False,
                 "delivered": False,
