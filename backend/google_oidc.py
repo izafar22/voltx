@@ -3,6 +3,7 @@ import base64
 import hashlib
 import hmac
 import os
+import re
 import secrets
 import time
 from datetime import timedelta
@@ -46,13 +47,13 @@ class GoogleOIDC:
         response.headers['Cache-Control'] = 'no-store'
         response.headers['Referrer-Policy'] = 'no-referrer'
 
-    async def login(self, request):
+    async def login(self, request, *, link_user=None):
         self.configured()
         await self.auth.limit('google:' + (request.client.host if request.client else 'unknown'), 30, 3600)
         state, binding, nonce, verifier = [secrets.token_urlsafe(32) for _ in range(4)]
         await self.auth.db.auth_google_transactions.insert_one({
             '_id': self.auth.digest(state), 'binding': self.auth.digest(binding), 'nonce': nonce,
-            'verifier': verifier, 'expires_at': self.auth.clock() + timedelta(minutes=5)})
+            'verifier': verifier, 'link_user_id': link_user['user_id'] if link_user else None, 'expires_at': self.auth.clock() + timedelta(minutes=5)})
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
         response = RedirectResponse(AUTHORIZE + '?' + urlencode({
             'client_id': self.client_id, 'redirect_uri': self.redirect_uri, 'response_type': 'code',
@@ -98,12 +99,75 @@ class GoogleOIDC:
                     'name': str(claims.get('name', 'Customer'))[:100],
                     'email': str(claims.get('email', ''))[:254] if claims.get('email_verified') is True else '',
                     'onboarding_completed': True, 'created_at': now, 'updated_at': now}
+        email = document['email']
+        if email and await self.auth.db.users.find_one({'email': {'$regex': '^' + re.escape(email) + '
+        except DuplicateKeyError:
+            pass
+        user = await self.auth.db.users.find_one(identity)
+        if not user:
+            raise ValueError('Unavailable identity')
+        if user.get('role') not in ('customer', 'admin', 'owner'):
+            raise ValueError('Unavailable identity')
+        self.auth.ensure_active(user)
+        await self.auth.db.wallets.update_one({'user_id': user['user_id']}, {'$setOnInsert': {'balance': 0.0}}, upsert=True)
+        return user
+
+    async def callback(self, request):
+        response = RedirectResponse('/login?google_error=1', status_code=303)
+        self.response_headers(response)
+        response.delete_cookie(COOKIE, path='/api/auth/google', httponly=True,
+                               secure=self.auth.settings.environment == 'production', samesite='lax')
+        try:
+            self.configured()
+            state = request.query_params.get('state', '')
+            binding = request.cookies.get(COOKIE, '')
+            if not 20 <= len(state) <= 200 or not 20 <= len(binding) <= 200:
+                return response
+            # Atomic consumption prevents concurrent callbacks and replay, even on denial/failure.
+            transaction = await self.auth.db.auth_google_transactions.find_one_and_delete({
+                '_id': self.auth.digest(state), 'binding': self.auth.digest(binding),
+                'expires_at': {'$gt': self.auth.clock()}})
+            code = request.query_params.get('code', '')
+            if not transaction or request.query_params.get('error') or not 1 <= len(code) <= 4096:
+                return response
+            async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+                result = await client.post(TOKEN, data={'grant_type': 'authorization_code', 'code': code,
+                    'client_id': self.client_id, 'client_secret': self.client_secret,
+                    'redirect_uri': self.redirect_uri, 'code_verifier': transaction['verifier']})
+                result.raise_for_status()
+                claims = await self.claims(client, result.json()['id_token'], transaction['nonce'])
+            if transaction.get('link_user_id'):
+                current = await self.auth.authenticate(request)
+                if current['user_id'] != transaction['link_user_id']:
+                    raise ValueError('Linking session changed')
+                identity = {'auth_provider': 'google', 'auth_subject': claims['sub']}
+                existing = await self.auth.db.users.find_one(identity)
+                if existing and existing['user_id'] != current['user_id']:
+                    raise ValueError('Google identity already linked')
+                if current.get('auth_subject') and (current.get('auth_provider') != 'google' or current.get('auth_subject') != claims['sub']):
+                    raise ValueError('Account already linked to another identity')
+                result = await self.auth.db.users.update_one({'_id': current['_id'], '$or': [{'auth_subject': {'$exists': False}}, identity]}, {'$set': identity})
+                if result.matched_count != 1:
+                    raise ValueError('Unable to link identity')
+                response.headers['location'] = '/admin' if current.get('role') == 'admin' else '/owner' if current.get('role') == 'owner' else '/app'
+            else:
+                user = await self.user(claims)
+                await self.auth.login_response(user, response, request)
+                response.headers['location'] = '/login'
+        except (HTTPException, httpx.HTTPError, jwt.PyJWTError, ValueError, KeyError, TypeError):
+            # Never include provider error payloads, codes, tokens or secrets in errors/logs.
+            pass
+        return response
+, '$options': 'i'}}):
+            raise ValueError('Existing email must be linked from an authenticated account')
         try:
             await self.auth.db.users.update_one(identity, {'$setOnInsert': document}, upsert=True)
         except DuplicateKeyError:
             pass
         user = await self.auth.db.users.find_one(identity)
-        if not user or user.get('role') not in ('customer', 'admin', 'owner'):
+        if not user:
+            raise ValueError('Unavailable identity')
+        if user.get('role') not in ('customer', 'admin', 'owner'):
             raise ValueError('Unavailable identity')
         self.auth.ensure_active(user)
         await self.auth.db.wallets.update_one({'user_id': user['user_id']}, {'$setOnInsert': {'balance': 0.0}}, upsert=True)
