@@ -37,7 +37,7 @@ export default function Login() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(new URLSearchParams(window.location.search).has("google_error") ? "Google sign-in could not be completed. Please try again or use SMS." : "");
+  const [error, setError] = useState(new URLSearchParams(window.location.search).get("google_error") === "link_required" ? "This Google email is already associated with a RushX account. Sign in using your existing method, then link Google from your account." : new URLSearchParams(window.location.search).has("google_error") ? "Google sign-in could not be completed. Please try again or use SMS." : "");
   const [remaining, setRemaining] = useState(0);
   const resendAt = useRef(0);
   const lock = useRef(false);
