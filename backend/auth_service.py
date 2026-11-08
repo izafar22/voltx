@@ -373,6 +373,11 @@ def auth_router(service):
     async def google_login(request: Request):
         return await service.google.login(request)
 
+    @router.get("/google/link")
+    async def google_link(request: Request):
+        user = await service.authenticate(request)
+        return await service.google.login(request, link_user=user)
+
     @router.get("/google/callback")
     async def google_callback(request: Request):
         return await service.google.callback(request)

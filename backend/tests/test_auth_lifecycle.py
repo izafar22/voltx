@@ -286,7 +286,10 @@ def test_representative_legacy_phone_migration_preserves_customer_history(legacy
         response = await verify(browser, await challenge(browser))
         assert response.json()['user']['user_id'] == 'sms_customer'
         assert (await db.wallets.find_one({'user_id': 'sms_customer'}))['balance'] == 125.5
-        google = await service.google.user({'sub': 'new-google', 'email': 'same@example.com', 'email_verified': True})
+        from google_oidc import ExistingAccountLinkRequired
+        with pytest.raises(ExistingAccountLinkRequired):
+            await service.google.user({'sub': 'new-google', 'email': 'same@example.com', 'email_verified': True})
+        google = await service.google.user({'sub': 'new-google', 'email': 'new@example.com', 'email_verified': True})
         assert google['user_id'] != 'sms_customer' and google['role'] == 'customer'
         await service.google.user({'sub': 'another-google'})
         await db.users.insert_many([{'user_id': 'null1', 'phone': None}, {'user_id': 'null2', 'phone': None}])

@@ -70,21 +70,49 @@ async def callback(service, browser, params, **kwargs):
         return await browser.request('GET', '/api/auth/google/callback', params={'state': params['state'], 'code': 'code'})
 
 
-def test_success_existing_no_merge_phone_optional_session_logout():
+def test_existing_email_requires_explicit_linking():
     async def scenario(service, browser):
-        await service.db.users.insert_one({'user_id': 'admin', 'phone': '+919876543210', 'email': 'same@example.com', 'role': 'admin'})
-        for _ in range(2):
-            params = await start(service, browser)
-            response = await callback(service, browser, params)
-            assert response.headers['location'] == '/login'
-            me = await browser.get('/api/auth/me')
-            assert me.json()['role'] == 'customer' and me.json()['phone'] == ''
-            assert 'HttpOnly' in response.headers['set-cookie']
-            assert (await browser.post('/api/auth/logout')).status_code == 200
-            assert (await browser.get('/api/auth/me')).status_code == 401
-        await service.google.user({'sub': 'second'})
-        assert await service.db.users.count_documents({}) == 3
-        assert await service.db.wallets.count_documents({}) == 2
+        await service.db.users.insert_one({'user_id': 'admin', 'phone': '+919876543210', 'email': 'same@example.com', 'role': 'admin', 'status': 'active'})
+        params = await start(service, browser)
+        response = await callback(service, browser, params)
+        assert response.headers['location'] == '/login?google_error=link_required'
+        assert await service.db.users.count_documents({}) == 1
+        assert (await browser.get('/api/auth/me')).status_code == 401
+    run(scenario)
+
+
+def test_new_google_user_is_customer():
+    async def scenario(service, browser):
+        params = await start(service, browser)
+        response = await callback(service, browser, params)
+        assert response.headers['location'] == '/login'
+        assert (await browser.get('/api/auth/me')).json()['role'] == 'customer'
+    run(scenario)
+
+
+def test_authenticated_admin_can_link_and_sign_in():
+    async def scenario(service, browser):
+        await service.db.users.insert_one({'user_id': 'admin', 'phone': '+919876543210', 'email': 'same@example.com', 'role': 'admin', 'status': 'active'})
+        admin = await service.db.users.find_one({'user_id': 'admin'})
+        from fastapi import Response
+        from starlette.requests import Request
+        response = Response()
+        await service.login_response(admin, response, Request({'type': 'http', 'headers': [], 'method': 'GET', 'path': '/', 'query_string': b'', 'client': ('127.0.0.1', 1)}))
+        from http.cookies import SimpleCookie
+        cookies = SimpleCookie()
+        cookies.load(response.headers['set-cookie'])
+        browser.cookies.set('access_token', cookies['access_token'].value)
+        link = await browser.get('/api/auth/google/link')
+        assert link.status_code == 303
+        params = {k: v[0] for k, v in parse_qs(urlparse(link.headers['location']).query).items()}
+        linked = await callback(service, browser, params)
+        assert linked.headers['location'] == '/admin'
+        assert (await service.db.users.find_one({'user_id': 'admin'}))['auth_subject'] == 'subject'
+        await browser.post('/api/auth/logout')
+        params = await start(service, browser)
+        signed_in = await callback(service, browser, params)
+        assert signed_in.headers['location'] == '/login'
+        assert (await browser.get('/api/auth/me')).json()['role'] == 'admin'
     run(scenario)
 
 
@@ -135,8 +163,22 @@ def test_duplicate_identity_and_role_guard():
         users = await asyncio.gather(*[service.google.user({'sub': 'subject'}) for _ in range(2)])
         assert users[0]['user_id'] == users[1]['user_id']
         await service.db.users.update_many({}, {'$set': {'role': 'admin'}})
-        with pytest.raises(ValueError):
-            await service.google.user({'sub': 'subject'})
+        assert (await service.google.user({'sub': 'subject'}))['role'] == 'admin'
+    run(scenario)
+
+
+
+@pytest.mark.parametrize('role,status', [('unknown', 'active'), ('customer', 'suspended')])
+def test_existing_google_identity_rejects_invalid_account(role, status):
+    async def scenario(service, browser):
+        await service.db.users.insert_one({
+            'user_id': 'existing', 'auth_provider': 'google', 'auth_subject': 'subject',
+            'role': role, 'status': status
+        })
+        params = await start(service, browser)
+        response = await callback(service, browser, params)
+        assert response.headers['location'] == '/login?google_error=1'
+        assert await service.db.auth_sessions.count_documents({}) == 0
     run(scenario)
 
 
