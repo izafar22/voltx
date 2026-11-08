@@ -105,6 +105,8 @@ class GoogleOIDC:
                     'onboarding_completed': True, 'created_at': now, 'updated_at': now}
         existing = await self.auth.db.users.find_one(identity)
         if existing:
+            if existing.get('role') not in ('customer', 'admin', 'owner'):
+                raise ValueError('Unavailable identity')
             self.auth.ensure_active(existing)
             return existing
         email = document['email']
