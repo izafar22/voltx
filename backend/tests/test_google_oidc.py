@@ -167,6 +167,21 @@ def test_duplicate_identity_and_role_guard():
     run(scenario)
 
 
+
+@pytest.mark.parametrize('role,status', [('unknown', 'active'), ('customer', 'suspended')])
+def test_existing_google_identity_rejects_invalid_account(role, status):
+    async def scenario(service, browser):
+        await service.db.users.insert_one({
+            'user_id': 'existing', 'auth_provider': 'google', 'auth_subject': 'subject',
+            'role': role, 'status': status
+        })
+        params = await start(service, browser)
+        response = await callback(service, browser, params)
+        assert response.headers['location'] == '/login?google_error=1'
+        assert await service.db.auth_sessions.count_documents({}) == 0
+    run(scenario)
+
+
 def test_unconfigured_google_preserves_sms_and_fixed_destination():
     async def scenario(service, browser):
         service.google.client_secret = ''
