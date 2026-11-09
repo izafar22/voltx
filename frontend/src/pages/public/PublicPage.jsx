@@ -146,7 +146,7 @@ export default function PublicPage() {
             ) : (
               <Button asChild variant="repairCta" size="sm" className="rx-account-cta">
                 <Link to="/login" onClick={() => setOpen(false)}>
-                  Book Repair <ArrowUpRight size={15} aria-hidden="true" />
+                  Book a Repair <ArrowUpRight size={15} aria-hidden="true" />
                 </Link>
               </Button>
             )}
