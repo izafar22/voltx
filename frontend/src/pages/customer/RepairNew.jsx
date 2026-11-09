@@ -91,7 +91,6 @@ export default function RepairNew() {
     if (source === "mine" && !chargerId) nextErrors.chargerId = "Please select one of your chargers";
     if (source === "other") {
       if (!info.brand.trim()) nextErrors.brand = "Brand is required";
-      if (!info.model.trim()) nextErrors.model = "Model is required";
       if (!info.charger_type) nextErrors.charger_type = "Please select a charger type";
     }
     if (!description.trim()) nextErrors.description = "Please describe the problem";
