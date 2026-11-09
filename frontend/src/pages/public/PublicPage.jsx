@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { ArrowUpRight, Menu, X } from "lucide-react";
+import { ArrowUpRight, Zap, Menu, X } from "lucide-react";
 import {
   HomeStory,
   ServicesStory,
@@ -146,7 +146,7 @@ export default function PublicPage() {
             ) : (
               <Button asChild variant="repairCta" size="sm" className="rx-account-cta">
                 <Link to="/login" onClick={() => setOpen(false)}>
-                  Book a Repair <ArrowUpRight size={15} aria-hidden="true" />
+                  <Zap size={17} aria-hidden="true" /> Book a Repair <ArrowUpRight size={16} aria-hidden="true" />
                 </Link>
               </Button>
             )}
