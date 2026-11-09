@@ -21,6 +21,9 @@
   --ring: 147 70% 27%;
   --charging: 147 100% 39%;
   --wallet: 219 100% 50%;
+  --repair-cta: 24 95% 53%; /* #F97316 */
+  --repair-cta-hover: 21 90% 48%; /* #EA580C */
+  --repair-cta-foreground: 0 0% 4%; /* dark text ensures accessible contrast on orange CTA */
   --radius: 0.6rem;
   --brand-foreground: 147 70% 27%;
   --brand-surface: 147 45% 95%;

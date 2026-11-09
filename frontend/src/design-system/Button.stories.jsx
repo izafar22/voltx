@@ -20,6 +20,7 @@ export default {
         "ghost",
         "link",
         "destructive",
+        "repairCta",
       ],
     },
     size: { control: "select", options: ["default", "sm", "lg", "icon"] },
@@ -76,4 +77,22 @@ export const Variants = {
       </p>
     </section>
   ),
+};
+
+// RX-001: Customer-facing CTA retains the existing /login destination in Navbar.
+// Inspect hover and keyboard focus in Storybook; no authentication is performed here.
+export const BookRepair = {
+  args: {
+    children: "Book Repair",
+    size: "sm",
+    variant: "repairCta",
+    className: "rounded-lg",
+  },
+  parameters: {
+    docs: { description: { story: "Orange navigation CTA (desktop and mobile). In the application it opens the existing sign-in flow at /login." } },
+  },
+};
+export const BookRepairDisabled = {
+  ...BookRepair,
+  args: { ...BookRepair.args, disabled: true },
 };

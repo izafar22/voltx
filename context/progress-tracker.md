@@ -12,5 +12,7 @@ Last reviewed: 2026-11-06. Statuses: DONE / IN_PROGRESS / PLANNED / PARKED / BLO
 | PLANNED | Parked feature inventory | Trace historical branches/commits and record dependencies, ownership, restoration strategy |
 | PARKED | Legacy non-repair MVP functionality | Preserve historic code; no automatic promotion into production |
 
+| IN_PROGRESS | RX-001 / RX-002 frontend changes | Draft PR #36 from `repair-mvp`: Book Repair CTA via design-system variant and optional charger Model. Static diff checked; frontend tests, Storybook build and CI still require execution before merge. |
+
 ## Update rules
 Each meaningful PR updates affected rows, evidence links, verification date, and next action. Never mark DONE solely because a task was requested or code was drafted. Record release tag and deployed SHA only after deployment is verified. Do not include customer data or credentials.

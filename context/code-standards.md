@@ -12,5 +12,10 @@ Audit `backend/services/whatsapp_service.py` and `backend/templates/whatsapp_uti
 ## Frontend
 React functional components and existing styling conventions; accessible labels and keyboard behavior; responsive layouts and both themes. Reuse established API/client, route and component patterns. Avoid exposing secrets in frontend environment variables.
 
+## Design system rule (mandatory)
+- Never hardcode visual design values (colors, spacing, radii, shadows, typography) in JSX, HTML, inline styles, or one-off arbitrary Tailwind values. Use the existing canonical design tokens in `frontend/src/design-system/tokens.css`, mapped through `frontend/tailwind.config.js` and reusable component variants.
+- For a new semantic visual role, define a named token and reuse it in components and Storybook; preserve light/dark theme behavior and accessible focus/contrast.
+- Exceptions require explicit review and a documented reason (for example, dynamic data-driven positioning); do not introduce a parallel token system.
+
 ## Quality gates
 Run applicable backend tests, frontend tests/build and Playwright checks where available. For security-sensitive changes add negative/authorization tests. Report exact commands and outcomes, including anything not run. Never claim CI or production success without evidence. Keep .env and private files out of commits.

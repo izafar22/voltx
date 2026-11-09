@@ -91,7 +91,6 @@ export default function RepairNew() {
     if (source === "mine" && !chargerId) nextErrors.chargerId = "Please select one of your chargers";
     if (source === "other") {
       if (!info.brand.trim()) nextErrors.brand = "Brand is required";
-      if (!info.model.trim()) nextErrors.model = "Model is required";
       if (!info.charger_type) nextErrors.charger_type = "Please select a charger type";
     }
     if (!description.trim()) nextErrors.description = "Please describe the problem";
@@ -117,7 +116,7 @@ export default function RepairNew() {
         payload.charger_id = chargerId;
       } else {
         payload.charger_info = {
-          brand: info.brand.trim(), model: info.model.trim(),
+          brand: info.brand.trim(), model: info.model.trim() || null,
           charger_type: info.charger_type === "NOT_SURE" ? null : info.charger_type,
           serial_number: info.serial_number.trim() || null,
           power_rating: info.power_rating.trim() || null,
@@ -221,7 +220,7 @@ export default function RepairNew() {
               </dl>}
             </>}
           </div> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {[['brand', 'Brand *', 'e.g. ABB, Delta, Tata Power'], ['model', 'Model *', 'e.g. Terra AC, AC Mini 7.4']].map(([key, label, example]) => <div className="space-y-2" key={key}>
+            {[['brand', 'Brand *', 'e.g. ABB, Delta, Tata Power'], ['model', 'Model (optional)', 'e.g. Terra AC, AC Mini 7.4']].map(([key, label, example]) => <div className="space-y-2" key={key}>
               <Label htmlFor={key}>{label}</Label><Input {...fieldProps(key)} data-testid={`${key}-input`} value={info[key]} onChange={(e) => updateInfo(key, e.target.value)} placeholder={example} />{fieldError(key)}
             </div>)}
             <div className="space-y-2"><Label htmlFor="charger_type">Charger type *</Label>
