@@ -144,7 +144,7 @@ export default function PublicPage() {
                 My account <ArrowUpRight size={15} aria-hidden="true" />
               </Link>
             ) : (
-              <Button asChild variant="repairCta" size="sm" className="rx-account-cta">
+              <Button asChild variant="repairCta" size="sm" className="rx-account-cta min-h-12 px-5">
                 <Link to="/login" onClick={() => setOpen(false)}>
                   <Zap size={17} aria-hidden="true" /> Book a Repair <ArrowUpRight size={16} aria-hidden="true" />
                 </Link>
