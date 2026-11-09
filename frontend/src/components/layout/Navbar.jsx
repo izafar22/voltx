@@ -59,8 +59,8 @@ export const Navbar = () => {
               </button>
             </div>
           ) : (
-            <Button variant="repairCta" size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex">
-              <Zap aria-hidden="true" /> Book a Repair <ArrowUpRight aria-hidden="true" />
+            <Button variant="outline" size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex">
+              Sign In
             </Button>
           )}
           <button onClick={() => setOpen(!open)} data-testid="nav-mobile-toggle" className="lg:hidden h-10 w-10 rounded-lg flex items-center justify-center hover:bg-secondary">
@@ -83,7 +83,7 @@ export const Navbar = () => {
                 {user.role === "admin" && <Button variant="outline" className="flex-1" onClick={() => { nav("/admin"); setOpen(false); }}>Admin</Button>}
               </>
             ) : (
-              <Button variant="repairCta" onClick={() => { nav("/login"); setOpen(false); }} className="flex-1"><Zap aria-hidden="true" /> Book a Repair <ArrowUpRight aria-hidden="true" /></Button>
+              <Button variant="outline" onClick={() => { nav("/login"); setOpen(false); }} className="flex-1">Sign In</Button>
             )}
           </div>
         </div>
