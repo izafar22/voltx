@@ -35,7 +35,7 @@ for (const pathname of pages)
       ),
     ).toBe(true);
     await expect(
-      page.getByRole("link", { name: "Request a repair", exact: true }).first(),
+      page.getByRole("link", { name: "Book a Repair", exact: true }).first(),
     ).toHaveAttribute("href", "/repairs/new");
     if (Number(info.project.name) < 901) {
       await page.getByRole("button", { name: "Open menu" }).click();
@@ -125,7 +125,7 @@ test("SMS sign-in resumes existing repair form", async ({ page }) => {
   );
   await page.goto("/");
   await page
-    .getByRole("link", { name: "Request a repair", exact: true })
+    .getByRole("link", { name: "Book a Repair", exact: true })
     .first()
     .click();
   await page.getByLabel("Phone number").fill("9876543210");
@@ -198,7 +198,7 @@ test("public theme persists through existing login and an authenticated screen",
     .locator(".rx-public")
     .evaluate((el) => getComputedStyle(el).backgroundColor);
   await page
-    .getByRole("link", { name: "Request a repair", exact: true })
+    .getByRole("link", { name: "Book a Repair", exact: true })
     .first()
     .click();
   await expect(page).toHaveURL(/\/login$/);
