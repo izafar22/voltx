@@ -59,7 +59,7 @@ export const Navbar = () => {
               </button>
             </div>
           ) : (
-            <Button variant="repairCta" size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex rounded-lg">
+            <Button variant="repairCta" size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex">
               <Zap aria-hidden="true" /> Book a Repair <ArrowUpRight aria-hidden="true" />
             </Button>
           )}
