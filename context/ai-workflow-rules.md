@@ -1,5 +1,14 @@
 # Mandatory AI coding agent workflow
 
+## Mandatory requirements and technical-plan approvals (supersedes any conflicting guidance below)
+Before an AI agent is tasked with implementation, the assistant must restate each user-requested change with expected before/after UI or behavior, what stays unchanged, assumptions, ambiguities and risks. The user must explicitly approve that understanding. Do not silently infer requirements.
+
+After that approval, inspect code and tests and propose the exact affected files, minimal design, acceptance criteria, regression coverage and rollback. Obtain a **separate** technical-plan approval before any implementation. An approval to implement does not authorize merging, deploying, changing environment variables, sending WhatsApp messages or touching production data. If scope changes, stop and reconfirm.
+
+## Current branch policy (supersedes older branch/release examples below)
+`repair-mvp` is the protected baseline. Start all feature/fix branches from its latest approved state and use reviewed PRs back to `repair-mvp`. Current production release names are `release_<YYYYMMDD>_version<MAJOR.MINOR.PATCH>`. Do not switch production to `main`, `develop` or an old release naming convention without a separately approved transition.
+
+
 These rules apply to Codex and other agents working on RushX.
 
 ## 1. Preflight (before editing)
