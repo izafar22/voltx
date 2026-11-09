@@ -83,7 +83,7 @@ export const Variants = {
 // Inspect hover and keyboard focus in Storybook; no authentication is performed here.
 export const BookRepair = {
   args: {
-    children: "Book Repair",
+    children: "Book a Repair",
     size: "sm",
     variant: "repairCta",
     className: "rounded-lg",
