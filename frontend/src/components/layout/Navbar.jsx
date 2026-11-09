@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { Zap, Moon, Sun, Menu, X, LayoutDashboard, LogOut, Shield, ArrowUpRight } from "lucide-react";
+import { Zap, Moon, Sun, Menu, X, LayoutDashboard, LogOut, Shield } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
