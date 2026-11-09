@@ -395,3 +395,10 @@
     justify-content: space-between;
   }
 }
+
+/* Preserve the shared CTA foreground against public-link theme overrides. */
+.rx-public .rx-header nav a.rx-account-cta,
+.rx-public .rx-header nav a.rx-account-cta:hover {
+  color: hsl(var(--repair-cta-foreground));
+  text-decoration: none;
+}
