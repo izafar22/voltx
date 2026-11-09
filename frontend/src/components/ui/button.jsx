@@ -11,7 +11,7 @@ const buttonVariants = cva(
       variant: {
         default:
           "bg-primary text-primary-foreground shadow hover:bg-primary/90",
-        repairCta: "bg-repair-cta text-repair-cta-foreground font-semibold shadow hover:bg-repair-cta-hover focus-visible:ring-repair-cta",
+        repairCta: "rounded-full bg-repair-cta text-repair-cta-foreground font-semibold shadow-none hover:bg-repair-cta-hover focus-visible:ring-repair-cta",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline:
