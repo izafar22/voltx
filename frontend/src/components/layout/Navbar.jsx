@@ -59,7 +59,7 @@ export const Navbar = () => {
               </button>
             </div>
           ) : (
-            <Button size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex rounded-lg bg-[#F97316] text-white hover:bg-[#EA580C] focus-visible:ring-[#F97316]">
+            <Button variant="repairCta" size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex rounded-lg">
               Book Repair
             </Button>
           )}
@@ -83,7 +83,7 @@ export const Navbar = () => {
                 {user.role === "admin" && <Button variant="outline" className="flex-1" onClick={() => { nav("/admin"); setOpen(false); }}>Admin</Button>}
               </>
             ) : (
-              <Button onClick={() => { nav("/login"); setOpen(false); }} className="flex-1 bg-[#F97316] text-white hover:bg-[#EA580C] focus-visible:ring-[#F97316]">Book Repair</Button>
+              <Button variant="repairCta" onClick={() => { nav("/login"); setOpen(false); }} className="flex-1">Book Repair</Button>
             )}
           </div>
         </div>
