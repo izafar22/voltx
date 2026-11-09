@@ -20,6 +20,7 @@ export default {
         "ghost",
         "link",
         "destructive",
+        "repairCta",
       ],
     },
     size: { control: "select", options: ["default", "sm", "lg", "icon"] },
@@ -84,7 +85,8 @@ export const BookRepair = {
   args: {
     children: "Book Repair",
     size: "sm",
-    className: "rounded-lg bg-[#F97316] text-white hover:bg-[#EA580C] focus-visible:ring-[#F97316]",
+    variant: "repairCta",
+    className: "rounded-lg",
   },
   parameters: {
     docs: { description: { story: "Orange navigation CTA (desktop and mobile). In the application it opens the existing sign-in flow at /login." } },
