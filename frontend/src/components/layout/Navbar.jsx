@@ -59,8 +59,8 @@ export const Navbar = () => {
               </button>
             </div>
           ) : (
-            <Button size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex rounded-lg">
-              Sign In
+            <Button size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex rounded-lg bg-[#F97316] text-white hover:bg-[#EA580C] focus-visible:ring-[#F97316]">
+              Book Repair
             </Button>
           )}
           <button onClick={() => setOpen(!open)} data-testid="nav-mobile-toggle" className="lg:hidden h-10 w-10 rounded-lg flex items-center justify-center hover:bg-secondary">
@@ -83,7 +83,7 @@ export const Navbar = () => {
                 {user.role === "admin" && <Button variant="outline" className="flex-1" onClick={() => { nav("/admin"); setOpen(false); }}>Admin</Button>}
               </>
             ) : (
-              <Button className="flex-1" onClick={() => { nav("/login"); setOpen(false); }}>Sign In</Button>
+              <Button onClick={() => { nav("/login"); setOpen(false); }} className="flex-1 bg-[#F97316] text-white hover:bg-[#EA580C] focus-visible:ring-[#F97316]">Book Repair</Button>
             )}
           </div>
         </div>
