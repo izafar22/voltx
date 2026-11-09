@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { ArrowUpRight, Zap, Menu, X } from "lucide-react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import {
   HomeStory,
   ServicesStory,
@@ -9,7 +9,6 @@ import {
   RepairLink,
 } from "./storytelling/StoryPages";
 import { ThemeToggle } from "../../components/ThemeToggle";
-import { Button } from "../../components/ui/button";
 import { Logo } from "../../components/Logo";
 import { useAuth } from "../../context/AuthContext";
 import { homeFor } from "../../components/ProtectedRoute";
@@ -144,11 +143,7 @@ export default function PublicPage() {
                 My account <ArrowUpRight size={15} aria-hidden="true" />
               </Link>
             ) : (
-              <Button asChild variant="repairCta" size="sm" className="rx-account-cta">
-                <Link to="/login" onClick={() => setOpen(false)}>
-                  <Zap size={17} aria-hidden="true" /> Book a Repair <ArrowUpRight size={16} aria-hidden="true" />
-                </Link>
-              </Button>
+              <Link className="rx-account" to="/login" onClick={() => setOpen(false)}>Sign In</Link>
             )}
           </nav>
         </div>
@@ -214,7 +209,7 @@ export default function PublicPage() {
                   {label}
                 </Link>
               ))}
-              <Link to="/repairs/new">Request a repair</Link>
+              <Link to="/repairs/new">Book a Repair</Link>
               <Link to="/repairs">Track a repair</Link>
             </nav>
           </div>
