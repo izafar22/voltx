@@ -9,6 +9,7 @@ import {
   RepairLink,
 } from "./storytelling/StoryPages";
 import { ThemeToggle } from "../../components/ThemeToggle";
+import { Button } from "../../components/ui/button";
 import { Logo } from "../../components/Logo";
 import { useAuth } from "../../context/AuthContext";
 import { homeFor } from "../../components/ProtectedRoute";
@@ -138,13 +139,17 @@ export default function PublicPage() {
             <Link to="/repairs" onClick={() => setOpen(false)}>
               Track a repair
             </Link>
-            <Link
-              className="rx-account"
-              to={user ? homeFor(user.role) : "/login"}
-            >
-              {user ? "My account" : "Sign in"}
-              <ArrowUpRight size={15} aria-hidden="true" />
-            </Link>
+            {user ? (
+              <Link className="rx-account" to={homeFor(user.role)} onClick={() => setOpen(false)}>
+                My account <ArrowUpRight size={15} aria-hidden="true" />
+              </Link>
+            ) : (
+              <Button asChild variant="repairCta" size="sm" className="rx-account-cta">
+                <Link to="/login" onClick={() => setOpen(false)}>
+                  Book Repair <ArrowUpRight size={15} aria-hidden="true" />
+                </Link>
+              </Button>
+            )}
           </nav>
         </div>
       </header>
