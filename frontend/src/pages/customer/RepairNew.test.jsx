@@ -50,10 +50,11 @@ test('readable single-page sections, labels and mobile stacking', () => {
   expect(container.querySelector('label[for="brand"]')).not.toBeNull();
   expect(el('photo-input').className).not.toContain('hidden');
   expect(container.textContent).toContain('Don’t know the type?');
+  expect(container.querySelector('label[for="model"]').textContent).toBe('Model (optional)');
 });
 test('inline errors associate with controls, focus first field and clear on correction', () => {
   render(); act(() => submit()); expect(mockPost).not.toHaveBeenCalled(); expect(document.activeElement).toBe(el('brand-input'));
-  expect(container.querySelectorAll('[role="alert"]')).toHaveLength(4);
+  expect(container.querySelectorAll('[role="alert"]')).toHaveLength(3);
   expect(el('brand-input').getAttribute('aria-invalid')).toBe('true');
   expect(el('brand-input').getAttribute('aria-describedby')).toBe('brand-error');
   change('brand-input', ' '); expect(container.querySelector('#brand-error')).not.toBeNull();
@@ -80,6 +81,15 @@ test('review separates description and successful submission preserves contract 
   expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ['repairs-mine'] });
   expect(el('repair-confirmation')).not.toBeNull(); expect(el('repair-number').textContent).toContain('REP-001'); expect(container.querySelectorAll('ol li')).toHaveLength(5);
   click('view-repair-btn'); expect(mockNavigate).toHaveBeenLastCalledWith('/repairs/r1'); click('back-dashboard-btn'); expect(mockNavigate).toHaveBeenLastCalledWith('/app');
+});
+test('blank charger model submits null without blocking repair creation', async () => {
+  render(); change('brand-input', 'ABB'); change('type-select', 'AC'); change('description-input', 'Not powering on');
+  expect(el('model-input').value).toBe('');
+  await act(async () => submit());
+  expect(mockPost).toHaveBeenCalledWith('/repairs', expect.objectContaining({
+    charger_info: expect.objectContaining({ brand: 'ABB', model: null, charger_type: 'AC' }),
+  }));
+  expect(el('repair-confirmation')).not.toBeNull();
 });
 test('duplicate submissions are blocked and failures allow retry', async () => {
   let reject; mockPost.mockImplementationOnce(() => new Promise((resolve, fail) => { reject = fail; })); render(); fill();
