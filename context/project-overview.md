@@ -1,5 +1,11 @@
 # RushX project overview
 
+## Current deployment and release-policy update (verified by user 2026-11-10)
+The current frontend is React on Render (`evchargerrepair.in`); FastAPI is on an Oracle Cloud Always Free Ubuntu VM behind Nginx/HTTPS (`api.evchargerrepair.in`); MongoDB Atlas remains external. The user intentionally keeps the frontend on Render because Oracle VM memory is limited. Do not infer that an old proposed `main` transition has happened.
+
+**Current governing branch policy supersedes historical proposals elsewhere in this document:** `repair-mvp` is protected and is the source for feature/fix branches; use reviewed PRs to merge back. Production releases use `release_<YYYYMMDD>_version<MAJOR.MINOR.PATCH>`, based on approved `repair-mvp` commits. Do not change hosting or deploy branches without explicit approval. The current deployment may change; verify before acting.
+
+
 **Product:** RushX, at evchargerrepair.in. **Repository:** izafar22/voltx (historical repository name). **Purpose:** independent, multi-brand EV charger repair enquiries, assessment and repair coordination. Explain feasibility without promising repair success, manufacturer authorization, or unsupported geographical coverage.
 
 ## Active repair-focused scope
