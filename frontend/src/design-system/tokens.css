@@ -21,6 +21,7 @@
   --ring: 147 70% 27%;
   --charging: 147 100% 39%;
   --wallet: 219 100% 50%;
+  --whatsapp-chat-foreground: 0 0% 100%; /* accessible on dark-green CTA in both themes */
   --repair-cta: 145 70% 8%; /* dark green pill surface */
   --repair-cta-hover: 145 65% 13%; /* subtle elevated green hover */
   --repair-cta-foreground: 145 85% 43%; /* vivid green label and icons */

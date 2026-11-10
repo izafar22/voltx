@@ -14,5 +14,7 @@ Last reviewed: 2026-11-06. Statuses: DONE / IN_PROGRESS / PLANNED / PARKED / BLO
 
 | IN_PROGRESS | RX-001 / RX-002 frontend changes | Draft PR #36 from `repair-mvp`: Book Repair CTA via design-system variant and optional charger Model. Static diff checked; frontend tests, Storybook build and CI still require execution before merge. |
 
+| IN_PROGRESS | Public WhatsApp click-to-chat link | Feature branch `feature/whatsapp-chat-link`: public pages link to business WhatsApp number +91 8528077908 with prefilled repair enquiry. Added component test; CI/browser behavior and production deployment not yet verified. This is separate from WhatsApp Cloud API/outbox. |
+
 ## Update rules
 Each meaningful PR updates affected rows, evidence links, verification date, and next action. Never mark DONE solely because a task was requested or code was drafted. Record release tag and deployed SHA only after deployment is verified. Do not include customer data or credentials.

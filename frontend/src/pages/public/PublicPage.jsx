@@ -9,6 +9,7 @@ import {
   RepairLink,
 } from "./storytelling/StoryPages";
 import { ThemeToggle } from "../../components/ThemeToggle";
+import WhatsAppChatLink from "../../components/WhatsAppChatLink";
 import { Logo } from "../../components/Logo";
 import { useAuth } from "../../context/AuthContext";
 import { homeFor } from "../../components/ProtectedRoute";
@@ -172,6 +173,7 @@ export default function PublicPage() {
           </div>
         )}
       </main>
+      <WhatsAppChatLink />
       <footer className="rx-footer">
         <div className="rx-wrap">
           <section
