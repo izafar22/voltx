@@ -20,3 +20,5 @@ Last reviewed: 2026-11-06. Statuses: DONE / IN_PROGRESS / PLANNED / PARKED / BLO
 Each meaningful PR updates affected rows, evidence links, verification date, and next action. Never mark DONE solely because a task was requested or code was drafted. Record release tag and deployed SHA only after deployment is verified. Do not include customer data or credentials.
 
 | IN_PROGRESS | Floating WhatsApp button visual refresh | `feature/whatsapp-button-visual-final`: 56px icon-only control, classic green background, white 32px icon, fixed 24px from bottom/right. CI pending; not deployed. |
+
+| IN_PROGRESS | Approval-gated Oracle frontend CI/CD | `feature/oracle-frontend-cicd-approval`: manual release-branch workflow, GitHub production environment gate, non-root SSH deployment, staged build and backup/rollback. Requires review, CI, environment protection and VM account setup; no deployment performed. |
