@@ -19,6 +19,7 @@ LOCK=${HOME}/rushx-deploy/frontend-deploy.lock
 exec 9>"$LOCK"
 flock -n 9 || { echo "Another deployment is in progress"; exit 1; }
 command -v rsync >/dev/null || { echo "rsync is required on Oracle"; exit 1; }
+command -v setsid >/dev/null || { echo "setsid is required on Oracle"; exit 1; }
 [[ -d "$LIVE" && ! -L "$LIVE" ]] || { echo "Expected existing frontend directory at $LIVE"; exit 1; }
 [[ ! -e "$STAGING" ]] || { echo "Release directory already exists: $STAGING"; exit 1; }
 
@@ -54,9 +55,12 @@ trap cleanup EXIT
 
 rollback() {
     code="$1"
-    trap - ERR INT TERM HUP
+    trap - ERR
+    trap '' INT TERM HUP
     echo "Deployment failed (exit $code); restoring $BACKUP"
-    rsync -a --delete "$BACKUP/" "$LIVE/" || echo "CRITICAL: automatic rollback failed"
+    # Separate the restore process group so signals to the deploy SSH session
+    # cannot interrupt rsync, even when rsync installs its own signal handlers.
+    setsid -w rsync -a --delete "$BACKUP/" "$LIVE/" || echo "CRITICAL: automatic rollback failed"
     exit "$code"
 }
 trap 'rollback "$?"' ERR
