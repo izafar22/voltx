@@ -435,3 +435,30 @@ for (const [route, count] of [
         })),
       ).toEqual([]);
     });
+
+for (const theme of ["light", "dark"])
+  test(`WhatsApp button exact brand colour and geometry / ${theme}`, async ({ page }) => {
+    await page.addInitScript(
+      (t) => localStorage.setItem("rushx-theme", t),
+      theme,
+    );
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveCSS("color-scheme", theme);
+    const button = page.getByTestId("whatsapp-chat-link");
+    await expect(button).toBeVisible();
+    await expect(button).toHaveCSS("background-color", "rgb(37, 211, 102)");
+    await expect(button).toHaveCSS("width", "56px");
+    await expect(button).toHaveCSS("height", "56px");
+    await expect(button).toHaveCSS("position", "fixed");
+    await expect(button).toHaveCSS("bottom", "24px");
+    await expect(button).toHaveCSS("right", "24px");
+    await expect(button).toHaveCSS("border-radius", "9999px");
+    await expect(button).toHaveCSS("box-shadow", /rgba\(0, 0, 0, 0\.18\) 0px 5px 18px 0px/);
+    const icon = button.locator("svg");
+    await expect(icon).toHaveCSS("width", "32px");
+    await expect(icon).toHaveCSS("height", "32px");
+    await expect(icon).toHaveCSS("fill", "rgb(255, 255, 255)");
+    await button.hover();
+    await expect(button).toHaveCSS("transform", "matrix(1.05, 0, 0, 1.05, 0, 0)");
+    await expect(button).toHaveCSS("background-color", "rgb(37, 211, 102)");
+  });
