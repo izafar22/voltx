@@ -11,7 +11,7 @@ The existing `.github/workflows/frontend-release.yml` continues to build release
 1. In GitHub repository **Settings → Environments**, create `production`, configure **required reviewers**, enable **prevent self-review** if available, and restrict deployment branches to `release_*`. Check that the repository plan supports enforcement of environment required reviewers. **Do not run this workflow if the approval gate cannot be enforced.**
 2. Only after verifying the required-reviewer protection, set environment variable `APPROVAL_GATE_CONFIGURED=true`. This flag is an operator assertion, not independent verification of the GitHub environment rules.
 3. Set environment variables `ORACLE_HOST` (verified current Oracle IP or DNS) and `ORACLE_USER` (SSH deploy account). Set environment secrets `ORACLE_DEPLOY_SSH_KEY` (dedicated private key) and `ORACLE_SSH_KNOWN_HOSTS` (out-of-band verified host key line). Do **not** generate host trust dynamically with `ssh-keyscan` during deployment or store keys in git.
-4. Create a dedicated least-privilege SSH deployment account/key with access to the deployment target. The workflow currently invokes `sudo -n bash -s` to run the checked-in deployment script as root. **This requires a separately reviewed sudoers policy**; do not enable unrestricted passwordless sudo for an SSH key exposed to CI. Before activating, replace the root-shell invocation with a narrowly allowlisted, root-owned server-side deploy wrapper or a dedicated deploy mechanism. The workflow is intentionally **not ready for production activation** until this hardening is completed and reviewed.
+4. Create a dedicated non-root SSH deployment account/key. Give that account write permission **only** to the frontend webroot, release and backup directories, and its home deployment staging directory. Ensure Nginx can read deployed files. Do not grant passwordless sudo. Review the account permissions and the server directory ownership before enabling deployment.
 5. On the VM, verify `rsync`, `python3`, `tar`, `flock`, `nginx` and `curl`; validate free disk space for at least one release plus a full backup. Check `/var/www/rushx/frontend` is a real directory and not a symlink, and verify live Nginx root and site configuration.
 6. Reconcile the current deployed SHA, TLS, DNS, API health, and Nginx config with `docs/ORACLE_PRODUCTION_DEPLOYMENT.md` before first deployment.
 
@@ -33,6 +33,6 @@ The current live webroot is a directory, so the `rsync` update is **not atomic**
 
 - Frontend only; no backend, database, WhatsApp outbox, DNS, TLS, or Nginx edits.
 - CI deploy access and GitHub environment approvals must be configured and tested independently.
-- The workflow's root-shell invocation is a **security blocker** for production activation pending least-privilege hardening.
+- The non-root deploy account needs carefully scoped filesystem permissions; this is a prerequisite for activation.
 - Unit tests and build run on GitHub; full browser/axe tests are not integrated in this workflow.
 - Existing frontend release workflow remains untouched; this is an additive proposal.
