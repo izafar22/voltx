@@ -1,93 +1,80 @@
 #!/usr/bin/env bash
-# Runs as dedicated, non-root deployment user after environment approval.
+# Atomic, frontend-only release deployment. Requires a pre-migrated symlink webroot.
 set -Eeuo pipefail
-
 SHA="${1:?Release SHA required}"
 ARCHIVE="${2:?Artifact path required}"
 [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid SHA"; exit 1; }
-[[ -f "$ARCHIVE" && -s "$ARCHIVE" ]] || { echo "Missing artifact"; exit 1; }
+[[ -s "$ARCHIVE" ]] || { echo "Missing artifact"; exit 1; }
 
-ROOT=/var/www/rushx
+ROOT="${RUSHX_DEPLOY_ROOT:-/var/www/rushx}"
 LIVE="$ROOT/frontend"
 RELEASES="$ROOT/releases"
-BACKUPS="$ROOT/backups"
 STAGING="$RELEASES/$SHA"
-STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-BACKUP="$BACKUPS/frontend-$STAMP"
-LOCK=${HOME}/rushx-deploy/frontend-deploy.lock
-
+LOCK="${HOME}/rushx-deploy/frontend-deploy.lock"
+MARKER="${HOME}/rushx-deploy/frontend-deployed-sha"
+mkdir -p "${HOME}/rushx-deploy"
 exec 9>"$LOCK"
-flock -n 9 || { echo "Another deployment is in progress"; exit 1; }
-command -v rsync >/dev/null || { echo "rsync is required on Oracle"; exit 1; }
-command -v setsid >/dev/null || { echo "setsid is required on Oracle"; exit 1; }
-[[ -d "$LIVE" && ! -L "$LIVE" ]] || { echo "Expected existing frontend directory at $LIVE"; exit 1; }
-# The exclusive lock prevents concurrent deployments from touching staging.
-# Reject symlinks and remove only this SHA's stale staging directory.
-if [[ -L "$STAGING" ]]; then
-    echo "Unsafe staging symlink: $STAGING"; exit 1
-fi
+flock -n 9 || { echo "Deployment already running"; exit 1; }
+command -v python3 >/dev/null
+command -v curl >/dev/null
+# Never replace a real directory or a symlink pointing outside managed releases.
+[[ -L "$LIVE" ]] || { echo "Atomic deployment requires frontend symlink; migrate webroot separately"; exit 1; }
+PREVIOUS="$(readlink -f "$LIVE")"
+[[ -d "$PREVIOUS" && -s "$PREVIOUS/index.html" ]] || { echo "Invalid previous release"; exit 1; }
+case "$PREVIOUS" in "$RELEASES"/*) ;; *) echo "Live target outside managed releases"; exit 1;; esac
+[[ ! -L "$STAGING" ]] || { echo "Unsafe release symlink"; exit 1; }
+mkdir -p "$RELEASES"
 if [[ -e "$STAGING" ]]; then
-    [[ -d "$STAGING" ]] || { echo "Unexpected staging path: $STAGING"; exit 1; }
+    [[ -d "$STAGING" && "$STAGING" != "$PREVIOUS" ]] || { echo "Unsafe or currently active release"; exit 1; }
     rm -rf -- "$STAGING"
 fi
-mkdir -p "$RELEASES" "$BACKUPS" "$STAGING"
-
-# Clean up on failures even before rollback is installed; retain good releases.
-DEPLOY_SUCCEEDED=0
-PUBLIC_CHECK=""
+mkdir -p "$STAGING"
+SWITCHED=0
+SUCCESS=0
+CHECK_FILE=""
 cleanup() {
-    if [[ -n "$PUBLIC_CHECK" ]]; then rm -f -- "$PUBLIC_CHECK"; fi
-    if [[ "$DEPLOY_SUCCEEDED" != 1 ]]; then rm -rf -- "$STAGING"; fi
+    code=$?
+    trap - ERR INT TERM HUP
+    trap '' INT TERM HUP
+    [[ -z "$CHECK_FILE" ]] || rm -f -- "$CHECK_FILE"
+    if [[ "$SUCCESS" != 1 ]]; then
+        if [[ "$SWITCHED" == 1 ]]; then
+            echo "Deployment failed; restoring $PREVIOUS"
+            ln -s "$PREVIOUS" "$ROOT/.frontend-rollback-$$"
+            mv -Tf "$ROOT/.frontend-rollback-$$" "$LIVE" || echo "CRITICAL: rollback failed"
+        fi
+        rm -rf -- "$STAGING"
+    fi
+    exit "$code"
 }
 trap cleanup EXIT
-# Reject symlinks, device nodes, and path traversal in the archive.
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+# Validate every archive member before extraction.
 python3 - "$ARCHIVE" <<'PY'
-import sys, tarfile, pathlib
+import pathlib, sys, tarfile
 with tarfile.open(sys.argv[1], "r:gz") as archive:
-    for member in archive.getmembers():
-        path = pathlib.PurePosixPath(member.name)
-        if path.is_absolute() or ".." in path.parts or not (member.isfile() or member.isdir()):
+    for member in archive:
+        p = pathlib.PurePosixPath(member.name)
+        if p.is_absolute() or ".." in p.parts or not (member.isfile() or member.isdir()):
             raise SystemExit("Unsafe archive entry: " + member.name)
 PY
 tar -xzf "$ARCHIVE" -C "$STAGING" --no-same-owner --no-same-permissions
-# Ensure Nginx can traverse directories and read static assets.
 chmod -R a+rX "$STAGING"
-[[ -s "$STAGING/index.html" ]] || { echo "index.html missing"; exit 1; }
-find "$STAGING/static/js" -type f -name '*.js' -size +0c | grep -q . || { echo "JS missing"; exit 1; }
-find "$STAGING/static/css" -type f -name '*.css' -size +0c | grep -q . || { echo "CSS missing"; exit 1; }
-
-mkdir -p "$BACKUP"
-rsync -a --delete "$LIVE/" "$BACKUP/"
-[[ -s "$BACKUP/index.html" ]] || { echo "Backup validation failed"; exit 1; }
-echo "Backup: $BACKUP"
-echo "Deploying: $SHA"
-
-# Keep the temporary response private and remove it on every exit path.
-PUBLIC_CHECK="$(mktemp "${HOME}/rushx-deploy/public-check.XXXXXXXX")"
-
-rollback() {
-    code="$1"
-    trap - ERR
-    trap '' INT TERM HUP
-    echo "Deployment failed (exit $code); restoring $BACKUP"
-    # Separate the restore process group so signals to the deploy SSH session
-    # cannot interrupt rsync, even when rsync installs its own signal handlers.
-    setsid -w rsync -a --delete "$BACKUP/" "$LIVE/" || echo "CRITICAL: automatic rollback failed"
-    exit "$code"
-}
-trap 'rollback "$?"' ERR
-trap 'rollback 130' INT
-trap 'rollback 143' TERM
-trap 'rollback 129' HUP
-
-rsync -a --delete "$STAGING/" "$LIVE/"
-[[ -s "$LIVE/index.html" ]]
-curl --fail --silent --show-error --max-time 15 -H 'Host: evchargerrepair.in' http://127.0.0.1/ -o /dev/null
-# Check the public TLS endpoint while the rollback trap remains armed.
-curl --fail --silent --show-error --location --max-time 30 https://evchargerrepair.in/ -o "$PUBLIC_CHECK"
-grep -qi '<html' "$PUBLIC_CHECK"
-# Marker is stored in the deployment user's own writable directory.
-printf '%s\n' "$SHA" > "${HOME}/rushx-deploy/frontend-deployed-sha"
-DEPLOY_SUCCEEDED=1
-trap - ERR INT TERM HUP
-echo "Deployed $SHA; rollback snapshot: $BACKUP"
+[[ -s "$STAGING/index.html" ]]
+[[ -n "$(find "$STAGING/static/js" -type f -name '*.js' -size +0c -print -quit)" ]]
+[[ -n "$(find "$STAGING/static/css" -type f -name '*.css' -size +0c -print -quit)" ]]
+# Atomic rename on the same filesystem. Nginx must serve via $LIVE.
+ln -s "$STAGING" "$ROOT/.frontend-next-$$"
+mv -Tf "$ROOT/.frontend-next-$$" "$LIVE"
+SWITCHED=1
+CHECK_FILE="$(mktemp "${HOME}/rushx-deploy/health.XXXXXXXX")"
+curl --fail --silent --show-error --max-time 15 -H 'Host: evchargerrepair.in' http://127.0.0.1/ -o "$CHECK_FILE"
+grep -qi '<html' "$CHECK_FILE"
+curl --fail --silent --show-error --location --max-time 30 https://evchargerrepair.in/ -o "$CHECK_FILE"
+grep -qi '<html' "$CHECK_FILE"
+printf '%s\n' "$SHA" > "$MARKER"
+SUCCESS=1
+echo "Deployed $SHA; previous stable release: $PREVIOUS"
