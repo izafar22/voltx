@@ -22,3 +22,5 @@ Each meaningful PR updates affected rows, evidence links, verification date, and
 | IN_PROGRESS | Floating WhatsApp button visual refresh | `feature/whatsapp-button-visual-final`: 56px icon-only control, classic green background, white 32px icon, fixed 24px from bottom/right. CI pending; not deployed. |
 
 | IN_PROGRESS | Exact WhatsApp brand green correction | `feature/whatsapp-exact-brand-green` from PR #44 merge: RGB token channels `37 211 102` mapped through Tailwind to exact `#25D366`. Playwright checks computed colour in both themes at all four configured widths, plus approved geometry, icon, shadow and hover. CI verification pending; production deployment held. Previous uncorrected 1.0.2 artifact must not be deployed. |
+
+CI first run: exact colour and geometry assertions passed; all eight new cases caught computed `box-shadow: none` from the ambiguous arbitrary shadow class. Map the unchanged shadow token through a named Tailwind shadow utility and rerun all checks. Production remains on hold.
