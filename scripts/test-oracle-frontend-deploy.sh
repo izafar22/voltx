@@ -13,7 +13,7 @@ printf 'body{}\n' > "$TMP/package/static/css/main.css"
 tar -C "$TMP/package" -czf "$TMP/site.tar.gz" .
 SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 bash -n "$ROOT/scripts/deploy-oracle-frontend.sh"
-bash -n "$ROOT/scripts/rushx-release-switch.sh"
+python3 -m py_compile "$ROOT/scripts/rushx-release-switch.sh"
 cat > "$TMP/bin/curl" <<'MOCK'
 #!/usr/bin/env bash
 [[ "${FAIL_SMOKE:-0}" != 1 ]] || exit 22
@@ -31,15 +31,23 @@ cat > "$TMP/bin/sudo" <<'MOCK_SUDO'
 [[ "$1" == "-n" && "$2" == "/usr/local/sbin/rushx-release-switch" ]] || exit 2
 ACTION="$3"; ID="$4"; TARGET="$RUSHX_DEPLOY_ROOT/releases/$ID"; LIVE="$RUSHX_DEPLOY_ROOT/frontend"
 [[ "$ID" =~ ^[a-f0-9]{40}$ || "$ID" == initial-stable ]] || exit 2
-[[ -d "$TARGET" && ! -L "$TARGET" ]] || exit 3
-if [[ "$ACTION" == discard ]]; then
-  [[ "$(readlink -f "$LIVE")" != "$TARGET" && "$ID" != initial-stable ]] || exit 3
-  rm -rf -- "$TARGET"
-elif [[ "$ACTION" == switch ]]; then
-  [[ -s "$TARGET/index.html" ]] || exit 3
-  ln -s "$TARGET" "$RUSHX_DEPLOY_ROOT/.next-$"
-  mv -Tf "$RUSHX_DEPLOY_ROOT/.next-$" "$LIVE"
-else exit 2; fi
+case "$ACTION" in
+  promote)
+    [[ "$ID" != initial-stable && -d "$RUSHX_DEPLOY_ROOT/staging/$ID" && ! -e "$TARGET" ]] || exit 3
+    cp -a "$RUSHX_DEPLOY_ROOT/staging/$ID" "$TARGET"
+    ;;
+  discard)
+    [[ "$(readlink -f "$LIVE")" != "$TARGET" && "$ID" != initial-stable ]] || exit 3
+    [[ ! -L "$TARGET" ]] || exit 3
+    rm -rf -- "$TARGET"
+    ;;
+  switch)
+    [[ -s "$TARGET/index.html" ]] || exit 3
+    ln -s "$TARGET" "$RUSHX_DEPLOY_ROOT/.next-$$"
+    mv -Tf "$RUSHX_DEPLOY_ROOT/.next-$$" "$LIVE"
+    ;;
+  *) exit 2 ;;
+esac
 MOCK_SUDO
 chmod +x "$TMP/bin/sudo"
 export PATH="$TMP/bin:$PATH"
@@ -47,10 +55,10 @@ run() { bash "$ROOT/scripts/deploy-oracle-frontend.sh" "$SHA" "$TMP/site.tar.gz"
 active() { readlink -f "$TMP/www/frontend"; }
 [[ "$(active)" == "$TMP/www/releases/initial-stable" ]]
 # Existing stale staging must be cleaned and failed smoke must restore previous.
-mkdir -p "$TMP/www/releases/$SHA"
-printf stale > "$TMP/www/releases/$SHA/stale"
+mkdir -p "$TMP/www/staging/$SHA"
+printf stale > "$TMP/www/staging/$SHA/stale"
 if FAIL_SMOKE=1 run; then echo 'Expected failed smoke'; exit 1; fi
-[[ "$(active)" == "$TMP/www/releases/initial-stable" && ! -e "$TMP/www/releases/$SHA" ]]
+[[ "$(active)" == "$TMP/www/releases/initial-stable" && ! -e "$TMP/www/staging/$SHA" && ! -e "$TMP/www/releases/$SHA" ]]
 run
 [[ "$(active)" == "$TMP/www/releases/$SHA" && ! -e "$TMP/www/releases/$SHA/stale" ]]
 python3 - "$HOME/rushx-deploy/frontend-deployed-sha" "$SHA" <<'PY'
