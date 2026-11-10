@@ -1,0 +1,97 @@
+name: Deploy RushX frontend to Oracle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rushx-frontend-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: startsWith(github.ref, 'refs/heads/release_')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install dependencies
+        working-directory: frontend
+        run: |
+          corepack enable
+          yarn install --frozen-lockfile
+      - name: Frontend unit tests
+        working-directory: frontend
+        run: CI=true yarn test --watchAll=false
+      - name: Build frontend
+        working-directory: frontend
+        run: CI=true yarn build
+      - name: Verify assets
+        run: |
+          test -s frontend/build/index.html
+          test -n "$(find frontend/build/static/js -type f -name '*.js' -size +0c -print -quit)"
+          test -n "$(find frontend/build/static/css -type f -name '*.css' -size +0c -print -quit)"
+      - name: Package
+        run: tar -C frontend/build -czf rushx-frontend.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rushx-frontend-${{ github.sha }}
+          path: rushx-frontend.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-22.04
+    environment:
+      name: production
+      url: https://evchargerrepair.in
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: rushx-frontend-${{ github.sha }}
+          path: release
+      - name: Configure pinned SSH host and key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.ORACLE_DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.ORACLE_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          test -s ~/.ssh/id_ed25519
+          test -s ~/.ssh/known_hosts
+      - name: Transfer and deploy verified artifact
+        env:
+          ORACLE_HOST: ${{ vars.ORACLE_HOST }}
+          ORACLE_USER: ${{ vars.ORACLE_USER }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          : "${ORACLE_HOST:?Set production environment ORACLE_HOST}"
+          : "${ORACLE_USER:?Set production environment ORACLE_USER}"
+          SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
+          SCP=(scp -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
+          "${SSH[@]}" "$ORACLE_USER@$ORACLE_HOST" 'mkdir -p "$HOME/rushx-deploy/incoming"'
+          "${SCP[@]}" release/rushx-frontend.tar.gz "$ORACLE_USER@$ORACLE_HOST:rushx-deploy/incoming/$RELEASE_SHA.tar.gz"
+          "${SSH[@]}" "$ORACLE_USER@$ORACLE_HOST" "sudo -n bash -s -- '$RELEASE_SHA' '/home/$ORACLE_USER/rushx-deploy/incoming/$RELEASE_SHA.tar.gz'" < scripts/deploy-oracle-frontend.sh
+      - name: Verify public website
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://evchargerrepair.in/ -o /tmp/rushx-home.html
+          test -s /tmp/rushx-home.html
+          grep -qi '<html' /tmp/rushx-home.html
