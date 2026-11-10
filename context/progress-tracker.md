@@ -24,3 +24,5 @@ Each meaningful PR updates affected rows, evidence links, verification date, and
 | IN_PROGRESS | Exact WhatsApp brand green correction | `feature/whatsapp-exact-brand-green` from PR #44 merge: RGB token channels `37 211 102` mapped through Tailwind to exact `#25D366`. Playwright checks computed colour in both themes at all four configured widths, plus approved geometry, icon, shadow and hover. CI verification pending; production deployment held. Previous uncorrected 1.0.2 artifact must not be deployed. |
 
 CI first run: exact colour and geometry assertions passed; all eight new cases caught computed `box-shadow: none` from the ambiguous arbitrary shadow class. Map the unchanged shadow token through a named Tailwind shadow utility and rerun all checks. Production remains on hold.
+
+CI second run: shadow assertions passed; icon assertions exposed `.rx-public a { color: inherit }` overriding the link foreground. Apply the existing white semantic colour directly as SVG fill, preserving the approved icon colour across themes. Rerun full CI; deployment remains held.
