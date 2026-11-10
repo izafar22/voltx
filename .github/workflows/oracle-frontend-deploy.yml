@@ -26,6 +26,8 @@ jobs:
           node-version: '22'
           cache: yarn
           cache-dependency-path: frontend/yarn.lock
+      - name: Atomic deploy and rollback regression tests
+        run: bash scripts/test-oracle-frontend-deploy.sh
       - name: Install dependencies
         working-directory: frontend
         run: |
@@ -92,6 +94,24 @@ jobs:
           "${SSH[@]}" "$ORACLE_USER@$ORACLE_HOST" 'mkdir -p "$HOME/rushx-deploy/incoming"'
           "${SCP[@]}" release/rushx-frontend.tar.gz "$ORACLE_USER@$ORACLE_HOST:rushx-deploy/incoming/$RELEASE_SHA.tar.gz"
           "${SSH[@]}" "$ORACLE_USER@$ORACLE_HOST" "bash -s -- '$RELEASE_SHA' \"\$HOME/rushx-deploy/incoming/$RELEASE_SHA.tar.gz\"" < scripts/deploy-oracle-frontend.sh
-      - name: Deployment result
+      - name: Deployment result summary
         if: always()
-        run: echo "Deployment job status: ${{ job.status }}"
+        env:
+          RESULT: ${{ job.status }}
+          SHA: ${{ github.sha }}
+        run: |
+          printf '## RushX production deployment\nCommit: %s\nResult: %s\n' "$SHA" "$RESULT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Notify deployment result (optional webhook)
+        if: always()
+        env:
+          WEBHOOK_URL: ${{ secrets.RUSHX_DEPLOY_NOTIFICATION_WEBHOOK }}
+          RESULT: ${{ job.status }}
+          SHA: ${{ github.sha }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [[ -z "$WEBHOOK_URL" ]]; then echo "No notification webhook configured"; exit 0; fi
+          python3 - <<'PY' > /tmp/rushx-deploy-notification.json
+          import json, os
+          print(json.dumps({"text": "RushX frontend deployment: " + os.environ["RESULT"] + " | " + os.environ["SHA"] + " | " + os.environ["RUN_URL"]}))
+          PY
+          curl --fail --silent --show-error --retry 2 --max-time 15 -H 'Content-Type: application/json' --data-binary @/tmp/rushx-deploy-notification.json "$WEBHOOK_URL"
