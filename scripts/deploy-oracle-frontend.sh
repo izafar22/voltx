@@ -21,9 +21,25 @@ flock -n 9 || { echo "Another deployment is in progress"; exit 1; }
 command -v rsync >/dev/null || { echo "rsync is required on Oracle"; exit 1; }
 command -v setsid >/dev/null || { echo "setsid is required on Oracle"; exit 1; }
 [[ -d "$LIVE" && ! -L "$LIVE" ]] || { echo "Expected existing frontend directory at $LIVE"; exit 1; }
-[[ ! -e "$STAGING" ]] || { echo "Release directory already exists: $STAGING"; exit 1; }
-
+# The exclusive lock prevents concurrent deployments from touching staging.
+# Reject symlinks and remove only this SHA's stale staging directory.
+if [[ -L "$STAGING" ]]; then
+    echo "Unsafe staging symlink: $STAGING"; exit 1
+fi
+if [[ -e "$STAGING" ]]; then
+    [[ -d "$STAGING" ]] || { echo "Unexpected staging path: $STAGING"; exit 1; }
+    rm -rf -- "$STAGING"
+fi
 mkdir -p "$RELEASES" "$BACKUPS" "$STAGING"
+
+# Clean up on failures even before rollback is installed; retain good releases.
+DEPLOY_SUCCEEDED=0
+PUBLIC_CHECK=""
+cleanup() {
+    if [[ -n "$PUBLIC_CHECK" ]]; then rm -f -- "$PUBLIC_CHECK"; fi
+    if [[ "$DEPLOY_SUCCEEDED" != 1 ]]; then rm -rf -- "$STAGING"; fi
+}
+trap cleanup EXIT
 # Reject symlinks, device nodes, and path traversal in the archive.
 python3 - "$ARCHIVE" <<'PY'
 import sys, tarfile, pathlib
@@ -48,10 +64,6 @@ echo "Deploying: $SHA"
 
 # Keep the temporary response private and remove it on every exit path.
 PUBLIC_CHECK="$(mktemp "${HOME}/rushx-deploy/public-check.XXXXXXXX")"
-cleanup() {
-    rm -f -- "$PUBLIC_CHECK"
-}
-trap cleanup EXIT
 
 rollback() {
     code="$1"
@@ -76,5 +88,6 @@ curl --fail --silent --show-error --location --max-time 30 https://evchargerrepa
 grep -qi '<html' "$PUBLIC_CHECK"
 # Marker is stored in the deployment user's own writable directory.
 printf '%s\\n' "$SHA" > "${HOME}/rushx-deploy/frontend-deployed-sha"
+DEPLOY_SUCCEEDED=1
 trap - ERR INT TERM HUP
 echo "Deployed $SHA; rollback snapshot: $BACKUP"
