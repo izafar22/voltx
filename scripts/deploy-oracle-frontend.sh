@@ -23,10 +23,11 @@ PREVIOUS="$(readlink -f "$LIVE")"
 [[ -d "$PREVIOUS" && -s "$PREVIOUS/index.html" ]] || { echo "Invalid previous release"; exit 1; }
 case "$PREVIOUS" in "$RELEASES"/*) ;; *) echo "Live target outside managed releases"; exit 1;; esac
 [[ ! -L "$STAGING" ]] || { echo "Unsafe release symlink"; exit 1; }
+command -v sudo >/dev/null || { echo "sudo required for restricted switch helper"; exit 1; }
 mkdir -p "$RELEASES"
 if [[ -e "$STAGING" ]]; then
     [[ -d "$STAGING" && "$STAGING" != "$PREVIOUS" ]] || { echo "Unsafe or currently active release"; exit 1; }
-    rm -rf -- "$STAGING"
+    sudo -n /usr/local/sbin/rushx-release-switch discard "$SHA"
 fi
 mkdir -p "$STAGING"
 SWITCHED=0
@@ -40,10 +41,9 @@ cleanup() {
     if [[ "$SUCCESS" != 1 ]]; then
         if [[ "$SWITCHED" == 1 ]]; then
             echo "Deployment failed; restoring $PREVIOUS"
-            ln -s "$PREVIOUS" "$ROOT/.frontend-rollback-$$"
-            mv -Tf "$ROOT/.frontend-rollback-$$" "$LIVE" || echo "CRITICAL: rollback failed"
+            sudo -n /usr/local/sbin/rushx-release-switch switch "$(basename "$PREVIOUS")" || echo "CRITICAL: rollback failed"
         fi
-        rm -rf -- "$STAGING"
+        if [[ -d "$STAGING" ]]; then sudo -n /usr/local/sbin/rushx-release-switch discard "$SHA" || echo "WARNING: staging cleanup failed"; fi
     fi
     exit "$code"
 }
@@ -67,8 +67,7 @@ chmod -R a+rX "$STAGING"
 [[ -n "$(find "$STAGING/static/js" -type f -name '*.js' -size +0c -print -quit)" ]]
 [[ -n "$(find "$STAGING/static/css" -type f -name '*.css' -size +0c -print -quit)" ]]
 # Atomic rename on the same filesystem. Nginx must serve via $LIVE.
-ln -s "$STAGING" "$ROOT/.frontend-next-$$"
-mv -Tf "$ROOT/.frontend-next-$$" "$LIVE"
+sudo -n /usr/local/sbin/rushx-release-switch switch "$SHA"
 SWITCHED=1
 CHECK_FILE="$(mktemp "${HOME}/rushx-deploy/health.XXXXXXXX")"
 curl --fail --silent --show-error --max-time 15 -H 'Host: evchargerrepair.in' http://127.0.0.1/ -o "$CHECK_FILE"
