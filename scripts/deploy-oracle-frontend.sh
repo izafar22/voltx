@@ -9,7 +9,7 @@ ARCHIVE="${2:?Artifact path required}"
 ROOT="${RUSHX_DEPLOY_ROOT:-/var/www/rushx}"
 LIVE="$ROOT/frontend"
 RELEASES="$ROOT/releases"
-STAGING="$RELEASES/$SHA"
+STAGING="$ROOT/staging/$SHA"
 LOCK="${HOME}/rushx-deploy/frontend-deploy.lock"
 MARKER="${HOME}/rushx-deploy/frontend-deployed-sha"
 mkdir -p "${HOME}/rushx-deploy"
@@ -24,10 +24,13 @@ PREVIOUS="$(readlink -f "$LIVE")"
 case "$PREVIOUS" in "$RELEASES"/*) ;; *) echo "Live target outside managed releases"; exit 1;; esac
 [[ ! -L "$STAGING" ]] || { echo "Unsafe release symlink"; exit 1; }
 command -v sudo >/dev/null || { echo "sudo required for restricted switch helper"; exit 1; }
-mkdir -p "$RELEASES"
+mkdir -p "$ROOT/staging"
+if [[ -e "$RELEASES/$SHA" ]]; then
+    echo "Release already exists; refusing overwrite"; exit 1
+fi
 if [[ -e "$STAGING" ]]; then
-    [[ -d "$STAGING" && "$STAGING" != "$PREVIOUS" ]] || { echo "Unsafe or currently active release"; exit 1; }
-    sudo -n /usr/local/sbin/rushx-release-switch discard "$SHA"
+    [[ -d "$STAGING" && ! -L "$STAGING" ]] || { echo "Unsafe staging"; exit 1; }
+    rm -rf -- "$STAGING"
 fi
 mkdir -p "$STAGING"
 SWITCHED=0
@@ -43,7 +46,8 @@ cleanup() {
             echo "Deployment failed; restoring $PREVIOUS"
             sudo -n /usr/local/sbin/rushx-release-switch switch "$(basename "$PREVIOUS")" || echo "CRITICAL: rollback failed"
         fi
-        if [[ -d "$STAGING" ]]; then sudo -n /usr/local/sbin/rushx-release-switch discard "$SHA" || echo "WARNING: staging cleanup failed"; fi
+        if [[ "$SWITCHED" == 1 ]]; then sudo -n /usr/local/sbin/rushx-release-switch discard "$SHA" || echo "WARNING: promoted release cleanup failed"; fi
+        if [[ -d "$STAGING" && ! -L "$STAGING" ]]; then rm -rf -- "$STAGING"; fi
     fi
     exit "$code"
 }
@@ -67,8 +71,10 @@ chmod -R a+rX "$STAGING"
 [[ -n "$(find "$STAGING/static/js" -type f -name '*.js' -size +0c -print -quit)" ]]
 [[ -n "$(find "$STAGING/static/css" -type f -name '*.css' -size +0c -print -quit)" ]]
 # Atomic rename on the same filesystem. Nginx must serve via $LIVE.
+sudo -n /usr/local/sbin/rushx-release-switch promote "$SHA"
 sudo -n /usr/local/sbin/rushx-release-switch switch "$SHA"
 SWITCHED=1
+rm -rf -- "$STAGING"
 CHECK_FILE="$(mktemp "${HOME}/rushx-deploy/health.XXXXXXXX")"
 curl --fail --silent --show-error --max-time 15 -H 'Host: evchargerrepair.in' http://127.0.0.1/ -o "$CHECK_FILE"
 grep -qi '<html' "$CHECK_FILE"
