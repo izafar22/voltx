@@ -87,7 +87,7 @@ curl --fail --silent --show-error --max-time 15 -H 'Host: evchargerrepair.in' ht
 curl --fail --silent --show-error --location --max-time 30 https://evchargerrepair.in/ -o "$PUBLIC_CHECK"
 grep -qi '<html' "$PUBLIC_CHECK"
 # Marker is stored in the deployment user's own writable directory.
-printf '%s\\n' "$SHA" > "${HOME}/rushx-deploy/frontend-deployed-sha"
+printf '%s\n' "$SHA" > "${HOME}/rushx-deploy/frontend-deployed-sha"
 DEPLOY_SUCCEEDED=1
 trap - ERR INT TERM HUP
 echo "Deployed $SHA; rollback snapshot: $BACKUP"
