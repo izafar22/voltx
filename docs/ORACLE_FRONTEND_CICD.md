@@ -25,9 +25,18 @@ The existing `.github/workflows/frontend-release.yml` continues to build release
 
 ## Rollback
 
-The deployment script stages the artifact at `/var/www/rushx/releases/<sha>`, backs up the current live webroot under `/var/www/rushx/backups/frontend-<UTC timestamp>`, and uses `rsync` to update `/var/www/rushx/frontend`. If an in-script verification fails, the trap restores the backup. The GitHub job additionally checks the public website. **An external smoke-test failure does not currently trigger remote rollback automatically.** Retain the backup and restore it manually with an approved operator procedure if necessary.
+The deployment script stages the artifact at `/var/www/rushx/releases/<sha>`, backs up the current live webroot under `/var/www/rushx/backups/frontend-<UTC timestamp>`, and uses `rsync` to update `/var/www/rushx/frontend`. If an in-script verification fails, the trap restores the backup. The remote deployment script now checks the public HTTPS homepage before disarming its rollback trap; failure at this stage attempts automatic restore. The GitHub job independently checks the public website afterward. **A later GitHub-runner smoke-test failure or a post-deployment regression does not automatically roll back**; retain the backup for an operator-approved recovery.
 
 The current live webroot is a directory, so the `rsync` update is **not atomic**. A versioned symlink release layout would require a separately approved Nginx/webroot migration. Do not claim zero downtime.
+
+## Review checklist before activation
+
+- [ ] Verify GitHub environment required reviewers are enforced for this repository and cannot be bypassed by a workflow author.
+- [ ] Verify the dedicated non-root SSH account has only the required filesystem permissions.
+- [ ] Run YAML validation, shell syntax/static checks and a staging deployment/rollback rehearsal.
+- [ ] Confirm a failed public HTTPS check restores the previous frontend.
+- [ ] Verify the existing Nginx document root and concurrent requests during the rsync update.
+- [ ] Verify protected API routing, both themes, and mobile layout.
 
 ## Scope and risks
 
