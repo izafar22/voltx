@@ -93,7 +93,7 @@ jobs:
           SCP=(scp -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
           "${SSH[@]}" "$ORACLE_USER@$ORACLE_HOST" 'mkdir -p "$HOME/rushx-deploy/incoming"'
           "${SCP[@]}" release/rushx-frontend.tar.gz "$ORACLE_USER@$ORACLE_HOST:rushx-deploy/incoming/$RELEASE_SHA.tar.gz"
-          "${SSH[@]}" "$ORACLE_USER@$ORACLE_HOST" "sudo -n bash -s -- '$RELEASE_SHA' '/home/$ORACLE_USER/rushx-deploy/incoming/$RELEASE_SHA.tar.gz'" < scripts/deploy-oracle-frontend.sh
+          "${SSH[@]}" "$ORACLE_USER@$ORACLE_HOST" "bash -s -- '$RELEASE_SHA' '/home/$ORACLE_USER/rushx-deploy/incoming/$RELEASE_SHA.tar.gz'" < scripts/deploy-oracle-frontend.sh
       - name: Verify public website
         run: |
           set -euo pipefail
