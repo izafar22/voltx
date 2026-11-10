@@ -396,9 +396,17 @@
   }
 }
 
-/* Preserve the shared CTA foreground against public-link theme overrides. */
-.rx-public .rx-header nav a.rx-account-cta,
-.rx-public .rx-header nav a.rx-account-cta:hover {
-  color: hsl(var(--repair-cta-foreground));
+/* Hero and section repair CTA: retain the original button padding and dimensions. */
+.rx-public a.rx-button.rx-repair-cta {
+  background: hsl(var(--repair-cta));
+  color: hsl(var(--repair-cta-foreground)) !important;
+  border-color: hsl(var(--repair-cta));
+  border-radius: 9999px;
+  justify-content: center;
+  gap: 12px;
   text-decoration: none;
+}
+.rx-public a.rx-button.rx-repair-cta:hover {
+  background: hsl(var(--repair-cta-hover));
+  color: hsl(var(--repair-cta-foreground)) !important;
 }

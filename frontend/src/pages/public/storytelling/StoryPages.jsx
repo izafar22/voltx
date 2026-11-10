@@ -1,18 +1,19 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Zap } from "lucide-react";
 import { services, steps } from "../content";
 import { StoryImage } from "./StoryImage";
 import "./StoryPages.css";
 
 export function RepairLink({
-  children = "Request a repair",
+  children = "Book a Repair",
   secondary = false,
 }) {
   return (
     <Link
-      className={`rx-button ${secondary ? "rx-secondary" : ""}`}
+      className={`rx-button ${secondary ? "rx-secondary" : "rx-repair-cta"}`}
       to="/repairs/new"
     >
+      {!secondary && <Zap size={17} aria-hidden="true" />}
       {children}
       <ArrowUpRight size={18} aria-hidden="true" />
     </Link>
