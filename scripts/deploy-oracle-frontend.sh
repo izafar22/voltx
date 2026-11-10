@@ -33,6 +33,8 @@ with tarfile.open(sys.argv[1], "r:gz") as archive:
             raise SystemExit("Unsafe archive entry: " + member.name)
 PY
 tar -xzf "$ARCHIVE" -C "$STAGING" --no-same-owner --no-same-permissions
+# Ensure Nginx can traverse directories and read static assets.
+chmod -R a+rX "$STAGING"
 [[ -s "$STAGING/index.html" ]] || { echo "index.html missing"; exit 1; }
 find "$STAGING/static/js" -type f -name '*.js' -size +0c | grep -q . || { echo "JS missing"; exit 1; }
 find "$STAGING/static/css" -type f -name '*.css' -size +0c | grep -q . || { echo "CSS missing"; exit 1; }
@@ -43,14 +45,24 @@ rsync -a --delete "$LIVE/" "$BACKUP/"
 echo "Backup: $BACKUP"
 echo "Deploying: $SHA"
 
+# Keep the temporary response private and remove it on every exit path.
+PUBLIC_CHECK="$(mktemp "${HOME}/rushx-deploy/public-check.XXXXXXXX")"
+cleanup() {
+    rm -f -- "$PUBLIC_CHECK"
+}
+trap cleanup EXIT
+
 rollback() {
-    code=$?
-    trap - ERR
+    code="$1"
+    trap - ERR INT TERM HUP
     echo "Deployment failed (exit $code); restoring $BACKUP"
     rsync -a --delete "$BACKUP/" "$LIVE/" || echo "CRITICAL: automatic rollback failed"
     exit "$code"
 }
-trap rollback ERR
+trap 'rollback "$?"' ERR
+trap 'rollback 130' INT
+trap 'rollback 143' TERM
+trap 'rollback 129' HUP
 
 rsync -a --delete "$STAGING/" "$LIVE/"
 [[ -s "$LIVE/index.html" ]]
