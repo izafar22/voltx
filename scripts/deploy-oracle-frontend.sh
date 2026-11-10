@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs as root on Oracle after GitHub production environment approval.
+# Runs as dedicated, non-root deployment user after environment approval.
 set -Eeuo pipefail
 
 SHA="${1:?Release SHA required}"
@@ -14,7 +14,7 @@ BACKUPS="$ROOT/backups"
 STAGING="$RELEASES/$SHA"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP="$BACKUPS/frontend-$STAMP"
-LOCK=/run/lock/rushx-frontend-deploy.lock
+LOCK=${HOME}/rushx-deploy/frontend-deploy.lock
 
 exec 9>"$LOCK"
 flock -n 9 || { echo "Another deployment is in progress"; exit 1; }
@@ -54,7 +54,6 @@ trap rollback ERR
 
 rsync -a --delete "$STAGING/" "$LIVE/"
 [[ -s "$LIVE/index.html" ]]
-nginx -t
 curl --fail --silent --show-error --max-time 15 -H 'Host: evchargerrepair.in' http://127.0.0.1/ -o /dev/null
 printf '%s\n' "$SHA" > "$ROOT/frontend-deployed-sha"
 trap - ERR
