@@ -25,7 +25,7 @@ module.exports = {
         accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
         destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
         charging: 'hsl(var(--charging))',
-        'whatsapp-chat-background': 'hsl(var(--whatsapp-chat-background))',
+        'whatsapp-chat-background': 'rgb(var(--whatsapp-chat-background) / <alpha-value>)',
         'whatsapp-chat-foreground': 'hsl(var(--whatsapp-chat-foreground))',
         'repair-cta': { DEFAULT: 'hsl(var(--repair-cta))', hover: 'hsl(var(--repair-cta-hover))', foreground: 'hsl(var(--repair-cta-foreground))' },
         wallet: 'hsl(var(--wallet))',
