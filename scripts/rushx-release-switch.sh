@@ -30,6 +30,7 @@ def copy_snapshot(srcfd, dest, counters):
         destination = dest / name
         if stat.S_ISDIR(info.st_mode):
             destination.mkdir(mode=0o755)
+            destination.chmod(0o755)
             childfd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=srcfd)
             try:
                 copy_snapshot(childfd, destination, counters)
@@ -93,6 +94,7 @@ def main():
             source = STAGING / release_id
             fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
             temp = pathlib.Path(tempfile.mkdtemp(prefix=".promote-", dir=RELEASES))
+            temp.chmod(0o755)
             try:
                 copy_snapshot(fd, temp, [0, 0])
                 validate(temp)
