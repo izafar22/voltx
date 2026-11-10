@@ -1,47 +1,25 @@
-# RushX Oracle frontend CI/CD — setup and operation
+# RushX automatic frontend release deployment (not activated)
 
-**Status:** Proposed; no production environment, secrets, SSH, or server settings are changed by this PR.
+**Status: code prepared only. No production deployment or server migration has been performed.**
 
-## What changes
+## Trigger and safety gate
+Pushes to `release_*` branches trigger build, frontend tests, and isolated rollback regression tests. The deploy job runs **only when repository variable `RUSHX_AUTO_DEPLOY_ENABLED` is exactly `true`**; leave it unset or false until production readiness is verified. This is an automatic deployment policy, not a manual-review policy. GitHub environment `production` must have no required-reviewer gate if unattended deployment is desired. The existing release process and branch naming remain unchanged.
 
-The existing `.github/workflows/frontend-release.yml` continues to build release artifacts. A separate, manually dispatched `oracle-frontend-deploy.yml` builds and tests a `release_*` branch, uploads an artifact, waits at the GitHub `production` environment gate, and then sends only the compiled frontend to Oracle. It does **not** deploy on merge or push. The run's exact commit SHA identifies the release.
+## Mandatory one-time server migration — separate approval required
+The old live path `/var/www/rushx/frontend` is a real directory. The new deploy script **refuses to run** until it is converted to a symlink pointing to an existing, healthy release within `/var/www/rushx/releases/`. This migration must be scheduled and tested separately. Preserve the old frontend as the initial stable release, validate Nginx root resolution, symlink traversal, permissions, TLS, disk space, and rollback before activation. Do not perform this migration from CI or automatically.
 
-## Mandatory one-time setup (requires separate authorization)
+Use a dedicated non-root SSH deployment account with write access only to the frontend release directories and its own `$HOME/rushx-deploy` folder. Configure environment secrets `ORACLE_DEPLOY_SSH_KEY`, `ORACLE_SSH_KNOWN_HOSTS`, and environment variables `ORACLE_HOST`, `ORACLE_USER`. Verify the SSH host key out of band. Optional webhook notification secret: `RUSHX_DEPLOY_NOTIFICATION_WEBHOOK` (a JSON webhook accepting a `text` field, such as Slack-compatible). GitHub Actions results and job summaries remain available without a webhook.
 
-1. In GitHub repository **Settings → Environments**, create `production`, configure **required reviewers**, enable **prevent self-review** if available, and restrict deployment branches to `release_*`. Check that the repository plan supports enforcement of environment required reviewers. **Do not run this workflow if the approval gate cannot be enforced.**
-2. Only after verifying the required-reviewer protection, set environment variable `APPROVAL_GATE_CONFIGURED=true`. This flag is an operator assertion, not independent verification of the GitHub environment rules.
-3. Set environment variables `ORACLE_HOST` (verified current Oracle IP or DNS) and `ORACLE_USER` (SSH deploy account). Set environment secrets `ORACLE_DEPLOY_SSH_KEY` (dedicated private key) and `ORACLE_SSH_KNOWN_HOSTS` (out-of-band verified host key line). Do **not** generate host trust dynamically with `ssh-keyscan` during deployment or store keys in git.
-4. Create a dedicated non-root SSH deployment account/key. Give that account write permission **only** to the frontend webroot, release and backup directories, and its home deployment staging directory. The deployed SHA marker is written at `$HOME/rushx-deploy/frontend-deployed-sha` rather than the protected `/var/www/rushx` parent. Ensure Nginx can read deployed files. Do not grant passwordless sudo. Review the account permissions and the server directory ownership before enabling deployment.
-5. On the VM, verify `rsync`, `setsid` (util-linux), `python3`, `tar`, `flock`, `nginx` and `curl`; validate free disk space for at least one release plus a full backup. Check `/var/www/rushx/frontend` is a real directory and not a symlink, and verify live Nginx root and site configuration.
-6. Reconcile the current deployed SHA, TLS, DNS, API health, and Nginx config with `docs/ORACLE_PRODUCTION_DEPLOYMENT.md` before first deployment.
+## Deployment and rollback
+The workflow packages the exact built SHA. On the VM, the script takes an exclusive lock, validates the tarball, extracts to `releases/<SHA>`, and checks JS/CSS. It atomically replaces the `frontend` symlink with `mv -T` and performs local HTTP and public HTTPS smoke checks. On failure it switches the symlink back to the previous healthy release and removes failed staging. It never deletes the currently active release. The deployed SHA marker is stored in `$HOME/rushx-deploy/frontend-deployed-sha`. A failed rollback is logged as critical and requires intervention.
 
-## Manual release
+The workflow reports deployment status in its GitHub Actions job summary and optionally POSTs a result to the configured webhook. A runner failure after the remote script completes is **not automatically rolled back**. The checks establish homepage reachability, not complete application correctness; a post-deployment synthetic check, API-route test, and alerting are still recommended. Automatic rollback cannot protect against VM failure, broken DNS, incompatible backend/database changes, or regressions discovered later.
 
-1. Merge approved frontend changes to `repair-mvp` via reviewed PRs.
-2. Prepare a versioned `release_YYYYMMDD_versionX.Y.Z` branch from the approved commit (per existing RushX release policy).
-3. In Actions, select **Deploy RushX frontend to Oracle**, choose the release branch, then **Run workflow**.
-4. Review tests and build output. An authorized reviewer approves the `production` environment job only after reviewing the commit and artifact. Deployment fails closed when `APPROVAL_GATE_CONFIGURED` is not `true`.
-5. Verify public homepage, theme, mobile layout, JS/CSS, click-to-chat, and protected API routing. Browser-based E2E and contrast checks are still needed before routine use; the workflow's smoke check does not replace them.
-
-## Rollback
-
-The deployment script stages the artifact at `/var/www/rushx/releases/<sha>`, backs up the current live webroot under `/var/www/rushx/backups/frontend-<UTC timestamp>`, and uses `rsync` to update `/var/www/rushx/frontend`. If an in-script verification fails, the trap restores the backup. The remote deployment script now checks the public HTTPS homepage before disarming its rollback trap; failure or an INT/TERM/HUP interruption at this stage attempts automatic restore. The rollback launches `rsync` in a separate process group using `setsid -w` and ignores repeated signals in the parent shell. The public HTTPS response is stored in a unique temporary file and cleaned up on exit. The GitHub job independently checks the public website afterward. **A later GitHub-runner smoke-test failure or a post-deployment regression does not automatically roll back**; retain the backup for an operator-approved recovery.
-
-The current live webroot is a directory, so the `rsync` update is **not atomic**. A versioned symlink release layout would require a separately approved Nginx/webroot migration. Do not claim zero downtime.
-
-## Review checklist before activation
-
-- [ ] Verify GitHub environment required reviewers are enforced for this repository and cannot be bypassed by a workflow author.
-- [ ] Verify the dedicated non-root SSH account has only the required filesystem permissions.
-- [ ] Run YAML validation, shell syntax/static checks and a staging deployment/rollback rehearsal.
-- [ ] Confirm a failed public HTTPS check restores the previous frontend.
-- [ ] Verify the existing Nginx document root and concurrent requests during the rsync update.
-- [ ] Verify protected API routing, both themes, and mobile layout.
-
-## Scope and risks
-
-- Frontend only; no backend, database, WhatsApp outbox, DNS, TLS, or Nginx edits.
-- CI deploy access and GitHub environment approvals must be configured and tested independently.
-- The non-root deploy account needs carefully scoped filesystem permissions; this is a prerequisite for activation.
-- Unit tests and build run on GitHub; full browser/axe tests are not integrated in this workflow.
-- Existing frontend release workflow remains untouched; this is an additive proposal.
+## Activation checklist
+- [ ] GitHub CI and CodeRabbit checks pass; validate workflow YAML and shell syntax
+- [ ] Test failed deployment, rollback, successful retry, invalid archive, and signal handling in staging
+- [ ] Rehearse a symlink migration from the existing live directory, with a recovery procedure
+- [ ] Verify Nginx symlink resolution, permissions, TLS, and API routing
+- [ ] Configure production SSH credentials, deployment account, and optional webhook
+- [ ] Verify release branch protections and expected behavior on branch creation/update
+- [ ] Set `RUSHX_AUTO_DEPLOY_ENABLED=true` **only after explicit authorization to activate**
