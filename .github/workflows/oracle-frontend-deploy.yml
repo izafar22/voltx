@@ -63,6 +63,11 @@ jobs:
         with:
           name: rushx-frontend-${{ github.sha }}
           path: release
+      - name: Confirm production approval gate setup
+        env:
+          APPROVAL_GATE_CONFIGURED: ${{ vars.APPROVAL_GATE_CONFIGURED }}
+        run: |
+          test "$APPROVAL_GATE_CONFIGURED" = 'true' || { echo 'Configure production environment required reviewers and APPROVAL_GATE_CONFIGURED=true before deployment'; exit 1; }
       - name: Configure pinned SSH host and key
         env:
           SSH_PRIVATE_KEY: ${{ secrets.ORACLE_DEPLOY_SSH_KEY }}
