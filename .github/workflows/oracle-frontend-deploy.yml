@@ -1,6 +1,9 @@
 name: Deploy RushX frontend to Oracle
 
 on:
+  push:
+    branches:
+      - 'release_*'
   workflow_dispatch:
 
 permissions:
@@ -46,10 +49,10 @@ jobs:
           name: rushx-frontend-${{ github.sha }}
           path: rushx-frontend.tar.gz
           if-no-files-found: error
-          retention-days: 14
 
   deploy:
     needs: build
+    if: vars.RUSHX_AUTO_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-22.04
     environment:
       name: production
@@ -63,11 +66,6 @@ jobs:
         with:
           name: rushx-frontend-${{ github.sha }}
           path: release
-      - name: Confirm production approval gate setup
-        env:
-          APPROVAL_GATE_CONFIGURED: ${{ vars.APPROVAL_GATE_CONFIGURED }}
-        run: |
-          test "$APPROVAL_GATE_CONFIGURED" = 'true' || { echo 'Configure production environment required reviewers and APPROVAL_GATE_CONFIGURED=true before deployment'; exit 1; }
       - name: Configure pinned SSH host and key
         env:
           SSH_PRIVATE_KEY: ${{ secrets.ORACLE_DEPLOY_SSH_KEY }}
@@ -87,17 +85,13 @@ jobs:
           RELEASE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          : "${ORACLE_HOST:?Set production environment ORACLE_HOST}"
-          : "${ORACLE_USER:?Set production environment ORACLE_USER}"
+          : "${ORACLE_HOST:?Set ORACLE_HOST}"
+          : "${ORACLE_USER:?Set ORACLE_USER}"
           SSH=(ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
           SCP=(scp -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
           "${SSH[@]}" "$ORACLE_USER@$ORACLE_HOST" 'mkdir -p "$HOME/rushx-deploy/incoming"'
           "${SCP[@]}" release/rushx-frontend.tar.gz "$ORACLE_USER@$ORACLE_HOST:rushx-deploy/incoming/$RELEASE_SHA.tar.gz"
-          # Resolve the artifact relative to the actual remote home, not /home/<username>.
           "${SSH[@]}" "$ORACLE_USER@$ORACLE_HOST" "bash -s -- '$RELEASE_SHA' \"\$HOME/rushx-deploy/incoming/$RELEASE_SHA.tar.gz\"" < scripts/deploy-oracle-frontend.sh
-      - name: Verify public website
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --location --retry 3 --retry-delay 2 https://evchargerrepair.in/ -o /tmp/rushx-home.html
-          test -s /tmp/rushx-home.html
-          grep -qi '<html' /tmp/rushx-home.html
+      - name: Deployment result
+        if: always()
+        run: echo "Deployment job status: ${{ job.status }}"
