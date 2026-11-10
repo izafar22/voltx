@@ -43,7 +43,7 @@ else exit 2; fi
 MOCK_SUDO
 chmod +x "$TMP/bin/sudo"
 export PATH="$TMP/bin:$PATH"
-run() { bash "$ROOT/scripts/deploy-oracle-frontend.sh" "$SHA" "$TMP/site.tar.gz"; }
+run() { bash -x "$ROOT/scripts/deploy-oracle-frontend.sh" "$SHA" "$TMP/site.tar.gz"; }
 active() { readlink -f "$TMP/www/frontend"; }
 [[ "$(active)" == "$TMP/www/releases/previous" ]]
 # Existing stale staging must be cleaned and failed smoke must restore previous.
