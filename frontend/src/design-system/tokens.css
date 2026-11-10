@@ -1,4 +1,4 @@
-/* Canonical app + Storybook tokens. HSL triples preserve Tailwind alpha support. */
+/* Canonical app + Storybook tokens. Colour channel triples preserve Tailwind alpha support. */
 :root {
   --background: 0 0% 100%;
   --foreground: 240 6% 4%;
@@ -21,7 +21,7 @@
   --ring: 147 70% 27%;
   --charging: 147 100% 39%;
   --wallet: 219 100% 50%;
-  --whatsapp-chat-background: 142 70% 49%; /* classic WhatsApp green */
+  --whatsapp-chat-background: 37 211 102; /* RGB channels: exact #25D366 in both themes */
   --whatsapp-chat-foreground: 0 0% 100%;
   --whatsapp-chat-size: 3.5rem;
   --whatsapp-chat-icon-size: 2rem;
