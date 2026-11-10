@@ -4,9 +4,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home" RUSHX_DEPLOY_ROOT="$TMP/www"
-mkdir -p "$HOME/rushx-deploy" "$TMP/www/releases/previous" "$TMP/package/static/js" "$TMP/package/static/css" "$TMP/bin"
-printf '<html>old stable</html>\n' > "$TMP/www/releases/previous/index.html"
-ln -s "$TMP/www/releases/previous" "$TMP/www/frontend"
+mkdir -p "$HOME/rushx-deploy" "$TMP/www/releases/initial-stable" "$TMP/package/static/js" "$TMP/package/static/css" "$TMP/bin"
+printf '<html>old stable</html>\n' > "$TMP/www/releases/initial-stable/index.html"
+ln -s "$TMP/www/releases/initial-stable" "$TMP/www/frontend"
 printf '<html>new release</html>\n' > "$TMP/package/index.html"
 printf 'console.log(1)\n' > "$TMP/package/static/js/main.js"
 printf 'body{}\n' > "$TMP/package/static/css/main.css"
@@ -43,14 +43,14 @@ else exit 2; fi
 MOCK_SUDO
 chmod +x "$TMP/bin/sudo"
 export PATH="$TMP/bin:$PATH"
-run() { bash -x "$ROOT/scripts/deploy-oracle-frontend.sh" "$SHA" "$TMP/site.tar.gz"; }
+run() { bash "$ROOT/scripts/deploy-oracle-frontend.sh" "$SHA" "$TMP/site.tar.gz"; }
 active() { readlink -f "$TMP/www/frontend"; }
-[[ "$(active)" == "$TMP/www/releases/previous" ]]
+[[ "$(active)" == "$TMP/www/releases/initial-stable" ]]
 # Existing stale staging must be cleaned and failed smoke must restore previous.
 mkdir -p "$TMP/www/releases/$SHA"
 printf stale > "$TMP/www/releases/$SHA/stale"
 if FAIL_SMOKE=1 run; then echo 'Expected failed smoke'; exit 1; fi
-[[ "$(active)" == "$TMP/www/releases/previous" && ! -e "$TMP/www/releases/$SHA" ]]
+[[ "$(active)" == "$TMP/www/releases/initial-stable" && ! -e "$TMP/www/releases/$SHA" ]]
 run
 [[ "$(active)" == "$TMP/www/releases/$SHA" && ! -e "$TMP/www/releases/$SHA/stale" ]]
 python3 - "$HOME/rushx-deploy/frontend-deployed-sha" "$SHA" <<'PY'
