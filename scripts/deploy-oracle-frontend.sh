@@ -34,6 +34,7 @@ if [[ -e "$STAGING" ]]; then
 fi
 mkdir -p "$STAGING"
 SWITCHED=0
+PROMOTED=0
 SUCCESS=0
 CHECK_FILE=""
 cleanup() {
@@ -46,7 +47,7 @@ cleanup() {
             echo "Deployment failed; restoring $PREVIOUS"
             sudo -n /usr/local/sbin/rushx-release-switch switch "$(basename "$PREVIOUS")" || echo "CRITICAL: rollback failed"
         fi
-        if [[ "$SWITCHED" == 1 ]]; then sudo -n /usr/local/sbin/rushx-release-switch discard "$SHA" || echo "WARNING: promoted release cleanup failed"; fi
+        if [[ "$PROMOTED" == 1 ]]; then sudo -n /usr/local/sbin/rushx-release-switch discard "$SHA" || echo "WARNING: promoted release cleanup failed"; fi
         if [[ -d "$STAGING" && ! -L "$STAGING" ]]; then rm -rf -- "$STAGING"; fi
     fi
     exit "$code"
@@ -72,6 +73,7 @@ chmod -R a+rX "$STAGING"
 [[ -n "$(find "$STAGING/static/css" -type f -name '*.css' -size +0c -print -quit)" ]]
 # Atomic rename on the same filesystem. Nginx must serve via $LIVE.
 sudo -n /usr/local/sbin/rushx-release-switch promote "$SHA"
+PROMOTED=1
 sudo -n /usr/local/sbin/rushx-release-switch switch "$SHA"
 SWITCHED=1
 rm -rf -- "$STAGING"
