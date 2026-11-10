@@ -21,7 +21,11 @@
   --ring: 147 70% 27%;
   --charging: 147 100% 39%;
   --wallet: 219 100% 50%;
-  --whatsapp-chat-foreground: 0 0% 100%; /* accessible on dark-green CTA in both themes */
+  --whatsapp-chat-background: 142 70% 49%; /* classic WhatsApp green */
+  --whatsapp-chat-foreground: 0 0% 100%;
+  --whatsapp-chat-size: 3.5rem;
+  --whatsapp-chat-icon-size: 2rem;
+  --whatsapp-chat-shadow: 0 5px 18px hsl(0 0% 0% / 0.18);
   --repair-cta: 145 70% 8%; /* dark green pill surface */
   --repair-cta-hover: 145 65% 13%; /* subtle elevated green hover */
   --repair-cta-foreground: 145 85% 43%; /* vivid green label and icons */
