@@ -55,6 +55,10 @@ trap rollback ERR
 rsync -a --delete "$STAGING/" "$LIVE/"
 [[ -s "$LIVE/index.html" ]]
 curl --fail --silent --show-error --max-time 15 -H 'Host: evchargerrepair.in' http://127.0.0.1/ -o /dev/null
+# Check the public TLS endpoint while the rollback trap remains armed.
+curl --fail --silent --show-error --location --max-time 30 https://evchargerrepair.in/ -o /tmp/rushx-deploy-public-$.html
+grep -qi '<html' /tmp/rushx-deploy-public-$.html
+rm -f /tmp/rushx-deploy-public-$.html
 printf '%s\n' "$SHA" > "$ROOT/frontend-deployed-sha"
 trap - ERR
 echo "Deployed $SHA; rollback snapshot: $BACKUP"
