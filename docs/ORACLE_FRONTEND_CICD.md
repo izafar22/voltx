@@ -23,3 +23,23 @@ The workflow reports deployment status in its GitHub Actions job summary and opt
 - [ ] Configure production SSH credentials, deployment account, and optional webhook
 - [ ] Verify release branch protections and expected behavior on branch creation/update
 - [ ] Set `RUSHX_AUTO_DEPLOY_ENABLED=true` **only after explicit authorization to activate**
+
+
+## Restricted privileged helper installation (not performed)
+
+The deploy account does not have general sudo rights and must not own the webroot parent. The root-owned helper source is \`scripts/rushx-release-switch.sh\`. **Review and install only after CI validation and a local rehearsal**:
+
+\`\`\`bash
+sudo install -o root -g root -m 0755 scripts/rushx-release-switch.sh /usr/local/sbin/rushx-release-switch
+sudo visudo -f /etc/sudoers.d/rushx-release-switch
+\`\`\`
+
+The sudoers file should contain exactly:
+
+\`\`\`text
+rushx-deploy ALL=(root) NOPASSWD: /usr/local/sbin/rushx-release-switch *
+\`\`\`
+
+Then verify with \`sudo visudo -cf /etc/sudoers.d/rushx-release-switch\` and \`sudo -l -U rushx-deploy\`. This grants a narrowly scoped helper command, **not unrestricted sudo**. The helper validates its action and release ID and refuses to remove the active release or protected \`initial-stable\`. The root-owned helper is an additional trusted component; review it carefully and avoid granting the deploy account permission to edit it.
+
+**Migration remains a separate, manual maintenance operation.** Preserve the existing real frontend directory, create and verify \`initial-stable\`, then atomically replace the real directory with a symlink only under a rehearsed maintenance plan. Do not perform this migration using the CI workflow. The initial-stable directory should remain root/ubuntu-owned and non-writable by the deploy user. The helper switches only symlinks and will refuse to act before migration.
