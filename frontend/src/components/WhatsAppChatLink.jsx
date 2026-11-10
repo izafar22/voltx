@@ -14,7 +14,7 @@ export default function WhatsAppChatLink() {
       rel="noopener noreferrer"
       aria-label="Chat with RushX on WhatsApp (opens a new tab)"
       title="Chat with RushX on WhatsApp"
-      className="fixed bottom-6 right-6 z-50 flex h-[var(--whatsapp-chat-size)] w-[var(--whatsapp-chat-size)] items-center justify-center rounded-full bg-whatsapp-chat-background text-whatsapp-chat-foreground shadow-[var(--whatsapp-chat-shadow)] transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="fixed bottom-6 right-6 z-50 flex h-[var(--whatsapp-chat-size)] w-[var(--whatsapp-chat-size)] items-center justify-center rounded-full bg-whatsapp-chat-background text-whatsapp-chat-foreground shadow-whatsapp-chat transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       data-testid="whatsapp-chat-link"
     >
       <svg aria-hidden="true" viewBox="0 0 32 32" className="h-[var(--whatsapp-chat-icon-size)] w-[var(--whatsapp-chat-icon-size)] fill-current">
