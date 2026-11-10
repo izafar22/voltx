@@ -26,3 +26,5 @@ Each meaningful PR updates affected rows, evidence links, verification date, and
 CI first run: exact colour and geometry assertions passed; all eight new cases caught computed `box-shadow: none` from the ambiguous arbitrary shadow class. Map the unchanged shadow token through a named Tailwind shadow utility and rerun all checks. Production remains on hold.
 
 CI second run: shadow assertions passed; icon assertions exposed `.rx-public a { color: inherit }` overriding the link foreground. Apply the existing white semantic colour directly as SVG fill, preserving the approved icon colour across themes. Rerun full CI; deployment remains held.
+
+| IN_PROGRESS | Approval-gated Oracle frontend CI/CD | `feature/oracle-frontend-cicd-approval`: manual release-branch workflow, GitHub production environment gate, non-root SSH deployment, staged build and backup/rollback. Requires review, CI, environment protection and VM account setup; no deployment performed. |

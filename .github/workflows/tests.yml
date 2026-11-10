@@ -24,6 +24,8 @@ jobs:
       CORS_ORIGINS: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
+      - name: Oracle frontend deploy regression tests
+        run: bash scripts/test-oracle-frontend-deploy.sh
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
