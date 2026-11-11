@@ -76,4 +76,4 @@ jobs:
         run: |
           corepack enable
           yarn install --frozen-lockfile
-          yarn audit --level critical --groups dependencies
+          python3 ../scripts/check-frontend-audit.py
