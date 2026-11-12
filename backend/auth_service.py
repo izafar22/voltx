@@ -54,17 +54,17 @@ class AuthSettings:
                    os.getenv("EXPOSE_DEMO_OTP", "false").lower() == "true", origins)
 
     def validate(self):
-        if self.environment not in ("production", "development", "test"):
-            raise RuntimeError("APP_ENV must be production, development, or test")
+        if self.environment not in ("production", "staging", "development", "test"):
+            raise RuntimeError("APP_ENV must be production, staging, development, or test")
         if self.otp_mode not in ("demo", "provider"):
             raise RuntimeError("OTP_MODE must be demo or provider")
         if not self.origins or any(not re.fullmatch(r"https?://[^/]+", origin) or "*" in origin for origin in self.origins):
             raise RuntimeError("Configure explicit CORS_ORIGINS without wildcards")
-        if self.environment == "production":
+        if self.environment in ("production", "staging"):
             if self.otp_mode == "demo" or self.expose_demo:
-                raise RuntimeError("Demo OTP is forbidden in production")
+                raise RuntimeError("Demo OTP is forbidden in production and staging")
             if len(self.secret) < 32 or any(not origin.startswith("https://") for origin in self.origins):
-                raise RuntimeError("Production requires a strong JWT_SECRET and HTTPS frontend origins")
+                raise RuntimeError("Production and staging require a strong JWT_SECRET and HTTPS frontend origins")
 
 
 class OtpProvider(Protocol):
