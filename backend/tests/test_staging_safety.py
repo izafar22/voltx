@@ -1,8 +1,8 @@
 """Staging preflight is pure and does not connect to Atlas."""
 import pytest
 
-from backend.auth_service import AuthSettings
-from backend.staging_safety import validate_staging_environment
+from auth_service import AuthSettings
+from staging_safety import validate_staging_environment
 
 
 @pytest.fixture
