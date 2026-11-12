@@ -26,6 +26,12 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+try:
+    from .staging_safety import validate_staging_environment
+except ImportError:
+    from staging_safety import validate_staging_environment
+validate_staging_environment()
+
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, Response, Query
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
@@ -1074,6 +1080,10 @@ async def safe_validation(request: Request, error: RequestValidationError):
 
 @app.middleware("http")
 async def trusted_origin(request: Request, call_next):
+    if auth_settings.environment == "staging" and request.method not in ("GET", "HEAD", "OPTIONS"):
+        path = request.scope["path"].lower()
+        if any(segment in path for segment in ("/payment", "/wallet", "/topup")):
+            return JSONResponse({"detail": "Financial mutations are disabled in staging"}, status_code=403)
     # Server-to-server callers authenticate with their own secret, not a browser Origin.
     if request.method not in ("GET", "HEAD", "OPTIONS") and request.scope["path"] not in ("/api/webhooks/whatsapp", REVALIDATE_PATH):
         if request.headers.get("origin") not in auth_settings.origins:
