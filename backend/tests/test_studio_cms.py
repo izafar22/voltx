@@ -300,3 +300,40 @@ def test_json_ld_cannot_break_out_of_its_script(tmp_path):
     t = run(app, "GET", f"{BLOG_PATH}/{POST['slug']}").text
     for block in re.findall(r'<script type="application/ld\+json">(.*?)</script>', t, re.S):
         assert "<" not in block and ">" not in block
+
+
+def test_a_read_in_flight_during_revalidate_is_not_stored(tmp_path):
+    """Studio answers with the old post, the update call clears the cache, then the old answer lands."""
+    fake = FakeStudio()
+    gate = asyncio.Event()
+
+    async def slow(path):
+        result = await fake(path)
+        await gate.wait()
+        return result
+    cms = StudioClient(StudioSettings(), fetcher=slow)
+
+    async def scenario():
+        reader = asyncio.create_task(cms.read(f"/blog/{POST['slug']}"))
+        await asyncio.sleep(0)
+        fake.posts = []      # unpublished in Studio
+        cms.clear()          # the update call
+        gate.set()
+        assert (await reader)[0] == "ok"  # that one request still gets its answer
+        return await cms.read(f"/blog/{POST['slug']}")
+    assert asyncio.run(scenario())[0] == "missing"
+
+
+def test_studio_404_on_the_list_is_a_real_404(tmp_path):
+    async def unknown_site(path):
+        return 404, None
+    cms = StudioClient(StudioSettings(index_html=tmp_path / "index.html"), fetcher=unknown_site)
+    bare = FastAPI()
+    bare.include_router(studio_router(StudioSettings(index_html=tmp_path / "index.html"), cms))
+    assert run(bare, "GET", BLOG_PATH).status_code == 404
+    assert run(bare, "GET", "/some-page").status_code == 404
+
+
+def test_studio_blocks_strips_only_a_literal_www():
+    js = (Path(__file__).parents[2] / "frontend/public/studio-blocks.js").read_text()
+    assert "replace(/^www\\./, '')" in js and "replace(/^www./, '')" not in js

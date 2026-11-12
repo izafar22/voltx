@@ -49,7 +49,7 @@
   /* A tool of the site (2026-10-22): a page of the site's OWN host, live inside its post — framed only when its
      address is on this page's host (the same origin: no third party), when it scrolls near, its height read
      from the framed page. Anywhere else the figure stays a picture with a link. */
-  function bareHost(h) { return String(h || '').toLowerCase().replace(/^www./, ''); }
+  function bareHost(h) { return String(h || '').toLowerCase().replace(/^www\./, ''); }
   function toolUrl(figure, pageHost, pageHref) {
     if (figure.getAttribute('data-embed') !== 'tool') return null;
     var u;

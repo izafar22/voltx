@@ -100,7 +100,7 @@ and llms.txt as well** (they read the same cache). Without the update call they 
    proxy_set_header Host $host;
    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
    proxy_set_header X-Forwarded-Proto $scheme;
-   proxy_read_timeout 15s;
+   proxy_read_timeout 30s;   # a page may wait on two Studio reads of up to 5 s each; llms.txt on 10 s
    ```
 
    Then `sudo nginx -t` and, only when approved, `sudo systemctl reload nginx`.

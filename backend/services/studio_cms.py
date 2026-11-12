@@ -18,6 +18,7 @@ Rules from the guide that this module keeps:
 """
 from __future__ import annotations
 
+import asyncio
 import hmac
 import html
 import json
@@ -47,6 +48,8 @@ FRESH_SECONDS = 300  # a good answer (or a real 404) is reused for 5 minutes
 RETRY_SECONDS = 30   # a Studio wobble is retried after 30 seconds
 MAX_CACHE_ENTRIES = 2000  # bots asking for random addresses must not grow memory on a 1 GB VM
 MAX_LIST_PAGE = 1000      # /blog?page= beyond this is a 404 without asking Studio
+READ_TIMEOUT = 5.0        # one Studio read; a page makes at most two in a row (nginx allows 30 s)
+LLMS_BUDGET = 10.0        # llms.txt waits this long for Studio in total, then answers with what it has
 
 # The React app's own routes (frontend/src/App.js). They keep answering 200 with index.html.
 # tests/test_studio_cms.py fails when App.js gains a route that is not covered here.
@@ -87,12 +90,13 @@ class StudioClient:
     _fresh: dict[str, tuple[float, str, Any]] = field(default_factory=dict)
     _last_good: dict[str, Any] = field(default_factory=dict)
     _http: Optional[httpx.AsyncClient] = None
+    _generation: int = 0
 
     async def _get(self, path: str) -> tuple[int, Any]:
         if self.fetcher:
             return await self.fetcher(path)
         if self._http is None:
-            self._http = httpx.AsyncClient(timeout=httpx.Timeout(8.0), headers={"accept": "application/json"})
+            self._http = httpx.AsyncClient(timeout=httpx.Timeout(READ_TIMEOUT), headers={"accept": "application/json"})
         res = await self._http.get(f"{self.settings.api_url}/api/v1/sites/{CMS_SITE}{path}")
         return res.status_code, (res.json() if res.status_code == 200 else None)
 
@@ -101,6 +105,7 @@ class StudioClient:
         hit = self._fresh.get(path)
         if hit and hit[0] > now:
             return hit[1], hit[2]
+        generation = self._generation
         try:
             status, data = await self._get(path)
             if status == 404:
@@ -111,6 +116,10 @@ class StudioClient:
                 kind, ttl, data = ERROR, RETRY_SECONDS, None
         except Exception:  # network error, timeout, bad JSON: an outage, never a 404
             kind, ttl, data = ERROR, RETRY_SECONDS, None
+        if generation != self._generation:
+            # The update route ran while this read was in flight: answer this request, but never store a
+            # copy that may predate the publish or unpublish.
+            return kind, data
         if kind == OK:
             self._last_good.pop(path, None)
             self._last_good[path] = data
@@ -134,6 +143,7 @@ class StudioClient:
 
     def clear(self) -> None:
         """The update route: the next read of anything goes to Studio."""
+        self._generation += 1
         self._fresh.clear()
 
     async def posts(self, page: int):
@@ -461,9 +471,18 @@ def render_llms(posts: list[dict], pages: list[dict]) -> str:
     return "\n".join(out)
 
 
-async def llms_sources(cms: "StudioClient") -> tuple[list[dict], list[dict]]:
-    """Every published post and Studio page (title and description), from the same cache as the pages."""
+async def llms_sources(cms: "StudioClient", budget: float = LLMS_BUDGET) -> tuple[list[dict], list[dict]]:
+    """Every published post and Studio page, within `budget` seconds; on a slow Studio, what arrived in time."""
     posts: list[dict] = []
+    studio_pages: list[dict] = []
+    try:
+        await asyncio.wait_for(_collect_llms(cms, posts, studio_pages), timeout=budget)
+    except asyncio.TimeoutError:
+        pass
+    return posts[:LLMS_MAX_POSTS], studio_pages
+
+
+async def _collect_llms(cms: "StudioClient", posts: list[dict], studio_pages: list[dict]) -> None:
     page, pages = 1, 1
     while page <= pages and len(posts) < LLMS_MAX_POSTS:
         kind, data = await cms.read(f"/blog?page={page}&limit=100")
@@ -472,16 +491,16 @@ async def llms_sources(cms: "StudioClient") -> tuple[list[dict], list[dict]]:
         posts += [i for i in data.get("items") or [] if i.get("slug")]
         pages = int(data.get("pages") or 1)
         page += 1
-    studio_pages: list[dict] = []
     kind, data = await cms.paths()
     if kind == OK:
         own = [e for e in data.get("paths") or [] if not e.get("inFolder") and not e.get("noindex")
                and e.get("locale", DEFAULT_LOCALE) == DEFAULT_LOCALE and not is_spa_route(e.get("path", ""))]
-        for entry in own[:LLMS_MAX_PAGES]:
+
+        async def one(entry):  # pages are read side by side, each added as soon as it arrives
             kind, item = await cms.page(entry["path"], DEFAULT_LOCALE)
             if kind == OK:
                 studio_pages.append(item)
-    return posts[:LLMS_MAX_POSTS], studio_pages
+        await asyncio.gather(*(one(e) for e in own[:LLMS_MAX_PAGES]))
 
 
 # ---------------------------------------------------------------- routes
@@ -535,6 +554,8 @@ def studio_router(settings: Optional[StudioSettings] = None, client: Optional[St
         if page > MAX_LIST_PAGE:
             return html_response(not_found_page(), 404)
         kind, data = await cms.posts(page)
+        if kind == MISSING:  # Studio's real "not found" (for example an unknown site): a real 404
+            return html_response(not_found_page(), 404)
         if kind != OK:
             return html_response(calm_page())
         if page > 1 and page > int(data.get("pages") or 1):
@@ -582,6 +603,8 @@ def studio_router(settings: Optional[StudioSettings] = None, client: Optional[St
         if is_spa_route(path):
             return spa_index(200)
         kind, data = await cms.paths()
+        if kind == MISSING:
+            return spa_index(404)
         if kind != OK:
             return html_response(calm_page("Page", current=""))  # Studio down is never a 404
         entry = next((e for e in data.get("paths") or [] if not e.get("inFolder")

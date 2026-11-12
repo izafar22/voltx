@@ -108,3 +108,23 @@ def test_sitemap_is_valid_and_never_lists_signed_in_routes(tmp_path):
     locs = re.findall(r"<loc>https://evchargerrepair\.in([^<]*)</loc>", t)
     assert len(locs) == len(set(locs))
     assert not any(blocked(p) for p in locs)
+
+
+def test_llms_txt_answers_within_its_budget_when_studio_is_slow():
+    import asyncio
+    import time
+    from services.studio_cms import StudioClient, StudioSettings, llms_sources, render_llms
+    from test_studio_cms import FakeStudio
+
+    fake = FakeStudio()
+
+    async def slow(path):
+        if path.startswith("/resolve"):
+            await asyncio.sleep(30)
+        return await fake(path)
+    cms = StudioClient(StudioSettings(), fetcher=slow)
+    start = time.monotonic()
+    posts, pages = asyncio.run(llms_sources(cms, budget=0.5))
+    assert time.monotonic() - start < 2
+    assert posts and not pages  # posts arrived in time; slow pages are left out, not waited for
+    assert "(https://evchargerrepair.in/services)" in render_llms(posts, pages)
