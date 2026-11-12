@@ -21,3 +21,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# build-time copy of src/design-system/tokens.css for server-rendered Studio pages (scripts/studio-assets.js)
+/public/studio/tokens.css

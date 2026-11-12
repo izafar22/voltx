@@ -1,0 +1,112 @@
+/* Server-rendered Studio pages (/blog, /blog/<slug>, Studio pages at any address; backend/services/studio_cms.py).
+   These pages are not part of the React bundle, so they read the canonical design tokens from /studio/tokens.css,
+   a build-time copy of src/design-system/tokens.css (scripts/studio-assets.js). No new visual values live here
+   except layout measures (max widths, grid minimums) that mirror PublicPage.css. */
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+body { margin: 0; background: hsl(var(--background)); }
+
+.sx {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-body);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+.sx *, .sx *::before, .sx *::after { box-sizing: border-box; }
+.sx a { color: inherit; text-decoration: none; }
+.sx :is(a, summary):focus-visible { outline: 3px solid hsl(var(--ring)); outline-offset: 4px; border-radius: 2px; }
+.sx h1, .sx h2, .sx h3 { font-family: var(--font-display); font-weight: 500; letter-spacing: -0.03em; line-height: 1.15; }
+.sx h1 { font-size: clamp(2.1rem, 4vw, 3.4rem); margin: 0; }
+.sx-main { flex: 1; padding-bottom: var(--space-16); }
+
+.sx-wrap { max-width: 1280px; margin-inline: auto; padding-inline: var(--space-12); }
+.sx-narrow { max-width: 760px; }
+.sx-wrap.sx-narrow { max-width: calc(760px + 2 * var(--space-12)); }
+
+/* Header and footer: the public site's bar, without the React-only controls. */
+.sx-header { border-bottom: 1px solid hsl(var(--border)); }
+.sx-header-inner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6);
+  padding-block: var(--space-5); }
+.sx-logo { display: inline-flex; align-items: center; gap: var(--space-2); font-family: var(--font-display);
+  font-weight: 700; font-size: 1.125rem; letter-spacing: -0.02em; }
+.sx-logo-mark { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: var(--radius);
+  background: hsl(var(--charging)); color: hsl(var(--on-brand)); }
+.sx-nav { display: flex; gap: var(--space-6); font-size: 0.95rem; color: hsl(var(--muted-foreground)); }
+.sx-nav a:hover, .sx-nav a[aria-current="page"] { color: hsl(var(--foreground)); }
+.sx-footer { border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); font-size: 0.875rem; }
+.sx-footer .sx-wrap { display: flex; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-6); }
+
+/* List pages: blog and hubs. */
+.sx-page-head { padding-block: var(--space-12) var(--space-8); }
+.sx-page-head p { margin: var(--space-3) 0 0; color: hsl(var(--muted-foreground)); font-size: 1.125rem; }
+.sx-grid { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-8) var(--space-6);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.sx-card { display: flex; flex-direction: column; gap: var(--space-2); }
+.sx-card-img { display: block; aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--radius-card);
+  background: hsl(var(--muted)); border: 1px solid hsl(var(--border)); }
+.sx-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
+.sx-card:hover .sx-card-img img { transform: scale(1.03); }
+.sx-card-blank { display: block; width: 100%; height: 100%; background: hsl(var(--brand-surface)); }
+.sx-card-title { margin-top: var(--space-2); font-family: var(--font-display); font-weight: 500; font-size: 1.2rem;
+  line-height: 1.3; letter-spacing: -0.02em; }
+.sx-card:hover .sx-card-title { text-decoration: underline; text-underline-offset: 3px; }
+.sx-card-meta, .sx-meta { color: hsl(var(--muted-foreground)); font-size: 0.875rem; }
+.sx-pager { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-12);
+  color: hsl(var(--muted-foreground)); font-size: 0.95rem; }
+.sx-pager a { color: hsl(var(--foreground)); font-weight: 600; }
+.sx-empty, .sx-state p { color: hsl(var(--muted-foreground)); }
+.sx-state { padding-block: var(--space-16); }
+.sx-link { color: hsl(var(--brand-foreground)); font-weight: 600; }
+.sx-hub-intro { margin-bottom: var(--space-8); }
+
+/* Article. */
+.sx-crumbs ol { list-style: none; margin: 0; padding: var(--space-8) 0 0; display: flex; flex-wrap: wrap;
+  gap: var(--space-2); font-size: 0.875rem; color: hsl(var(--muted-foreground)); }
+.sx-crumbs li + li::before { content: "›"; margin-right: var(--space-2); }
+.sx-crumbs a:hover { color: hsl(var(--foreground)); }
+.sx-article-head { padding-block: var(--space-8) var(--space-6); }
+.sx-eyebrow { margin: 0 0 var(--space-3); color: hsl(var(--brand-foreground)); font-weight: 600; font-size: 0.875rem;
+  letter-spacing: 0.04em; text-transform: uppercase; }
+.sx-standfirst { margin: var(--space-4) 0 0; font-size: 1.2rem; color: hsl(var(--muted-foreground)); }
+.sx-meta { margin: var(--space-4) 0 0; }
+.sx-cover { margin: 0 0 var(--space-8); }
+.sx-cover img { width: 100%; height: auto; display: block; border-radius: var(--radius-card); }
+
+/* The body and its table of contents: RushX typography; studio-blocks.css styles the blocks.
+   Colours come from the tokens, so both themes follow the site. */
+.sx .studio-body, .sx .studio-toc {
+  --studio-ink: hsl(var(--foreground));
+  --studio-ink-dim: hsl(var(--muted-foreground));
+  --studio-ink-mute: hsl(var(--muted-foreground));
+  --studio-line: hsl(var(--border));
+  --studio-surface: hsl(var(--muted));
+  --studio-surface-deep: hsl(var(--secondary));
+  --studio-paper: hsl(var(--card));
+  --studio-accent: hsl(var(--charging));
+  --studio-on-accent: hsl(var(--on-brand));
+  --studio-radius: var(--radius-card);
+  --studio-button-radius: 9999px;
+  color: hsl(var(--foreground));
+}
+.sx .studio-body { font-size: 1.0625rem; }
+.sx .studio-body p, .sx .studio-body li { color: hsl(var(--foreground)); }
+.sx .studio-body h2 { font-size: clamp(1.6rem, 2.6vw, 2rem); margin: var(--space-12) 0 var(--space-4); scroll-margin-top: var(--space-6); }
+.sx .studio-body h3 { font-size: 1.3rem; margin: var(--space-8) 0 var(--space-3); scroll-margin-top: var(--space-6); }
+.sx .studio-body a { color: hsl(var(--brand-foreground)); text-decoration: underline; text-underline-offset: 3px; }
+.sx .studio-body a[data-button] { text-decoration: none; }
+.sx .studio-body img { max-width: 100%; height: auto; }
+.sx .studio-toc { border-radius: var(--radius-card); }
+.sx .studio-toc a:hover { color: hsl(var(--brand-foreground)); }
+
+@media (max-width: 760px) {
+  .sx-wrap { padding-inline: var(--space-4); }
+  .sx-wrap.sx-narrow { max-width: none; }
+  .sx-header-inner { flex-direction: column; align-items: flex-start; gap: var(--space-3); padding-block: var(--space-4); }
+  .sx-nav { gap: var(--space-4); overflow-x: auto; max-width: 100%; padding-bottom: var(--space-1); white-space: nowrap; }
+  .sx-page-head { padding-block: var(--space-8) var(--space-6); }
+  .sx-footer .sx-wrap { flex-direction: column; }
+}
