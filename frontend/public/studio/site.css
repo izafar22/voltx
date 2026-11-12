@@ -93,11 +93,21 @@ body { margin: 0; background: hsl(var(--background)); }
   color: hsl(var(--foreground));
 }
 .sx .studio-body { font-size: 1.0625rem; }
-.sx .studio-body p, .sx .studio-body li { color: hsl(var(--foreground)); }
+/* Body text and links take the site's colours, except inside a call to action, which sets its own per tone. */
+.sx .studio-body :is(p, li):not(section[data-block="cta"] *) { color: hsl(var(--foreground)); }
 .sx .studio-body h2 { font-size: clamp(1.6rem, 2.6vw, 2rem); margin: var(--space-12) 0 var(--space-4); scroll-margin-top: var(--space-6); }
 .sx .studio-body h3 { font-size: 1.3rem; margin: var(--space-8) 0 var(--space-3); scroll-margin-top: var(--space-6); }
-.sx .studio-body a { color: hsl(var(--brand-foreground)); text-decoration: underline; text-underline-offset: 3px; }
-.sx .studio-body a[data-button] { text-decoration: none; }
+.sx .studio-body a:not(section[data-block="cta"] *) { color: hsl(var(--brand-foreground)); text-decoration: underline; text-underline-offset: 3px; }
+.sx .studio-body section[data-block="cta"] a:not([data-button]) { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+/* On the light tones (soft, outline) accent-coloured text must stay readable: the brand foreground token is
+   the darker green in the light theme and the lighter green in the dark theme. */
+.sx .studio-body section[data-block="cta"]:not([data-tone="brand"]):not([data-tone="dark"]) {
+  --studio-cta-mark: hsl(var(--brand-foreground));
+}
+.sx .studio-body section[data-block="cta"]:not([data-tone="brand"]):not([data-tone="dark"]) a[data-button="secondary"] {
+  color: hsl(var(--brand-foreground));
+  box-shadow: inset 0 0 0 1.5px hsl(var(--brand-foreground));
+}
 .sx .studio-body img { max-width: 100%; height: auto; }
 .sx .studio-toc { border-radius: var(--radius-card); }
 .sx .studio-toc a:hover { color: hsl(var(--brand-foreground)); }

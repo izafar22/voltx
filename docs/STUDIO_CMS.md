@@ -53,7 +53,11 @@ and llms.txt as well** (they read the same cache). Without the update call they 
   `frontend/src/App.js` gains a route that `SPA_EXACT`/`SPA_PREFIXES` do not cover. **Add new React
   routes to both.**
 - `frontend/public/studio-blocks.css`, `frontend/public/studio-blocks.js`: Studio's block styles and
-  behaviours. **The committed copies are what ships**; builds never download them.
+  behaviours. **The committed copies are what ships**; builds never download them. `studio-blocks.js`
+  carries three local patches, each marked in the file or listed here, until Studio publishes them:
+  `bareHost` strips only a literal `www.`; a later `#faq-…` link opens its answer; teardown removes the
+  figures' button attributes. A `--refresh` drops them unless Studio's copy already has them, so check the
+  diff for all three.
 - `frontend/public/studio/site.css`: the RushX look for the server-rendered pages, in design tokens only.
 - `frontend/scripts/studio-assets.js` (`prebuild`/`prestart`): copies `src/design-system/tokens.css` to
   `public/studio/tokens.css` (git-ignored). To take a new version of Studio's blocks files, run
@@ -83,7 +87,7 @@ and llms.txt as well** (they read the same cache). Without the update call they 
 
    # The React app's own routes stay static, exactly as today, so they keep working if the backend is down.
    # Keep in step with frontend/src/App.js and SPA_EXACT/SPA_PREFIXES in backend/services/studio_cms.py.
-   location ~ ^/(login|services|about|how-it-works|faq|owner|admin|app|repairs)$ { try_files /index.html =404; }
+   location ~ ^/(login|services|about|how-it-works|faq|owner|admin|app|repairs)/?$ { try_files /index.html =404; }
    location ~ ^/(app|repairs)/                                                   { try_files /index.html =404; }
 
    # FastAPI's API docs are not pages of this site.

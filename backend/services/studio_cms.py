@@ -566,7 +566,8 @@ def studio_router(settings: Optional[StudioSettings] = None, client: Optional[St
     async def blog_slash(request: Request):
         if is_api_host(request):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
-        return RedirectResponse(BLOG_PATH, status_code=301)
+        query = f"?{request.url.query}" if request.url.query else ""
+        return RedirectResponse(BLOG_PATH + query, status_code=301)
 
     @router.api_route(BLOG_PATH + "/{slug}", methods=["GET", "HEAD"], include_in_schema=False)
     async def blog_post(slug: str, request: Request):

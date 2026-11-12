@@ -337,3 +337,17 @@ def test_studio_404_on_the_list_is_a_real_404(tmp_path):
 def test_studio_blocks_strips_only_a_literal_www():
     js = (Path(__file__).parents[2] / "frontend/public/studio-blocks.js").read_text()
     assert "replace(/^www\\./, '')" in js and "replace(/^www./, '')" not in js
+
+
+def test_blog_slash_redirect_keeps_the_page_number(tmp_path):
+    app, _, _ = make(tmp_path=tmp_path)
+    r = run(app, "GET", f"{BLOG_PATH}/?page=2")
+    assert r.status_code == 301 and r.headers["location"] == f"{BLOG_PATH}?page=2"
+
+
+def test_studio_blocks_local_patches_survive_a_refresh():
+    """docs/STUDIO_CMS.md lists these until Studio publishes them; a --refresh must not drop them silently."""
+    js = (Path(__file__).parents[2] / "frontend/public/studio-blocks.js").read_text()
+    assert "window.addEventListener('hashchange', onHash)" in js
+    assert "window.removeEventListener('hashchange', onHash)" in js
+    assert "['role', 'tabindex', 'data-tap'].forEach" in js

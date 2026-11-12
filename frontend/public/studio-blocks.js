@@ -143,12 +143,21 @@
       if (f && root.contains(f)) { e.preventDefault(); openEmbed(f); }
     }
     function onKey(e) { if (e.key === 'Enter' || e.key === ' ') act(e); }
+    /* RushX patch (to upstream): a #faq-… link followed after load opens its answer too. */
+    function onHash() {
+      var h = (window.location.hash || '').replace(/^#/, '');
+      questions.forEach(function (q) { if (h !== '' && q.id === h) setOpen(q, true); });
+    }
     root.addEventListener('click', act);
     root.addEventListener('keydown', onKey);
+    window.addEventListener('hashchange', onHash);
     return function teardown() {
       root.removeEventListener('click', act);
       root.removeEventListener('keydown', onKey);
+      window.removeEventListener('hashchange', onHash);
       offTools();
+      /* RushX patch (to upstream): figures no longer act as buttons once their listeners are gone. */
+      figures.forEach(function (f) { ['role', 'tabindex', 'data-tap'].forEach(function (a) { f.removeAttribute(a); }); });
       root.__studioBlocks = false;
       questions.forEach(function (q) {
         ['role', 'tabindex', 'data-faq-toggle', 'aria-expanded'].forEach(function (a) { q.removeAttribute(a); });
