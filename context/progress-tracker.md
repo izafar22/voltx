@@ -1,6 +1,6 @@
 # RushX progress tracker
 
-Last reviewed: 2026-11-06. Statuses: DONE / IN_PROGRESS / PLANNED / PARKED / BLOCKED. A status describes available evidence, not a claim of production deployment.
+Last reviewed: 2026-11-12. Statuses: DONE / IN_PROGRESS / PLANNED / PARKED / BLOCKED. A status describes available evidence, not a claim of production deployment.
 
 | Status | Work item | Evidence / next action |
 |---|---|---|
@@ -28,3 +28,5 @@ CI first run: exact colour and geometry assertions passed; all eight new cases c
 CI second run: shadow assertions passed; icon assertions exposed `.rx-public a { color: inherit }` overriding the link foreground. Apply the existing white semantic colour directly as SVG fill, preserving the approved icon colour across themes. Rerun full CI; deployment remains held.
 
 | IN_PROGRESS | Approval-gated Oracle frontend CI/CD | `feature/oracle-frontend-cicd-approval`: manual release-branch workflow, GitHub production environment gate, non-root SSH deployment, staged build and backup/rollback. Requires review, CI, environment protection and VM account setup; no deployment performed. |
+
+| IN_PROGRESS | Growth Studio blog, robots.txt, llms.txt, sitemap | `feature/growth-studio-seo` from `repair-mvp`: server-rendered `/blog`, posts, Studio pages at any address, `/sitemap.xml`, `/llms.txt`, `POST /api/revalidate`, static `robots.txt`. Studio publishes reach the sitemap and llms.txt through the update route. Verified 2026-11-12: `backend/tests/test_studio_cms.py` and `test_seo_files.py` pass locally (Python 3.12); evidence and CodeRabbit resolutions in PR #51 (https://github.com/izafar22/voltx/pull/51); CI pending. Not deployed: needs frontend + backend release, `CMS_REVALIDATE_SECRET` and the Nginx change in `docs/STUDIO_CMS.md`, then Studio's Check my website. |
