@@ -30,3 +30,5 @@ CI second run: shadow assertions passed; icon assertions exposed `.rx-public a {
 | IN_PROGRESS | Approval-gated Oracle frontend CI/CD | `feature/oracle-frontend-cicd-approval`: manual release-branch workflow, GitHub production environment gate, non-root SSH deployment, staged build and backup/rollback. Requires review, CI, environment protection and VM account setup; no deployment performed. |
 
 | IN_PROGRESS | Growth Studio blog connection | `feature/studio-cms-blog`: server-rendered `/blog`, posts, sitemap, update route and pages at any address (connect guide v6, blocks guide v1.4). 18 offline tests in `backend/tests/test_studio_cms.py` pass locally. Not deployed: needs backend release + `CMS_REVALIDATE_SECRET`, frontend release and the Nginx change in `docs/STUDIO_CMS.md`, then Studio's Check my website. |
+
+| IN_PROGRESS | robots.txt, llms.txt, sitemap freshness | `feature/seo-robots-llms` (stacked on `feature/studio-cms-blog`): static `robots.txt`, dynamic `/llms.txt`, Studio publishes/unpublishes reach sitemap and llms.txt via the update route. 23 offline tests pass locally. Not deployed. |

@@ -7,6 +7,7 @@ The React app renders in the browser, so Studio content is rendered here on the 
 
     GET  /blog, /blog/<slug>   the post list and one post
     GET  /sitemap.xml          the site's public pages plus every Studio post and page
+    GET  /llms.txt             a plain-text map of the site for AI assistants (llmstxt.org), with every post
     POST /api/revalidate       Studio's update call: empties the cache (secret in CMS_REVALIDATE_SECRET)
     GET  /<anything else>      a Studio page when Studio lists the address; the React app's index.html
                                for its own routes; otherwise a real 404
@@ -387,7 +388,7 @@ def render_sitemap(sitemap: Optional[dict]) -> str:
                  if e.get("slug") and e.get("locale", DEFAULT_LOCALE) == DEFAULT_LOCALE]
         urls += [(url_of(e), e.get("lastmod")) for e in sitemap.get("paths") or []
                  if e.get("path") and not e.get("inFolder") and not e.get("noindex")
-                 and e.get("locale", DEFAULT_LOCALE) == DEFAULT_LOCALE]
+                 and e.get("locale", DEFAULT_LOCALE) == DEFAULT_LOCALE and not is_spa_route(e["path"])]
     seen, rows = set(), []
     for path, lastmod in urls:
         if path in seen:
@@ -397,6 +398,75 @@ def render_sitemap(sitemap: Optional[dict]) -> str:
         rows.append(f"<url><loc>{esc(SITE_ORIGIN + path)}</loc>{last}</url>")
     return ('<?xml version="1.0" encoding="UTF-8"?>'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + "".join(rows) + "</urlset>")
+
+
+LLMS_MAX_POSTS = 500
+LLMS_MAX_PAGES = 50
+# The public React pages (frontend/src/pages/public), described from their own copy.
+LLMS_SITE_PAGES = (
+    ("/", "Home", "What RushX repairs and how to start a repair enquiry"),
+    ("/services", "Services", "PCB and control boards, AC chargers, DC fast chargers, power supplies and electronics"),
+    ("/how-it-works", "How it works", "Enquiry, technical assessment, inspection and quotation, approved repair and testing, return"),
+    ("/about", "About", "An independent, multi-brand EV charger repair service: repair when possible, replace when necessary"),
+    ("/faq", "FAQ", "Eligibility, coverage, courier enquiries, quotations and warranty terms"),
+)
+LLMS_SUMMARY = (
+    "RushX is an independent, multi-brand EV charger repair enquiry and electronics service in India. "
+    "It assesses and, where technically feasible, repairs AC chargers (for example 3.3 kW and 7 / 7.4 kW), "
+    "DC fast chargers, charger PCBs and control boards, and power-electronics modules."
+)
+LLMS_FACTS = (
+    "Service area: Delhi NCR and Mumbai, plus eligible courier-based enquiries from across India. Bengaluru is planned, not offered yet.",
+    "Every repair starts with an enquiry and a technical assessment; work begins only after inspection, a quotation and the customer's approval.",
+    "Not every charger can be repaired: feasibility depends on model, fault, condition, parts and safe testing. Replacement may be recommended.",
+    "RushX is not an authorized manufacturer service centre and does not claim manufacturer authorization.",
+    "Warranty scope, if any, is stated in each quotation; there is no blanket warranty.",
+    "Customers should not send equipment before technical acceptance and shipping instructions.",
+    "Contact: WhatsApp +91 85280 77908 (https://wa.me/918528077908).",
+)
+
+
+def _llms_line(path: str, title: str, note: str = "") -> str:
+    note = " ".join((note or "").split())
+    return f"- [{title}]({SITE_ORIGIN}{path})" + (f": {note}" if note else "")
+
+
+def render_llms(posts: list[dict], pages: list[dict]) -> str:
+    out = [f"# {SITE_NAME}", "", f"> {LLMS_SUMMARY}", "", "Key facts:", ""]
+    out += [f"- {fact}" for fact in LLMS_FACTS]
+    out += ["", "## Site", ""] + [_llms_line(p, t, n) for p, t, n in LLMS_SITE_PAGES]
+    out.append(_llms_line(BLOG_PATH, "Blog", "EV charger faults, fixes, costs and care"))
+    if pages:
+        out += ["", "## Guides", ""] + [_llms_line(url_of(p), p.get("title") or p["path"], p.get("description"))
+                                        for p in pages]
+    if posts:
+        out += ["", "## Blog posts", ""] + [_llms_line(f"{BLOG_PATH}/{p['slug']}", p.get("title") or p["slug"],
+                                                       p.get("description")) for p in posts]
+    out += ["", "## Optional", "", f"- [Sitemap]({SITE_ORIGIN}/sitemap.xml): every public address", ""]
+    return "\n".join(out)
+
+
+async def llms_sources(cms: "StudioClient") -> tuple[list[dict], list[dict]]:
+    """Every published post and Studio page (title and description), from the same cache as the pages."""
+    posts: list[dict] = []
+    page, pages = 1, 1
+    while page <= pages and len(posts) < LLMS_MAX_POSTS:
+        kind, data = await cms.read(f"/blog?page={page}&limit=100")
+        if kind != OK:
+            break
+        posts += [i for i in data.get("items") or [] if i.get("slug")]
+        pages = int(data.get("pages") or 1)
+        page += 1
+    studio_pages: list[dict] = []
+    kind, data = await cms.paths()
+    if kind == OK:
+        own = [e for e in data.get("paths") or [] if not e.get("inFolder") and not e.get("noindex")
+               and e.get("locale", DEFAULT_LOCALE) == DEFAULT_LOCALE and not is_spa_route(e.get("path", ""))]
+        for entry in own[:LLMS_MAX_PAGES]:
+            kind, item = await cms.page(entry["path"], DEFAULT_LOCALE)
+            if kind == OK:
+                studio_pages.append(item)
+    return posts[:LLMS_MAX_POSTS], studio_pages
 
 
 # ---------------------------------------------------------------- routes
@@ -464,6 +534,12 @@ def studio_router(settings: Optional[StudioSettings] = None, client: Optional[St
     async def sitemap():
         kind, data = await cms.sitemap()
         return Response(render_sitemap(data if kind == OK else None), media_type="application/xml",
+                        headers={"cache-control": "public, max-age=300"})
+
+    @router.api_route("/llms.txt", methods=["GET", "HEAD"], include_in_schema=False)
+    async def llms_txt():
+        posts, pages = await llms_sources(cms)  # Studio down: the site part still answers 200
+        return Response(render_llms(posts, pages), media_type="text/plain; charset=utf-8",
                         headers={"cache-control": "public, max-age=300"})
 
     @router.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
