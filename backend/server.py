@@ -8,6 +8,7 @@ if __package__:
     from .services.payment_service import PaymentService, ManualPaymentProcessor
     from .demo_chargers import seed_demo_chargers
     from .auth_service import AuthService, AuthSettings, auth_router, normalize_phone
+    from .services.studio_cms import studio_router, REVALIDATE_PATH
 else:
     from services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter, WhatsAppService
     from services.repair_facts import validate_transition_facts, calculated_estimate, money, text_fact, exact_money_input, MONEY_FIELDS
@@ -18,6 +19,7 @@ else:
     from services.payment_service import PaymentService, ManualPaymentProcessor
     from demo_chargers import seed_demo_chargers
     from auth_service import AuthService, AuthSettings, auth_router, normalize_phone
+    from services.studio_cms import studio_router, REVALIDATE_PATH
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -1072,7 +1074,8 @@ async def safe_validation(request: Request, error: RequestValidationError):
 
 @app.middleware("http")
 async def trusted_origin(request: Request, call_next):
-    if request.method not in ("GET", "HEAD", "OPTIONS") and request.scope["path"] != "/api/webhooks/whatsapp":
+    # Server-to-server callers authenticate with their own secret, not a browser Origin.
+    if request.method not in ("GET", "HEAD", "OPTIONS") and request.scope["path"] not in ("/api/webhooks/whatsapp", REVALIDATE_PATH):
         if request.headers.get("origin") not in auth_settings.origins:
             return JSONResponse({"detail": "Request origin is not allowed"}, status_code=403)
     response = await call_next(request)
@@ -1083,6 +1086,8 @@ async def trusted_origin(request: Request, call_next):
 
 api_router.include_router(webhook_router(lambda: db, lambda: WhatsAppSettings.from_env()))
 app.include_router(api_router)
+# Growth Studio blog, sitemap and pages at any address. Last: it ends with a catch-all GET route.
+app.include_router(studio_router())
 app.add_middleware(
     CORSMiddleware, allow_credentials=True,
     allow_origins=list(auth_settings.origins),

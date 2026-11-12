@@ -63,7 +63,9 @@
     "zod": "3.24.4"
   },
   "scripts": {
+    "prestart": "node scripts/studio-assets.js",
     "start": "craco start",
+    "prebuild": "node scripts/studio-assets.js",
     "build": "craco build",
     "test": "craco test",
     "storybook": "storybook dev -p 6006 --host 127.0.0.1 --no-open",

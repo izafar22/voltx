@@ -13,3 +13,5 @@ Required reading order:
 Do not merge, deploy, alter Render settings, run production migrations, send production WhatsApp messages, or modify live data without explicit user authorization. Never include secrets or personal customer information in commits. Keep parked functionality preserved and out of releases until separately approved. Every PR must describe tests run, risks, and context documentation changes.
 
 Production deployment reference (operator-verified 2026-11-10): read `docs/ORACLE_PRODUCTION_DEPLOYMENT.md` before changing hosting, Nginx, DNS, TLS, frontend release artifacts, backend routing, or deployment automation. Treat it as a dated snapshot; verify live state.
+
+Growth Studio blog (server-rendered by FastAPI, Nginx routing, update route): `docs/STUDIO_CMS.md`.
