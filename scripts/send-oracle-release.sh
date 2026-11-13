@@ -10,7 +10,8 @@ target="${1:?Expected deployment environment}"
 if [[ "$target" == production ]]; then
   bash scripts/verify-oracle-production.sh approval
 else
-  [[ "$target" == staging && "$GITHUB_REF" == refs/heads/repair-mvp && "$GITHUB_EVENT_NAME" == push ]]
+  [[ "$target" == staging && "$GITHUB_REF" == refs/heads/repair-mvp && "$GITHUB_EVENT_NAME" == push ]] ||
+    { echo "Invalid staging deployment event or branch" >&2; exit 1; }
 fi
 
 # Check integrity on the runner, then send the same digest via pinned SSH for host verification.
