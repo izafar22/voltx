@@ -1,5 +1,6 @@
 """Fail-closed staging configuration checks; no network or database I/O."""
 import os
+import re
 from urllib.parse import unquote, urlsplit
 
 
@@ -22,8 +23,19 @@ def validate_staging_environment(env=None):
         raise RuntimeError("Staging requires the dedicated Atlas user, host and database")
     if env.get("OTP_MODE", "provider") != "provider" or env.get("EXPOSE_DEMO_OTP", "false").lower() != "false":
         raise RuntimeError("Staging forbids demo OTP")
-    if env.get("OTP_DELIVERY_PROVIDER", "none").lower() not in ("", "none"):
-        raise RuntimeError("Staging OTP delivery must remain unconfigured")
+    provider = env.get("OTP_DELIVERY_PROVIDER", "none").lower()
+    if provider not in ("", "none", "whatsapp"):
+        raise RuntimeError("Unsupported staging OTP delivery provider")
+    if provider == "whatsapp":
+        phones = [p.strip() for p in env.get("STAGING_OTP_ALLOWED_PHONES", "").split(",")]
+        if (not phones or any(not re.fullmatch(r"\\+91[6-9][0-9]{9}", p) for p in phones)
+                or len(phones) != len(set(phones)) or len(phones) > 10):
+            raise RuntimeError("Staging WhatsApp OTP requires 1-10 unique allowlisted Indian numbers")
+        if not env.get("WHATSAPP_ACCESS_TOKEN", "").strip() or not re.fullmatch(
+                r"[0-9]+", env.get("WHATSAPP_PHONE_NUMBER_ID", "")):
+            raise RuntimeError("Staging WhatsApp OTP credentials are missing or invalid")
+    elif env.get("STAGING_OTP_ALLOWED_PHONES", "").strip():
+        raise RuntimeError("Staging OTP allowlist requires WhatsApp provider")
     if env.get("WHATSAPP_ENABLED", "false").lower() != "false" or env.get("WHATSAPP_PRODUCTION_APPROVED", "false").lower() != "false":
         raise RuntimeError("Staging forbids outbound WhatsApp")
     if env.get("RUSHX_UPI_QR_REVIEWED", "false").lower() != "false":
