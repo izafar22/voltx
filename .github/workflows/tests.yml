@@ -42,11 +42,11 @@ jobs:
         run: bash scripts/check-oracle-secrets.sh
       - name: Oracle frontend deploy regression tests
         run: bash scripts/test-oracle-frontend-deploy.sh
-      - name: Unified Oracle deployment regression tests
-        run: python3 -m unittest discover -s scripts -p 'test_oracle_release.py'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Unified Oracle deployment regression tests
+        run: python3 -m unittest discover -s scripts -p 'test_oracle_release.py'
       - run: pip install -r backend/requirements.txt -r backend/requirements-test.txt
       - name: Start disposable API
         run: |
