@@ -5,6 +5,12 @@ on:
     branches:
       - 'release_*'
   workflow_dispatch:
+    inputs:
+      deploy_to_production:
+        description: 'Request one-time production deployment (requires protected environment approval)'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -54,7 +60,9 @@ jobs:
 
   deploy:
     needs: build
-    if: vars.RUSHX_AUTO_DEPLOY_ENABLED == 'true'
+    # Fail closed until an administrator confirms production environment protections.
+    # Pushes to release_* build artifacts but never deploy.
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_to_production == true && vars.RUSHX_PRODUCTION_APPROVAL_GATE_VERIFIED == 'true'
     runs-on: ubuntu-22.04
     environment:
       name: production
