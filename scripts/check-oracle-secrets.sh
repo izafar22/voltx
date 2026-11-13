@@ -9,4 +9,6 @@ base="${BASE_SHA:?Expected PR base or push before SHA}"
 if [[ "$base" =~ ^0{40}$ ]]; then base="$(git merge-base origin/repair-mvp HEAD)"; fi
 git cat-file -e "$base^{commit}"
 "$scanner/gitleaks" git --redact=100 --log-opts="$base..HEAD" --exit-code=1
-git diff --no-ext-diff "$base" HEAD | "$scanner/gitleaks" stdin --redact=100 --exit-code=1
+git diff --no-ext-diff --no-color --unified=0 "$base" HEAD |
+  awk '/^diff --git / { hunk = 0 } /^@@ / { hunk = 1 } hunk && /^\+/ { print substr($0, 2) }' |
+  "$scanner/gitleaks" stdin --redact=100 --exit-code=1

@@ -208,6 +208,7 @@ def deploy(cfg, environment, sha, sequence, digest, stream):
             print("Activation failed. Restoring previous frontend and backend.", file=sys.stderr)
             try:
                 activate(cfg, root, previous)
+                write_json(state_file, state)
             except BaseException:
                 raise RuntimeError("CRITICAL: rollback failed. Recover using pending.json.") from None
             pending.unlink()

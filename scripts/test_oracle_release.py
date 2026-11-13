@@ -89,6 +89,22 @@ class OracleReleaseTest(unittest.TestCase):
         with release.locked(self.root), self.assertRaises(BlockingIOError):
             self.deploy()
 
+    def test_interruption_after_state_write_restores_previous_record(self):
+        write = release.write_json
+
+        def interrupt_after_candidate_write(path, value):
+            write(path, value)
+            if path == self.state and value["sha"] == self.sha:
+                raise RuntimeError("Interrupted after writing candidate state")
+
+        with patch.object(release, "write_json", side_effect=interrupt_after_candidate_write):
+            with self.assertRaisesRegex(RuntimeError, "Interrupted"):
+                self.deploy()
+
+        self.assertEqual(self.active.resolve(), self.previous)
+        self.assertEqual(json.loads(self.state.read_text()), {"sha": "initial-stable", "sequence": 10})
+        self.assertFalse((self.root / "pending.json").exists())
+
     def test_failed_rollback_preserves_recovery_journal(self):
         self.verify.side_effect = RuntimeError("check failed")
         with self.assertRaisesRegex(RuntimeError, "CRITICAL"):
