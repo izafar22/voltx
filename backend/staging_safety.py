@@ -28,7 +28,7 @@ def validate_staging_environment(env=None):
         raise RuntimeError("Unsupported staging OTP delivery provider")
     if provider == "whatsapp":
         phones = [p.strip() for p in env.get("STAGING_OTP_ALLOWED_PHONES", "").split(",")]
-        if (not phones or any(not re.fullmatch(r"\\+91[6-9][0-9]{9}", p) for p in phones)
+        if (not phones or any(not re.fullmatch(r"\+91[6-9][0-9]{9}", p) for p in phones)
                 or len(phones) != len(set(phones)) or len(phones) > 10):
             raise RuntimeError("Staging WhatsApp OTP requires 1-10 unique allowlisted Indian numbers")
         if not env.get("WHATSAPP_ACCESS_TOKEN", "").strip() or not re.fullmatch(
