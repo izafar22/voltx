@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 target="${1:?Expected deployment environment}"
-[[ "$GITHUB_REPOSITORY" == izafar22/voltx && "$RELEASE_SHA" == "$GITHUB_SHA" ]]
-[[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ && "$RELEASE_SEQUENCE" =~ ^[1-9][0-9]*$ ]]
-[[ "$ORACLE_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ && "$ORACLE_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+[[ "$GITHUB_REPOSITORY" == izafar22/voltx && "$RELEASE_SHA" == "$GITHUB_SHA" ]] ||
+  { echo "Repository or release SHA mismatch" >&2; exit 1; }
+[[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ && "$RELEASE_SEQUENCE" =~ ^[1-9][0-9]*$ ]] ||
+  { echo "Invalid release SHA or sequence" >&2; exit 1; }
+[[ "$ORACLE_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ && "$ORACLE_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] ||
+  { echo "Invalid SSH destination" >&2; exit 1; }
 if [[ "$target" == production ]]; then
   bash scripts/verify-oracle-production.sh approval
 else
@@ -11,6 +14,8 @@ else
 fi
 
 # Check integrity on the runner, then send the same digest via pinned SSH for host verification.
+[[ -s oracle-release/SHA256SUMS && -s oracle-release/rushx.tar.gz ]] ||
+  { echo "Missing release artifact or checksum" >&2; exit 1; }
 digest="$(awk 'NR == 1 && $2 == "rushx.tar.gz" {print $1}' oracle-release/SHA256SUMS)"
 [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
 printf '%s  oracle-release/rushx.tar.gz\n' "$digest" | sha256sum -c
