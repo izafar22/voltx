@@ -1,7 +1,16 @@
 name: Tests
-on: [push, pull_request]
+on:
+  push:
+    branches: [repair-mvp, 'release_*']
+  pull_request:
+    branches: [repair-mvp]
+
+permissions:
+  contents: read
 jobs:
   test:
+    outputs:
+      artifact_name: ${{ steps.bundle.outputs.name }}
     # MongoDB 8 refuses kernels 6.19+ used by the moving ubuntu-latest image.
     runs-on: ubuntu-22.04
     services:
@@ -24,8 +33,17 @@ jobs:
       CORS_ORIGINS: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan introduced changes for secrets
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: bash scripts/check-oracle-secrets.sh
       - name: Oracle frontend deploy regression tests
         run: bash scripts/test-oracle-frontend-deploy.sh
+      - name: Unified Oracle deployment regression tests
+        run: python3 -m unittest discover -s scripts -p 'test_oracle_release.py'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -48,7 +66,11 @@ jobs:
           node-version: '22'
       - run: corepack enable && cd frontend && yarn install --frozen-lockfile
       - run: cd frontend && CI=true yarn test --watchAll=false --runInBand
-      - run: cd frontend && yarn build
+      - name: Build frontend for same-origin HTTPS deployment
+        env:
+          REACT_APP_DEMO_AUTH: 'false'
+          REACT_APP_BACKEND_URL: ''
+        run: cd frontend && yarn build
       - name: Public education browser checks
         run: |
           cd frontend/e2e
@@ -72,3 +94,25 @@ jobs:
             frontend/e2e/test-results
             frontend/e2e/test-results-storybook
             frontend/e2e/storybook-snapshots
+
+      - name: Package tested frontend and backend
+        id: bundle
+        run: |
+          bash scripts/package-oracle-release.sh
+          echo "name=rushx-unified-${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.repository == 'izafar22/voltx'
+        with:
+          name: ${{ steps.bundle.outputs.name }}
+          path: oracle-release/
+          if-no-files-found: error
+          retention-days: 30
+
+  staging:
+    if: github.repository == 'izafar22/voltx' && github.event_name == 'push' && github.ref == 'refs/heads/repair-mvp' && vars.RUSHX_STAGING_CD_ENABLED == 'true'
+    needs: test
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy-oracle-staging.yml
+    with:
+      artifact_name: ${{ needs.test.outputs.artifact_name }}

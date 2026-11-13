@@ -21,16 +21,19 @@ JWK = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(KEY.public_key()))
 JWK['kid'] = 'test-key'
 
 
-def run(scenario, production=False):
+def run(scenario, production=False, staging=False):
+    origin = "https://staging.evchargerrepair.in" if staging else ("https://evchargerrepair.in" if production else "http://localhost:3000")
+    environment = "staging" if staging else ("production" if production else "test")
+    secure = staging or production
     async def execute():
         with patch.dict('os.environ', GOOGLE_CLIENT_ID='client', GOOGLE_CLIENT_SECRET='secret',
-                        GOOGLE_REDIRECT_URI=('https://evchargerrepair.in' if production else 'http://localhost:3000') + '/api/auth/google/callback'):
+                        GOOGLE_REDIRECT_URI=origin + '/api/auth/google/callback'):
             service = AuthService(AsyncMongoMockClient(tz_aware=True).db,
-                                  AuthSettings('test-only-secret-with-thirty-two-characters', 'production' if production else 'test', 'provider' if production else 'demo', not production, ('https://evchargerrepair.in',) if production else ('http://localhost:3000',)))
+                                  AuthSettings('test-only-secret-with-thirty-two-characters', environment, 'provider' if secure else 'demo', not secure, (origin,)))
             await service.initialize()
             app = FastAPI()
             app.include_router(auth_router(service), prefix='/api')
-            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='https://evchargerrepair.in' if production else 'http://localhost:3000') as browser:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=origin) as browser:
                 await scenario(service, browser)
     asyncio.run(execute())
 
@@ -264,3 +267,26 @@ def test_verified_email_change_preserves_subject_role_and_original_provisioning_
         assert denied.headers['location'].endswith('google_error=1')
         assert (await service.db.users.find_one({'auth_subject': 'subject'}))['email'] == 'changed@example.test'
     run(scenario, production=True)
+
+
+def test_staging_google_https_callback_state_and_session():
+    async def scenario(service, browser):
+        service.google.redirect_uri = "https://evchargerrepair.in/api/auth/google/callback"
+        assert (await browser.get("/api/auth/google/login")).status_code == 503
+        service.google.redirect_uri = str(browser.base_url).rstrip("/") + "/api/auth/google/callback"
+        response = await browser.get("/api/auth/google/login")
+        cookie = response.headers["set-cookie"]
+        assert all(flag in cookie for flag in ("Secure", "HttpOnly", "SameSite=lax", "Path=/api/auth/google"))
+        params = await start(service, browser)
+        assert params["redirect_uri"] == "https://staging.evchargerrepair.in/api/auth/google/callback"
+        invalid = await callback(service, browser, {**params, "state": "invalid"})
+        assert invalid.headers["location"].endswith("google_error=1")
+        assert await service.db.auth_sessions.count_documents({}) == 0
+
+        params = await start(service, browser)
+        response = await callback(service, browser, params)
+        cookie = next(c for c in response.headers.get_list("set-cookie") if c.startswith("access_token="))
+        assert all(flag in cookie for flag in ("Secure", "HttpOnly", "SameSite=lax", "Path=/"))
+        assert (await browser.get("/api/auth/me")).status_code == 200
+        assert (await browser.get("http://staging.evchargerrepair.in/api/auth/me")).status_code == 401
+    run(scenario, staging=True)
