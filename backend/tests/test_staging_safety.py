@@ -33,7 +33,7 @@ def test_valid_staging_configuration(safe_env):
     ("MONGO_URL", "mongodb+srv://rushx_staging_app:pass@production.example.com"),
     ("OTP_MODE", "demo"),
     ("EXPOSE_DEMO_OTP", "true"),
-    ("OTP_DELIVERY_PROVIDER", "whatsapp"),
+    ("OTP_DELIVERY_PROVIDER", "smtp"),
     ("WHATSAPP_ENABLED", "true"),
     ("WHATSAPP_PRODUCTION_APPROVED", "true"),
     ("RUSHX_UPI_QR_REVIEWED", "true"),
@@ -60,3 +60,48 @@ def test_production_configuration_not_changed(safe_env):
 def test_staging_auth_hardening(otp_mode, expose, origins):
     with pytest.raises(RuntimeError):
         AuthSettings("x" * 32, "staging", otp_mode, expose, origins).validate()
+
+
+def test_staging_whatsapp_otp_requires_allowlist_and_credentials(safe_env):
+    safe_env["OTP_DELIVERY_PROVIDER"] = "whatsapp"
+    with pytest.raises(RuntimeError):
+        validate_staging_environment(safe_env)
+    safe_env["STAGING_OTP_ALLOWED_PHONES"] = "+919876543210"
+    with pytest.raises(RuntimeError):
+        validate_staging_environment(safe_env)
+    safe_env["WHATSAPP_ACCESS_TOKEN"] = "test-only-token"
+    safe_env["WHATSAPP_PHONE_NUMBER_ID"] = "123456789"
+    validate_staging_environment(safe_env)
+
+
+@pytest.mark.parametrize("phones", [
+    "", "+919876543210,+919876543210", "+919876543210,+12025550123",
+    "9876543210", "+919876543210,not-a-number",
+])
+def test_staging_whatsapp_otp_rejects_bad_allowlist(safe_env, phones):
+    safe_env.update({
+        "OTP_DELIVERY_PROVIDER": "whatsapp",
+        "STAGING_OTP_ALLOWED_PHONES": phones,
+        "WHATSAPP_ACCESS_TOKEN": "test-only-token",
+        "WHATSAPP_PHONE_NUMBER_ID": "123456789",
+    })
+    with pytest.raises(RuntimeError):
+        validate_staging_environment(safe_env)
+
+
+def test_staging_allowlist_cannot_be_enabled_without_provider(safe_env):
+    safe_env["STAGING_OTP_ALLOWED_PHONES"] = "+919876543210"
+    with pytest.raises(RuntimeError):
+        validate_staging_environment(safe_env)
+
+
+def test_staging_whatsapp_otp_still_blocks_repair_notifications(safe_env):
+    safe_env.update({
+        "OTP_DELIVERY_PROVIDER": "whatsapp",
+        "STAGING_OTP_ALLOWED_PHONES": "+919876543210",
+        "WHATSAPP_ACCESS_TOKEN": "test-only-token",
+        "WHATSAPP_PHONE_NUMBER_ID": "123456789",
+        "WHATSAPP_ENABLED": "true",
+    })
+    with pytest.raises(RuntimeError):
+        validate_staging_environment(safe_env)

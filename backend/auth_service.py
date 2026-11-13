@@ -174,6 +174,14 @@ class AuthService:
         ip = ip or "unknown"
         phone = normalize_phone(phone)
 
+        # Reject non-test recipients before writing challenges or consuming rate limits.
+        # The staging preflight independently validates this allowlist at startup.
+        if self.settings.environment == "staging" and isinstance(self.provider, UnconfiguredOtpProvider) is False:
+            if os.getenv("OTP_DELIVERY_PROVIDER", "none").lower() == "whatsapp":
+                allowed = {p.strip() for p in os.getenv("STAGING_OTP_ALLOWED_PHONES", "").split(",")}
+                if phone not in allowed:
+                    raise HTTPException(403, "OTP is restricted to approved staging test accounts")
+
         if isinstance(self.provider, UnconfiguredOtpProvider):
             raise HTTPException(503, "SMS delivery is not configured")
 
