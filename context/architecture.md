@@ -12,7 +12,7 @@ WhatsApp: `backend/services/whatsapp_service.py` contains provider configuration
 Frontend public storytelling lives under `frontend/src/pages/public/storytelling/`; assets under `frontend/public/assets/visual-storytelling/`.
 
 ## Operational boundaries
-Production hosting has been discussed as Render, but current frontend host, Render deploy branch, active database name, secret settings, production release SHA and deployment topology require live verification. Never infer deployment from a merged PR. Production database bootstrap, index checks and admin provisioning require operator-approved runbooks.
+The [Oracle production handoff](../docs/ORACLE_PRODUCTION_DEPLOYMENT.md) records the 2026-11-10 cutover. Public staging and production frontend and API responded over HTTPS on 2026-11-13. The active service units, deployment paths, database settings and deployed SHAs still require host verification. The proposed [unified Oracle workflow and rollout](../docs/ORACLE_CICD.md) use one CI artifact for both components. The legacy frontend workflow remains available. Production database bootstrap, index checks and admin provisioning require operator-approved runbooks.
 
 ## Before architecture changes
 Trace actual call paths, data schemas, async workers, auth boundaries, failure/retry semantics, migrations and monitoring. Update this file with verified facts, diagrams and source links as they become known. Clearly mark assumptions and planned systems.

@@ -21,10 +21,22 @@ else:
     from auth_service import AuthService, AuthSettings, auth_router, normalize_phone
     from services.studio_cms import studio_router, REVALIDATE_PATH
 
+import os
+
 from dotenv import load_dotenv
 from pathlib import Path
-ROOT_DIR = Path(__file__).parent
+ROOT_DIR = Path(__file__).resolve().parent
 load_dotenv(ROOT_DIR / '.env')
+
+if os.environ.get("RUSHX_RELEASE_ENVIRONMENT"):
+    if __package__:
+        from .release_environment import validate_release_environment
+    else:
+        from release_environment import validate_release_environment
+    try:
+        validate_release_environment(os.environ["RUSHX_RELEASE_ENVIRONMENT"], os.environ)
+    except (RuntimeError, ValueError):
+        raise RuntimeError("Oracle service configuration rejected") from None
 
 try:
     from .staging_safety import validate_staging_environment
@@ -38,14 +50,14 @@ from starlette.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import request_validation_exception_handler
 from motor.motor_asyncio import AsyncIOMotorClient
-import os
 import logging
+import asyncio
 import uuid
 import math
 import hashlib
 import json
 import base64
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 from decimal import Decimal
 import random
 from pymongo import ReturnDocument
@@ -1069,6 +1081,17 @@ async def retry_whatsapp_job(job_id: str, user=Depends(require("admin"))):
 @api_router.get("/")
 async def root():
     return {"message": "EV Charging Network API"}
+
+
+@api_router.get("/health/ready", include_in_schema=False)
+async def release_readiness():
+    marker = ROOT_DIR.parent / "release-sha.txt"
+    try:
+        sha = marker.read_text().strip()
+        await asyncio.wait_for(db.command("ping"), timeout=3)
+    except (OSError, asyncio.TimeoutError, PyMongoError):
+        raise HTTPException(status_code=503, detail="Service is not ready") from None
+    return JSONResponse({"status": "ready", "sha": sha}, headers={"Cache-Control": "no-store"})
 
 
 @app.exception_handler(RequestValidationError)

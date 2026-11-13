@@ -375,7 +375,7 @@ class AuthService:
         await self.db.auth_sessions.insert_one({"_id": sid, "user_id": user["user_id"], "auth_epoch": user.get("auth_epoch", 0), "expires_at": expires})
         token = jwt.encode({"sub": user["user_id"], "role": user["role"], "jti": sid, "purpose": "session", "exp": expires}, self.settings.secret, algorithm="HS256")
         response.set_cookie("access_token", token, max_age=self.settings.session_seconds, httponly=True,
-            secure=self.settings.environment == "production", samesite="lax", path="/")
+            secure=self.settings.environment in ("production", "staging"), samesite="lax", path="/")
         response.headers["Cache-Control"] = "no-store"
         return {"authenticated": True, "registration_required": False, "user": safe_user(user)}
 
@@ -434,7 +434,7 @@ def auth_router(service):
     @router.post("/logout")
     async def logout(request: Request, response: Response):
         await service.revoke(request)
-        response.delete_cookie("access_token", path="/", httponly=True, secure=service.settings.environment == "production", samesite="lax")
+        response.delete_cookie("access_token", path="/", httponly=True, secure=service.settings.environment in ("production", "staging"), samesite="lax")
         return {"ok": True}
 
     return router

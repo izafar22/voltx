@@ -1,0 +1,74 @@
+name: Deploy unified RushX release to Oracle production
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact reviewed release SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+# Also serialize against the existing frontend-only production workflow.
+concurrency:
+  group: rushx-frontend-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'izafar22/voltx' && startsWith(github.ref, 'refs/heads/release_')
+    runs-on: ubuntu-22.04
+    outputs:
+      run_id: ${{ steps.verify.outputs.run_id }}
+      attempt: ${{ steps.verify.outputs.attempt }}
+      sequence: ${{ steps.verify.outputs.sequence }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify CI and production protection
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPROVED_SHA: ${{ inputs.release_sha }}
+          UNIFIED_ENABLED: ${{ vars.RUSHX_UNIFIED_PRODUCTION_ENABLED }}
+          LEGACY_ENABLED: ${{ vars.RUSHX_AUTO_DEPLOY_ENABLED }}
+        run: bash scripts/verify-oracle-production.sh
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: https://evchargerrepair.in
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: rushx-unified-${{ github.sha }}-${{ needs.verify.outputs.attempt }}
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.verify.outputs.run_id }}
+          path: oracle-release
+      - name: Confirm approval and deploy the verified artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UNIFIED_ENABLED: ${{ vars.RUSHX_UNIFIED_PRODUCTION_ENABLED }}
+          LEGACY_ENABLED: ${{ vars.RUSHX_AUTO_DEPLOY_ENABLED }}
+          ORACLE_HOST: ${{ vars.RUSHX_PRODUCTION_ORACLE_HOST }}
+          ORACLE_USER: ${{ vars.RUSHX_PRODUCTION_ORACLE_USER }}
+          SSH_KEY: ${{ secrets.RUSHX_PRODUCTION_ORACLE_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.RUSHX_PRODUCTION_ORACLE_KNOWN_HOSTS }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_SEQUENCE: ${{ needs.verify.outputs.sequence }}
+        run: bash scripts/send-oracle-release.sh production
+      - name: Report deployment result
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: printf 'Production release `%s` — %s\n' "$GITHUB_SHA" "$RESULT" >> "$GITHUB_STEP_SUMMARY"
