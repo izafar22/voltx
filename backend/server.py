@@ -1,19 +1,55 @@
+if __package__:
+    from .services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter, WhatsAppService
+    from .services.repair_facts import validate_transition_facts, calculated_estimate, money, text_fact, exact_money_input, MONEY_FIELDS
+    from .services.safety_indexes import initialize_safety_indexes
+    from .services.payment_repository import MongoPaymentRepository
+    from .services.payment_config import public_payment_instructions
+    from .services.whatsapp_service import payment_received_notification
+    from .services.payment_service import PaymentService, ManualPaymentProcessor
+    from .demo_chargers import seed_demo_chargers
+    from .auth_service import AuthService, AuthSettings, auth_router, normalize_phone
+    from .services.studio_cms import studio_router, REVALIDATE_PATH
+else:
+    from services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter, WhatsAppService
+    from services.repair_facts import validate_transition_facts, calculated_estimate, money, text_fact, exact_money_input, MONEY_FIELDS
+    from services.safety_indexes import initialize_safety_indexes
+    from services.payment_repository import MongoPaymentRepository
+    from services.payment_config import public_payment_instructions
+    from services.whatsapp_service import payment_received_notification
+    from services.payment_service import PaymentService, ManualPaymentProcessor
+    from demo_chargers import seed_demo_chargers
+    from auth_service import AuthService, AuthSettings, auth_router, normalize_phone
+    from services.studio_cms import studio_router, REVALIDATE_PATH
+
 from dotenv import load_dotenv
 from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
+try:
+    from .staging_safety import validate_staging_environment
+except ImportError:
+    from staging_safety import validate_staging_environment
+validate_staging_environment()
+
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, Response, Query
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
 import math
+import hashlib
+import json
+import base64
+from pymongo.errors import DuplicateKeyError
+from decimal import Decimal
 import random
-import jwt
 from pymongo import ReturnDocument
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool, field_validator
 from typing import Optional, List, Literal
 from datetime import datetime, timezone, timedelta
 
@@ -25,8 +61,8 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 JWT_SECRET = os.environ['JWT_SECRET']
-JWT_ALG = "HS256"
-DEMO_OTP = "123456"
+auth_settings = AuthSettings.from_env()
+auth_service = AuthService(db, auth_settings)
 MIN_START_BALANCE = 100.0
 OWNER_SHARE = 0.90
 COMPANY_SHARE = 0.10
@@ -57,18 +93,8 @@ def parse_dt(v):
 
 
 # ---------------- Models ----------------
-class OTPRequest(BaseModel):
-    phone: str
-
-
-class OTPVerify(BaseModel):
-    phone: str
-    otp: str
-    name: Optional[str] = None
-
-
 class TopupBody(BaseModel):
-    amount: float
+    amount: float = Field(..., le=99999999.99, allow_inf_nan=False)
 
 
 class StartBody(BaseModel):
@@ -100,31 +126,13 @@ class WalletAdjust(BaseModel):
 
 
 # ---------------- Auth helpers ----------------
-def make_token(user):
-    payload = {"sub": user["user_id"], "role": user["role"], "exp": now_utc() + timedelta(days=7)}
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
-
-
 async def get_current_user(request: Request):
-    auth = request.headers.get("Authorization", "")
-    token = auth[7:] if auth.startswith("Bearer ") else request.cookies.get("access_token")
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user = await db.users.find_one({"user_id": payload["sub"]}, {"_id": 0})
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
+    return await auth_service.authenticate(request)
 
 
 def require(*roles):
     async def dep(user=Depends(get_current_user)):
-        if user["role"] not in roles:
+        if user.get("role") not in roles:
             raise HTTPException(status_code=403, detail="Forbidden")
         return user
     return dep
@@ -196,38 +204,12 @@ def compute_live(session, charger, max_cost=None):
 
 
 # ---------------- Auth routes ----------------
-@api_router.post("/auth/request-otp")
-async def request_otp(body: OTPRequest):
-    await db.otp_requests.insert_one({"phone": body.phone, "created_at": iso()})
-    # DEMO: OTP is fixed and returned in response (no SMS gateway)
-    return {"ok": True, "demo_otp": DEMO_OTP, "message": f"OTP sent to {body.phone} (demo code: {DEMO_OTP})"}
+api_router.include_router(auth_router(auth_service))
 
 
-@api_router.post("/auth/verify-otp")
-async def verify_otp(body: OTPVerify):
-    if body.otp != DEMO_OTP:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
-    user = await db.users.find_one({"phone": body.phone}, {"_id": 0})
-    if not user:
-        user = {
-            "user_id": nid("user"), "phone": body.phone, "name": body.name or "Customer",
-            "role": "customer", "email": "", "created_at": iso(),
-        }
-        await db.users.insert_one(dict(user))
-        await db.wallets.update_one({"user_id": user["user_id"]}, {"$setOnInsert": {"balance": 0.0}}, upsert=True)
-    token = make_token(user)
-    user.pop("_id", None)
-    return {"token": token, "user": user}
-
-
-@api_router.get("/auth/me")
-async def me(user=Depends(get_current_user)):
-    return user
-
-
-@api_router.post("/auth/logout")
-async def logout():
-    return {"ok": True}
+def require_demo_finance():
+    if auth_settings.environment not in ("development", "test"):
+        raise HTTPException(403, "Demo financial operations are disabled outside development and test")
 
 
 # ---------------- Wallet (customer) ----------------
@@ -238,6 +220,7 @@ async def wallet(user=Depends(get_current_user)):
 
 @api_router.post("/wallet/topup")
 async def topup(body: TopupBody, user=Depends(get_current_user)):
+    require_demo_finance()
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
     bal = await add_wallet_txn(user["user_id"], "topup", body.amount, "Wallet top-up")  # MOCKED payment
@@ -279,6 +262,7 @@ async def get_charger(charger_id: str, user=Depends(get_current_user)):
 # ---------------- Charging sessions ----------------
 @api_router.post("/sessions/start")
 async def start_session(body: StartBody, user=Depends(get_current_user)):
+    require_demo_finance()
     c = await db.chargers.find_one({"charger_id": body.charger_id}, {"_id": 0})
     if not c:
         raise HTTPException(status_code=404, detail="Charger not found")
@@ -318,6 +302,7 @@ async def session_live(session_id: str, user=Depends(get_current_user)):
 
 @api_router.post("/sessions/{session_id}/stop")
 async def stop_session(session_id: str, user=Depends(get_current_user)):
+    require_demo_finance()
     s = await db.sessions.find_one({"session_id": session_id}, {"_id": 0})
     if not s or s["user_id"] != user["user_id"]:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -403,6 +388,7 @@ async def owner_txns(user=Depends(require("owner", "admin"))):
 
 @api_router.post("/owner/withdraw")
 async def owner_withdraw(body: WithdrawBody, user=Depends(require("owner", "admin"))):
+    require_demo_finance()
     bal = (await db.owner_wallets.find_one({"user_id": user["user_id"]}, {"_id": 0}) or {}).get("balance", 0.0)
     if body.amount <= 0 or body.amount > bal:
         raise HTTPException(status_code=400, detail="Invalid withdrawal amount")
@@ -520,6 +506,7 @@ async def admin_owners(user=Depends(require("admin"))):
 
 @api_router.post("/admin/owners")
 async def create_owner(body: OwnerCreate, user=Depends(require("admin"))):
+    body.phone = normalize_phone(body.phone)
     if await db.users.find_one({"phone": body.phone}):
         raise HTTPException(status_code=400, detail="Phone already registered")
     o = {"user_id": nid("user"), "phone": body.phone, "name": body.name, "role": "owner", "email": "", "created_at": iso()}
@@ -539,6 +526,7 @@ async def admin_users(user=Depends(require("admin"))):
 
 @api_router.post("/admin/wallet/adjust")
 async def admin_wallet_adjust(body: WalletAdjust, user=Depends(require("admin"))):
+    require_demo_finance()
     bal = await add_wallet_txn(body.user_id, "adjustment", body.amount, body.note)
     await notify(body.user_id, "payment_successful", f"Wallet adjusted by ₹{body.amount:.0f}. {body.note}")
     return {"ok": True, "balance": bal}
@@ -556,6 +544,7 @@ async def admin_withdrawals(user=Depends(require("admin"))):
 
 @api_router.patch("/admin/withdrawals/{wid}")
 async def update_withdrawal(wid: str, body: dict, user=Depends(require("admin"))):
+    require_demo_finance()
     status = body.get("status")
     if status not in ("verified", "completed", "rejected"):
         raise HTTPException(status_code=400, detail="Invalid status")
@@ -615,12 +604,14 @@ class ChargerInfo(BaseModel):
 
 
 class RepairCreate(BaseModel):
+    idempotency_key: Optional[str] = Field(None, min_length=1, max_length=128)
     customer_type: Literal["RETAIL", "STATION_OWNER"] = "RETAIL"
     charger_id: Optional[str] = None
     charger_info: Optional[ChargerInfo] = None
     problem_description: str = Field(..., min_length=3)
     reported_category: Optional[str] = None
     photos: Optional[List[str]] = None
+    whatsapp_opt_in: StrictBool = False
 
 
 class RepairStatusUpdate(BaseModel):
@@ -638,20 +629,29 @@ class DiagnosisUpdate(BaseModel):
 
 
 class EstimatePart(BaseModel):
+    _exact_price = field_validator("price", mode="before")(exact_money_input)
     name: str
-    qty: int = 1
-    price: float = 0.0
+    qty: int = Field(1, ge=1, le=10000, strict=True)
+    price: float = Field(0.0, ge=0, le=99999999.99, allow_inf_nan=False)
 
 
 class EstimateUpdate(BaseModel):
+    _exact_amounts = field_validator(*MONEY_FIELDS, mode="before")(exact_money_input)
     parts: Optional[List[EstimatePart]] = None
-    labor: Optional[float] = None
-    diagnostic_fee: Optional[float] = None
-    incoming_logistics_cost: Optional[float] = None
-    return_shipping_cost: Optional[float] = None
-    other_charges: Optional[float] = None
-    tax: Optional[float] = None
+    labor: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    diagnostic_fee: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    incoming_logistics_cost: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    return_shipping_cost: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    other_charges: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
+    tax: Optional[float] = Field(None, ge=0, le=99999999.99, allow_inf_nan=False)
     notes: Optional[str] = None
+
+
+class PaymentVerification(BaseModel):
+    _exact_balance = field_validator("amount_due", mode="before")(exact_money_input)
+    idempotency_key: Optional[str] = Field(None, min_length=1, max_length=128)
+    amount_due: float = Field(..., ge=0, le=99999999.99, allow_inf_nan=False)
+    reference: str = Field(..., min_length=3, max_length=120)
 
 
 class ShipmentUpdate(BaseModel):
@@ -675,25 +675,78 @@ async def owner_charger_ids(uid):
 
 
 async def can_access_repair(user, r):
+    if user.get("role") not in ("customer", "owner", "admin") or not text_fact(user.get("user_id")):
+        return False
     if user["role"] == "admin":
         return True
+    if not text_fact(r.get("user_id")):
+        return False
     if r["user_id"] == user["user_id"]:
         return True
-    if user["role"] == "owner" and r.get("charger_id"):
-        return r["charger_id"] in await owner_charger_ids(user["user_id"])
+    if user["role"] == "owner" and text_fact(r.get("charger_id")):
+        return bool(await db.chargers.find_one({"charger_id": r["charger_id"], "owner_id": user["user_id"]}))
     return False
+
+
+def require_repair_actor(user, repair):
+    if user.get("role") == "admin":
+        return
+    if user.get("role") not in ("customer", "owner") or not text_fact(user.get("user_id")) or user["user_id"] != repair.get("user_id"):
+        raise HTTPException(403, "Only the repair submitter or administrator may change this repair")
+
+
+def repair_guard(r):
+    # Legacy repairs without a revision match null; every relevant writer increments it.
+    return {"id": r["id"], "status": r["status"], "revision": r.get("revision")}
 
 
 def sanitize_repair(r, user):
     r = dict(r)
     r.pop("_id", None)
+    r.pop("whatsapp_outbox", None)
+    r.pop("whatsapp_consent", None)
+    r.pop("revision", None)
+    r.pop("creation_key", None)
+    r.pop("creation_fingerprint", None)
+    r.pop("payment_records", None)
+    r.pop("payment_events", None)
+    r.pop("payment_evidence", None)
+    r.pop("payment_receipt", None)
+    if r.get("payment_summary"):
+        r["payment_summary"] = {k: v for k, v in r["payment_summary"].items()
+                                if k in ("amount_due", "currency", "verified_at")}
+    if r.get("return_shipment"):
+        r["return_shipment"] = {k: v for k, v in r["return_shipment"].items()
+                                if k not in ("confirmed_at", "confirmed_by")}
     if user["role"] != "admin" and r.get("diagnosis"):
         r["diagnosis"] = {k: v for k, v in r["diagnosis"].items() if k not in INTERNAL_DIAGNOSIS_FIELDS}
+    if user["role"] != "admin":
+        for field in ("incoming_shipment", "return_shipment", "estimate"):
+            if r.get(field):
+                r[field] = {k: v for k, v in r[field].items() if k != "notes"}
+        r["status_history"] = [{k: v for k, v in entry.items() if k not in ("note", "by")} for entry in r.get("status_history", [])]
+        if user.get("user_id") != r.get("user_id"):
+            # Charger owners can track equipment, not another customer's personal details.
+            r = {k: v for k, v in r.items() if k in ("id", "repair_request_number", "charger_id", "status", "created_at", "updated_at")}
     return r
 
 
 @api_router.post("/repairs")
 async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
+    if user.get("role") not in ("customer", "owner", "admin") or not text_fact(user.get("user_id")):
+        raise HTTPException(403, "Unsupported repair actor")
+    payload = body.model_dump(exclude={"idempotency_key"})
+    fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    creation_key = None
+    if body.idempotency_key is not None:
+        if not text_fact(body.idempotency_key, 128):
+            raise HTTPException(400, "Invalid idempotency key")
+        creation_key = hashlib.sha256(json.dumps([user["user_id"], body.idempotency_key]).encode()).hexdigest()
+        existing = await db.repair_requests.find_one({"creation_key": creation_key})
+        if existing:
+            if existing["creation_fingerprint"] != fingerprint:
+                raise HTTPException(409, "Idempotency key reused with different repair details")
+            return sanitize_repair(existing, user)
     charger_id = None
     info = body.charger_info.model_dump() if body.charger_info else {}
     if body.charger_id:
@@ -710,30 +763,62 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
     if info.get("charger_type") and info["charger_type"] not in CHARGER_TYPES:
         raise HTTPException(status_code=400, detail=f"charger_type must be one of {sorted(CHARGER_TYPES)}")
     now = iso()
+    consent = consent_record(body.whatsapp_opt_in, user, now)
+    event_id = nid("evt")
     r = {
         "id": nid("rep"), "repair_request_number": await next_repair_number(), "user_id": user["user_id"],
         "customer_type": body.customer_type, "charger_id": charger_id, "charger_info": info,
         "problem_description": body.problem_description, "reported_category": body.reported_category,
-        "photos": body.photos or [], "status": "REQUESTED",
-        "status_history": [{"status": "REQUESTED", "by": user["user_id"], "at": now, "note": None}],
+        "photos": body.photos or [], "status": "REQUESTED", "revision": 0,
+        "status_history": [{"event_id": event_id, "status": "REQUESTED", "by": user["user_id"], "at": now, "note": None}],
         "diagnosis": None, "estimate": None, "incoming_shipment": None, "return_shipment": None,
         "created_at": now, "updated_at": now,
     }
-    await db.repair_requests.insert_one(dict(r))
+    r["whatsapp_consent"] = consent
+    event = event_for(r, "REQUESTED", event_id, WhatsAppSettings.from_env(), customer=user)
+    r["whatsapp_outbox"] = [event] if event else []
+    if creation_key:
+        r.update(creation_key=creation_key, creation_fingerprint=fingerprint)
+    try:
+        await db.repair_requests.insert_one(dict(r))
+    except DuplicateKeyError:
+        existing = await db.repair_requests.find_one({"creation_key": creation_key}) if creation_key else None
+        if not existing or existing.get("creation_fingerprint") != fingerprint:
+            raise HTTPException(409, "Conflicting repair submission") from None
+        return sanitize_repair(existing, user)
     return sanitize_repair(r, user)
 
 
 @api_router.get("/repairs")
-async def list_repairs(scope: str = "mine", user=Depends(get_current_user)):
+async def list_repairs(scope: str = "mine", user=Depends(get_current_user), response: Response = None,
+                       limit: int = Query(100, ge=1, le=100), cursor: Optional[str] = Query(None, max_length=512)):
+    if scope not in ("mine", "all"):
+        raise HTTPException(400, "Unsupported repair scope")
+    if user.get("role") not in ("customer", "owner", "admin") or not text_fact(user.get("user_id")):
+        raise HTTPException(403, "Unsupported repair actor")
+    if scope == "all" and user["role"] != "admin":
+        raise HTTPException(403, "Only administrators may list all repairs")
     if user["role"] == "admin" and scope == "all":
         q = {}
     elif user["role"] == "owner":
         cids = await owner_charger_ids(user["user_id"])
-        q = {"$or": [{"user_id": user["user_id"]}, {"charger_id": {"$in": cids}}]}
+        q = {"$or": [{"user_id": user["user_id"]}, {"charger_id": {"$in": cids}, "user_id": {"$type": "string", "$ne": ""}}]}
     else:
         q = {"user_id": user["user_id"]}
-    docs = await db.repair_requests.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [sanitize_repair(d, user) for d in docs]
+    if cursor:
+        try:
+            at, rid = json.loads(base64.urlsafe_b64decode(cursor.encode()).decode())
+            if not text_fact(at, 64) or not text_fact(rid, 128):
+                raise ValueError()
+        except (ValueError, TypeError, UnicodeError):
+            raise HTTPException(400, "Invalid repair cursor") from None
+        q = {"$and": [q, {"$or": [{"created_at": {"$lt": at}}, {"created_at": at, "id": {"$lt": rid}}]}]}
+    projection = {key: 0 for key in ("_id", "photos", "whatsapp_outbox", "whatsapp_consent", "payment_records", "payment_events", "payment_evidence", "payment_receipt", "creation_key", "creation_fingerprint")}
+    docs = await db.repair_requests.find(q, projection).sort([("created_at", -1), ("id", -1)]).to_list(limit + 1)
+    if len(docs) > limit and response is not None:
+        last = docs[limit - 1]
+        response.headers["X-Next-Cursor"] = base64.urlsafe_b64encode(json.dumps([last["created_at"], last["id"]]).encode()).decode()
+    return [sanitize_repair(d, user) for d in docs[:limit]]
 
 
 @api_router.get("/repairs/{rid}")
@@ -751,6 +836,7 @@ async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(
     r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Repair request not found")
+    require_repair_actor(user, r)
     if not await can_access_repair(user, r):
         raise HTTPException(status_code=403, detail="Not authorized for this repair request")
     target = body.status
@@ -759,23 +845,37 @@ async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(
     if target not in REPAIR_TRANSITIONS.get(r["status"], []):
         raise HTTPException(status_code=400, detail=f"Cannot transition from {r['status']} to {target}")
     if user["role"] != "admin" and target not in CUSTOMER_SETTABLE:
-        raise HTTPException(status_code=403, detail="This status change is restricted to the Voltx repair team")
+        raise HTTPException(status_code=403, detail="This status change is restricted to the RushX repair team")
     if target in ("CUSTOMER_APPROVED", "CUSTOMER_DECLINED") and not r.get("estimate"):
         raise HTTPException(status_code=400, detail="No estimate available to approve or decline")
+    if target == "CANCELLED" and r.get("payment_receipt"):
+        raise HTTPException(409, "A verified payment requires a reviewed refund or cancellation workflow")
+    validate_transition_facts(r, target)
     now = iso()
     upd = {"status": target, "updated_at": now}
     if target == "ESTIMATE_SENT" and r.get("estimate"):
         upd["estimate.status"] = "SENT"
+        upd["estimate.published_at"] = now
     if target == "CUSTOMER_APPROVED":
         upd["estimate.status"] = "APPROVED"
         upd["estimate.approved_at"] = now
     if target == "CUSTOMER_DECLINED":
         upd["estimate.status"] = "DECLINED"
         upd["estimate.declined_at"] = now
-    await db.repair_requests.update_one({"id": rid}, {
-        "$set": upd,
-        "$push": {"status_history": {"status": target, "by": user["user_id"], "at": now, "note": body.note}},
+    event_id = nid("evt")
+    pushes = {"status_history": {"event_id": event_id, "status": target, "by": user["user_id"], "at": now, "note": body.note}}
+    settings = WhatsAppSettings.from_env()
+    customer = None
+    if settings.enabled and r.get("whatsapp_consent", {}).get("opted_in"):
+        customer = await db.users.find_one({"user_id": r["user_id"]}, {"name": 1})
+    event = event_for(r, target, event_id, settings, customer=customer)
+    if event:
+        pushes["whatsapp_outbox"] = event
+    result = await db.repair_requests.update_one(repair_guard(r), {
+        "$set": upd, "$push": pushes, "$inc": {"revision": 1},
     })
+    if not result.modified_count:
+        raise HTTPException(status_code=409, detail="Repair status changed; refresh and try again")
     r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
     return sanitize_repair(r, user)
 
@@ -785,10 +885,14 @@ async def update_repair_diagnosis(rid: str, body: DiagnosisUpdate, user=Depends(
     r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Repair request not found")
+    if r["status"] not in ("REQUESTED", "AWAITING_SHIPMENT", "IN_TRANSIT_TO_VOLTX", "RECEIVED_AT_VOLTX", "DIAGNOSING"):
+        raise HTTPException(409, "Diagnosis is locked after inspection")
     d = r.get("diagnosis") or {}
     d.update(body.model_dump(exclude_none=True))
     d["diagnosed_at"] = iso()
-    await db.repair_requests.update_one({"id": rid}, {"$set": {"diagnosis": d, "updated_at": iso()}})
+    result = await db.repair_requests.update_one(repair_guard(r), {"$set": {"diagnosis": d, "updated_at": iso()}, "$inc": {"revision": 1}})
+    if not result.modified_count:
+        raise HTTPException(409, "Repair changed; refresh and try again")
     return {"ok": True, "diagnosis": d}
 
 
@@ -797,18 +901,28 @@ async def update_repair_estimate(rid: str, body: EstimateUpdate, user=Depends(re
     r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Repair request not found")
+    if r["status"] not in ("REQUESTED", "AWAITING_SHIPMENT", "IN_TRANSIT_TO_VOLTX", "RECEIVED_AT_VOLTX", "DIAGNOSING"):
+        raise HTTPException(409, "Estimate drafting is closed for this repair")
+    if (r.get("estimate") or {}).get("status", "DRAFT") != "DRAFT":
+        raise HTTPException(409, "Published estimates are immutable; contact support for a revised quote")
     e = r.get("estimate") or {"status": "DRAFT", "created_at": iso(), "approved_at": None, "declined_at": None}
     data = body.model_dump(exclude_none=True)
     if "parts" in data:
         e["parts"] = data.pop("parts")
     e.update(data)
-    parts_total = sum(p.get("price", 0) * p.get("qty", 1) for p in e.get("parts", []))
-    subtotal = parts_total + e.get("labor", 0) + e.get("diagnostic_fee", 0) + \
-        e.get("incoming_logistics_cost", 0) + e.get("return_shipping_cost", 0) + e.get("other_charges", 0)
-    e["subtotal"] = round(subtotal, 2)
-    e["total"] = round(subtotal + e.get("tax", 0), 2)
+    total = calculated_estimate(e)
+    e["subtotal"] = float(total - money(e.get("tax", 0)))
+    e["total"] = float(total)
+    e["currency"] = "INR"
+    e["total_minor"] = int(total * 100)
+    e["amounts_minor"] = {key: int(money(e.get(key, 0)) * 100) for key in MONEY_FIELDS}
+    for part in e.get("parts", []):
+        part["price_minor"] = int(money(part.get("price", 0)) * 100)
     e["updated_at"] = iso()
-    await db.repair_requests.update_one({"id": rid}, {"$set": {"estimate": e, "updated_at": iso()}})
+    result = await db.repair_requests.update_one(repair_guard(r), {
+        "$set": {"estimate": e, "updated_at": iso()}, "$inc": {"revision": 1}})
+    if not result.modified_count:
+        raise HTTPException(409, "Repair changed; refresh and try again")
     return {"ok": True, "estimate": e}
 
 
@@ -817,14 +931,138 @@ async def update_repair_shipment(rid: str, body: ShipmentUpdate, user=Depends(ge
     r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
     if not r:
         raise HTTPException(status_code=404, detail="Repair request not found")
+    require_repair_actor(user, r)
     if not await can_access_repair(user, r):
         raise HTTPException(status_code=403, detail="Not authorized for this repair request")
+    if body.leg == "return" and user["role"] != "admin":
+        raise HTTPException(403, "Return shipment details must be confirmed by the RushX repair team")
+    if body.leg == "incoming" and user["role"] != "admin":
+        if r["status"] not in ("REQUESTED", "AWAITING_SHIPMENT", "IN_TRANSIT_TO_VOLTX"):
+            raise HTTPException(409, "Incoming shipment is locked after receipt")
+        if body.received_date is not None or body.delivered_date is not None:
+            raise HTTPException(403, "Only staff may confirm incoming receipt")
+    if r["status"] in ("CANCELLED", "COMPLETED"):
+        raise HTTPException(409, "Closed repair shipment is locked")
     key = "incoming_shipment" if body.leg == "incoming" else "return_shipment"
     s = r.get(key) or {}
+    if body.leg == "return" and r["status"] in ("SHIPPED_TO_CUSTOMER", "DELIVERED", "COMPLETED"):
+        if any(getattr(body, k) is not None and getattr(body, k) != s.get(k) for k in ("courier", "tracking_number")):
+            raise HTTPException(409, "Dispatched courier and tracking details are immutable; contact support")
     s.update({k: v for k, v in body.model_dump(exclude_none=True).items() if k != "leg"})
-    await db.repair_requests.update_one({"id": rid}, {"$set": {key: s, "updated_at": iso()}})
+    if body.leg == "return":
+        if text_fact(s.get("courier"), 128) and text_fact(s.get("tracking_number"), 128):
+            s.update(confirmed_at=iso(), confirmed_by=user["user_id"])
+        else:
+            s.pop("confirmed_at", None)
+            s.pop("confirmed_by", None)
+    result = await db.repair_requests.update_one(repair_guard(r), {
+        "$set": {key: s, "updated_at": iso()}, "$inc": {"revision": 1}})
+    if not result.modified_count:
+        raise HTTPException(409, "Repair changed; refresh and try again")
     r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
     return sanitize_repair(r, user)
+
+
+def payment_service():
+    settings = WhatsAppSettings.from_env()
+    return PaymentService(MongoPaymentRepository(db.repair_requests, db.payment_references),
+                          ManualPaymentProcessor(),
+                          lambda repair, event, customer: payment_received_notification(
+                              repair, event, settings, customer))
+
+
+class PaymentEvidence(BaseModel):
+    reference: str = Field(..., min_length=3, max_length=120)
+
+
+class PaymentReceiptVerification(BaseModel):
+    amount: Decimal = Field(..., gt=0, le=Decimal("99999999.99"), max_digits=10, decimal_places=2, allow_inf_nan=False)
+    method: Literal["upi", "bank_transfer", "cash"]
+    reference: Optional[str] = Field(None, max_length=120)
+    idempotency_key: str = Field(..., min_length=1, max_length=128)
+    funds_received: StrictBool
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def amount_is_numeric(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("Amount must be numeric")
+        return value
+
+
+@api_router.get("/repairs/{rid}/payment")
+async def get_repair_payment(rid: str, user=Depends(get_current_user)):
+    if user.get("role") not in ("customer", "owner", "admin") or not text_fact(user.get("user_id")):
+        raise HTTPException(403, "Unsupported payment actor")
+    repair = await db.repair_requests.find_one({"id": rid})
+    if not repair:
+        raise HTTPException(404, "Repair request not found")
+    if user["role"] != "admin" and repair["user_id"] != user["user_id"]:
+        raise HTTPException(403, "Not authorized for this payment")
+    summary = repair.get("payment_summary") or {}
+    receipt = repair.get("payment_receipt") or {}
+    result = {"state": summary.get("state", "PENDING" if summary else "UNVERIFIED"),
+              "amount_due": summary.get("amount_due"), "currency": "INR",
+              "receipt": {k: receipt[k] for k in ("id", "verified_amount", "safe_reference", "verified_at", "method") if k in receipt},
+              **public_payment_instructions()}
+    if user["role"] == "admin":
+        result["evidence"] = repair.get("payment_evidence", [])
+        result["audit"] = repair.get("payment_records", [])
+        result["verified_receipt"] = receipt
+    return result
+
+
+@api_router.post("/repairs/{rid}/payment/reference")
+async def submit_payment_reference(rid: str, body: PaymentEvidence, user=Depends(get_current_user)):
+    if user.get("role") not in ("customer", "owner", "admin") or not text_fact(user.get("user_id")):
+        raise HTTPException(403, "Unsupported payment actor")
+    return await payment_service().submit_reference(rid, body.reference, user["user_id"])
+
+
+@api_router.post("/repairs/{rid}/payment/verify")
+async def receive_repair_payment(rid: str, body: PaymentReceiptVerification, user=Depends(require("admin"))):
+    repair = await db.repair_requests.find_one({"id": rid})
+    customer = await db.users.find_one({"user_id": repair["user_id"]}, {"name": 1}) if repair else None
+    return await payment_service().receive(rid, body.amount, body.method, body.reference,
+                                          user["user_id"], body.idempotency_key,
+                                          body.funds_received, customer)
+
+
+@api_router.patch("/repairs/{rid}/payment")
+async def verify_repair_payment(rid: str, body: PaymentVerification, user=Depends(require("admin"))):
+    return await payment_service().verify_balance(
+        rid, body.amount_due, body.reference, user["user_id"], body.idempotency_key)
+
+
+@api_router.delete("/repairs/{rid}/whatsapp-consent")
+async def withdraw_whatsapp_consent(rid: str, user=Depends(get_current_user)):
+    r = await db.repair_requests.find_one({"id": rid}, {"_id": 0})
+    if not r:
+        raise HTTPException(404, "Repair request not found")
+    require_repair_actor(user, r)
+    if user["role"] != "admin" and user["user_id"] != r["user_id"]:
+        raise HTTPException(403, "Only the customer or support can withdraw consent")
+    if not r.get("whatsapp_consent", {}).get("opted_in"):
+        return {"ok": True}
+    result = await db.repair_requests.update_one(repair_guard(r), {"$set": {
+        "whatsapp_consent.opted_in": False, "whatsapp_consent.withdrawn_at": iso(),
+        "updated_at": iso()}, "$inc": {"revision": 1}})
+    if not result.modified_count:
+        raise HTTPException(409, "Repair changed; refresh and try again")
+    return {"ok": True}
+
+
+@api_router.get("/admin/whatsapp/metrics")
+async def whatsapp_metrics(user=Depends(require("admin"))):
+    return await WhatsAppService(db, WhatsAppSettings.from_env()).metrics()
+
+
+@api_router.post("/admin/whatsapp/jobs/{job_id}/retry")
+async def retry_whatsapp_job(job_id: str, user=Depends(require("admin"))):
+    await WhatsAppService(db, WhatsAppSettings.from_env()).safe_requeue(job_id)
+    return {"ok": True}
+
+
 # ================== End Repair Service (Phase 1) ==================
 
 
@@ -833,19 +1071,50 @@ async def root():
     return {"message": "EV Charging Network API"}
 
 
+@app.exception_handler(RequestValidationError)
+async def safe_validation(request: Request, error: RequestValidationError):
+    if request.scope["path"].startswith("/api/auth/"):
+        return JSONResponse({"detail": "Check the supplied authentication fields."}, status_code=422)
+    return await request_validation_exception_handler(request, error)
+
+
+@app.middleware("http")
+async def trusted_origin(request: Request, call_next):
+    if auth_settings.environment == "staging" and request.method not in ("GET", "HEAD", "OPTIONS"):
+        path = request.scope["path"].lower()
+        if any(segment in path for segment in ("/payment", "/wallet", "/topup")):
+            return JSONResponse({"detail": "Financial mutations are disabled in staging"}, status_code=403)
+    # Server-to-server callers authenticate with their own secret, not a browser Origin.
+    if request.method not in ("GET", "HEAD", "OPTIONS") and request.scope["path"] not in ("/api/webhooks/whatsapp", REVALIDATE_PATH):
+        if request.headers.get("origin") not in auth_settings.origins:
+            return JSONResponse({"detail": "Request origin is not allowed"}, status_code=403)
+    response = await call_next(request)
+    if request.scope["path"].startswith("/api/auth/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+api_router.include_router(webhook_router(lambda: db, lambda: WhatsAppSettings.from_env()))
 app.include_router(api_router)
+# Growth Studio blog, sitemap and pages at any address. Last: it ends with a catch-all GET route.
+app.include_router(studio_router())
 app.add_middleware(
     CORSMiddleware, allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=list(auth_settings.origins),
     allow_methods=["*"], allow_headers=["*"],
 )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logging.getLogger("uvicorn.access").addFilter(WebhookAccessLogFilter())
 
 
 @app.on_event("startup")
 async def seed():
+    await initialize_safety_indexes(db)
+    await auth_service.initialize()
+    if auth_settings.otp_mode != "demo":
+        return
     # Admin
     admin = await db.users.find_one({"phone": "+919000000001"})
     if not admin:
@@ -897,6 +1166,9 @@ async def seed():
     }
     for cid, (lat, lng) in coords.items():
         await db.chargers.update_one({"charger_id": cid}, {"$set": {"lat": lat, "lng": lng}})
+
+    # Opt-in local discovery fixtures; never overwrite existing charger state.
+    await seed_demo_chargers(db, owner_id)
 
 
 @app.on_event("shutdown")

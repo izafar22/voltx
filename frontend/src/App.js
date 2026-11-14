@@ -1,10 +1,10 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
-import { ProtectedRoute, homeFor } from "@/components/ProtectedRoute";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import PublicPage from "./pages/public/PublicPage";
 import Login from "@/pages/Login";
 import CustomerHome from "@/pages/customer/CustomerHome";
 import ChargerPage from "@/pages/customer/ChargerPage";
@@ -17,11 +17,7 @@ import RepairsList from "@/pages/customer/RepairsList";
 import OwnerDashboard from "@/pages/owner/OwnerDashboard";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 
-function RootRedirect() {
-  const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-accent" /></div>;
-  return <Navigate to={user ? homeFor(user.role) : "/login"} replace />;
-}
+import { FEATURES } from "./config/features";
 
 function App() {
   return (
@@ -31,17 +27,17 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/" element={<RootRedirect />} />
+              {["/", "/services", "/about", "/how-it-works", "/faq"].map(path => <Route key={path} path={path} element={<PublicPage />} />)}
 
               <Route path="/app" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><CustomerHome /></ProtectedRoute>} />
-              <Route path="/app/wallet" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><WalletPage /></ProtectedRoute>} />
-              <Route path="/app/history" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><HistoryPage /></ProtectedRoute>} />
-              <Route path="/app/charger/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><ChargerPage /></ProtectedRoute>} />
-              <Route path="/app/live/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><LivePage /></ProtectedRoute>} />
+              <Route path="/app/wallet" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.wallet ? <WalletPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/app/history" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.charging ? <HistoryPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/app/charger/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.charging ? <ChargerPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/app/live/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.charging ? <LivePage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
 
-              <Route path="/repairs" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><RepairsList /></ProtectedRoute>} />
-              <Route path="/repairs/new" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><RepairNew /></ProtectedRoute>} />
-              <Route path="/repairs/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><RepairDetail /></ProtectedRoute>} />
+              <Route path="/repairs" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.repair ? <RepairsList /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/repairs/new" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.repair ? <RepairNew /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
+              <Route path="/repairs/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.repair ? <RepairDetail /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
 
               <Route path="/owner" element={<ProtectedRoute roles={["owner", "admin"]}><OwnerDashboard /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminDashboard /></ProtectedRoute>} />

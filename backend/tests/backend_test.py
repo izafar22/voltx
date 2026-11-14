@@ -6,6 +6,7 @@ import uuid
 import pytest
 import requests
 from dotenv import dotenv_values
+from auth_client import login_session, new_phone, ORIGIN
 
 frontend_env = dotenv_values("/app/frontend/.env")
 base_url = os.environ.get("REACT_APP_BACKEND_URL") or frontend_env.get("REACT_APP_BACKEND_URL")
@@ -21,18 +22,7 @@ OTP = "123456"
 
 
 def login(phone, name=None):
-    s = requests.Session()
-    s.headers.update({"Content-Type": "application/json"})
-    r = s.post(f"{API}/auth/request-otp", json={"phone": phone}, timeout=30)
-    assert r.status_code == 200, r.text
-    body = {"phone": phone, "otp": OTP}
-    if name:
-        body["name"] = name
-    r = s.post(f"{API}/auth/verify-otp", json=body, timeout=30)
-    assert r.status_code == 200, r.text
-    data = r.json()
-    s.headers.update({"Authorization": f"Bearer {data['token']}"})
-    return s, data["user"]
+    return login_session(API, phone, name)
 
 
 @pytest.fixture(scope="module")
@@ -53,33 +43,30 @@ def customer():
 # ---------------- Auth ----------------
 class TestAuth:
     def test_request_otp_returns_demo_otp(self):
-        r = requests.post(f"{API}/auth/request-otp", json={"phone": CUSTOMER_PHONE}, timeout=30)
+        r = requests.post(f"{API}/auth/request-otp", headers={"Origin": ORIGIN}, json={"phone": new_phone()}, timeout=30)
         assert r.status_code == 200
         assert r.json()["demo_otp"] == OTP
+        assert r.json()["challenge_id"]
 
     def test_verify_otp_seeded_customer(self):
-        r = requests.post(f"{API}/auth/verify-otp", json={"phone": CUSTOMER_PHONE, "otp": OTP}, timeout=30)
-        assert r.status_code == 200
-        d = r.json()
-        assert isinstance(d["token"], str) and len(d["token"]) > 10
-        assert d["user"]["role"] == "customer"
-        assert d["user"]["phone"] == CUSTOMER_PHONE
-        assert "_id" not in d["user"]
+        session, user = login(CUSTOMER_PHONE)
+        assert session.cookies.get("access_token")
+        assert user["role"] == "customer"
+        assert user["phone"] == CUSTOMER_PHONE
+        assert "_id" not in user
 
     def test_verify_otp_new_phone_creates_customer(self):
-        phone = "+9188" + uuid.uuid4().hex[:8]
-        r = requests.post(f"{API}/auth/verify-otp", json={"phone": phone, "otp": OTP, "name": "TEST_New"}, timeout=30)
-        assert r.status_code == 200
-        u = r.json()["user"]
-        assert u["role"] == "customer"
-        assert u["name"] == "TEST_New"
-        tok = r.json()["token"]
-        w = requests.get(f"{API}/wallet", headers={"Authorization": f"Bearer {tok}"}, timeout=30)
-        assert w.status_code == 200 and w.json()["balance"] == 0.0
+        session, user = login(new_phone(), "TEST_New")
+        assert user["name"] == "TEST_New" and user["role"] == "customer"
+        response = session.get(f"{API}/wallet", timeout=30)
+        assert response.status_code == 200 and response.json()["balance"] == 0
 
     def test_wrong_otp_400(self):
-        r = requests.post(f"{API}/auth/verify-otp", json={"phone": CUSTOMER_PHONE, "otp": "000000"}, timeout=30)
-        assert r.status_code == 400
+        phone = new_phone()
+        challenge = requests.post(f"{API}/auth/request-otp", headers={"Origin":ORIGIN}, json={"phone":phone}, timeout=30)
+        assert challenge.status_code == 200
+        response = requests.post(f"{API}/auth/verify-otp", headers={"Origin":ORIGIN}, json={"phone":phone,"challenge_id":challenge.json()["challenge_id"],"otp":"000000"},timeout=30)
+        assert response.status_code == 400
 
     def test_me_requires_token(self):
         assert requests.get(f"{API}/auth/me", timeout=30).status_code == 401
@@ -135,13 +122,19 @@ class TestWalletAndLookup:
         assert customer.get(f"{API}/chargers/IND999999", timeout=30).status_code == 404
 
 
-# ---------------- Session lifecycle (uses IND000001) ----------------
+# ---------------- Session lifecycle (isolated test charger) ----------------
 class TestSessionLifecycle:
-    def test_full_lifecycle(self, customer, owner):
-        # ensure no active session
-        for s in customer.get(f"{API}/sessions", timeout=30).json():
-            if s["status"] == "active":
-                customer.post(f"{API}/sessions/{s['session_id']}/stop", timeout=30)
+    def test_full_lifecycle(self, admin):
+        # Isolated identities prevent parallel wallet/withdrawal tests from
+        # changing the balances this lifecycle test measures.
+        customer, _ = login(new_phone(), "Lifecycle Customer")
+        owner_phone = new_phone()
+        created = admin.post(f"{API}/admin/owners", json={"name": "Lifecycle Owner", "phone": owner_phone}, timeout=30)
+        assert created.status_code == 200
+        owner, owner_user = login(owner_phone)
+        charger = admin.post(f"{API}/admin/chargers", json={"name": "Lifecycle Charger", "owner_id": owner_user['user_id']}, timeout=30)
+        assert charger.status_code == 200
+        charger_id = charger.json()['charger']['charger_id']
         # ensure balance
         bal = customer.get(f"{API}/wallet", timeout=30).json()["balance"]
         if bal < 500:
@@ -150,14 +143,14 @@ class TestSessionLifecycle:
 
         owner_before = owner.get(f"{API}/owner/summary", timeout=30).json()
 
-        r = customer.post(f"{API}/sessions/start", json={"charger_id": "IND000001"}, timeout=30)
+        r = customer.post(f"{API}/sessions/start", json={"charger_id": charger_id}, timeout=30)
         assert r.status_code == 200, r.text
         sess = r.json()
         sid = sess["session_id"]
         assert sess["status"] == "active"
 
         # charger becomes Charging
-        assert customer.get(f"{API}/chargers/IND000001", timeout=30).json()["status"] == "Charging"
+        assert customer.get(f"{API}/chargers/{charger_id}", timeout=30).json()["status"] == "Charging"
         # second session blocked
         r2 = customer.post(f"{API}/sessions/start", json={"charger_id": "IND000002"}, timeout=30)
         assert r2.status_code == 400
@@ -184,7 +177,7 @@ class TestSessionLifecycle:
         # double stop
         assert customer.post(f"{API}/sessions/{sid}/stop", timeout=30).status_code == 400
         # charger released
-        assert customer.get(f"{API}/chargers/IND000001", timeout=30).json()["status"] == "Available"
+        assert customer.get(f"{API}/chargers/{charger_id}", timeout=30).json()["status"] == "Available"
         # history
         hist = customer.get(f"{API}/sessions", timeout=30).json()
         done = [s for s in hist if s["session_id"] == sid][0]
@@ -195,7 +188,8 @@ class TestSessionLifecycle:
         owner_after = owner.get(f"{API}/owner/summary", timeout=30).json()
         assert round(owner_after["wallet"] - owner_before["wallet"], 2) == fin["owner_amount"]
         assert owner_after["today_earnings"] >= fin["owner_amount"]
-        assert owner_after["units_sold"] >= fin["energy_kwh"]
+        # The owner summary exposes energy rounded to two decimal places.
+        assert owner_after["units_sold"] >= round(fin["energy_kwh"], 2)
 
     def test_start_on_offline_charger(self, customer):
         r = customer.post(f"{API}/sessions/start", json={"charger_id": "IND000005"}, timeout=30)
@@ -205,7 +199,7 @@ class TestSessionLifecycle:
         assert customer.post(f"{API}/sessions/start", json={"charger_id": "INDXXXX"}, timeout=30).status_code == 404
 
     def test_min_balance_enforced(self):
-        phone = "+9177" + uuid.uuid4().hex[:8]
+        phone = new_phone()
         s, _ = login(phone, name="TEST_LowBal")
         s.post(f"{API}/wallet/topup", json={"amount": 50}, timeout=30)
         r = s.post(f"{API}/sessions/start", json={"charger_id": "IND000002"}, timeout=30)
@@ -213,7 +207,7 @@ class TestSessionLifecycle:
         assert "balance" in r.json()["detail"].lower()
 
     def test_live_other_users_session_404(self, customer):
-        phone = "+9166" + uuid.uuid4().hex[:8]
+        phone = new_phone()
         other, _ = login(phone, name="TEST_Other")
         sessions = customer.get(f"{API}/sessions", timeout=30).json()
         if not sessions:
@@ -334,7 +328,7 @@ class TestAdmin:
         assert admin.post(f"{API}/admin/chargers/IND999999/restart", timeout=30).status_code == 404
 
     def test_create_owner_and_charger(self, admin):
-        phone = "+9155" + uuid.uuid4().hex[:8]
+        phone = new_phone()
         r = admin.post(f"{API}/admin/owners", json={"name": "TEST_Owner", "phone": phone}, timeout=30)
         assert r.status_code == 200, r.text
         o = r.json()["owner"]

@@ -1,0 +1,18 @@
+# https://evchargerrepair.in/robots.txt
+# Public pages, the blog and Growth Studio pages are open to every crawler, AI crawlers included.
+# Signed-in areas and the API are not content. "$" keeps the rules exact, so a published page such as
+# /app-charger-guide is not caught by the /app rule. Keep in step with frontend/src/App.js
+# (backend/tests/test_seo_files.py checks it).
+
+User-agent: *
+Allow: /
+Disallow: /login$
+Disallow: /app$
+Disallow: /app/
+Disallow: /repairs$
+Disallow: /repairs/
+Disallow: /owner$
+Disallow: /admin$
+Disallow: /api/
+
+Sitemap: https://evchargerrepair.in/sitemap.xml

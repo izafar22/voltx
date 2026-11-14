@@ -1,0 +1,166 @@
+/* studio-blocks.css — the blocks in a Studio post (https://studio.gcombinator.co/docs/blocks).
+   Put contentHtml inside <div class="studio-body">…</div>. Only block rules live here; your site's
+   typography (fonts, sizes, paragraph spacing) stays yours. Override the colours on .studio-body. */
+.studio-body {
+  --studio-ink: #1c1c1a;
+  --studio-ink-dim: #55534e;
+  --studio-ink-mute: #77746d;
+  --studio-line: #e4e1da;
+  --studio-surface: #faf9f6;
+  --studio-surface-deep: #f1efe9;
+  --studio-accent: #2d6cdf;
+  --studio-on-accent: #ffffff;
+  --studio-radius: 8px;
+  --studio-button-radius: 6px;
+  --studio-warn: #b7791f;
+  --studio-paper: #ffffff;
+  overflow-wrap: anywhere;
+}
+
+/* Pictures and their captions. */
+.studio-body img { max-width: 100%; height: auto; display: block; border-radius: 6px; }
+.studio-body figure { margin: 1.9em 0; }
+/* auto sides: a site that caps its pictures (max-width) still gets them centred, not pinned left. */
+.studio-body figure img { margin: 0 auto; width: 100%; border: 1px solid var(--studio-line); }
+.studio-body figcaption { font-size: 0.82rem; line-height: 1.45; color: var(--studio-ink-mute); margin-top: 0.65em; text-align: center; }
+.studio-body figcaption a { color: var(--studio-ink-dim); }
+
+/* Video and map: a picture until a tap (studio-blocks.js swaps in the player or the live map). */
+.studio-body figure[data-embed] { position: relative; }
+.studio-body figure[data-embed="youtube"] img, .studio-body figure[data-embed="vimeo"] img { aspect-ratio: 16 / 9; object-fit: cover; }
+.studio-body figure[data-embed="map"] img { aspect-ratio: 16 / 10; object-fit: cover; }
+.studio-body figure[data-tap] { cursor: pointer; }
+.studio-body figure[data-tap]:focus-visible { outline: 2px solid var(--studio-accent); outline-offset: 4px; border-radius: 4px; }
+.studio-body figure[data-embed] iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 4px; background: var(--studio-surface-deep); }
+.studio-body figure[data-embed="map"] iframe { aspect-ratio: 16 / 10; }
+.studio-body figure[data-embed="youtube"]:not([data-live])::after, .studio-body figure[data-embed="vimeo"]:not([data-live])::after {
+  content: ''; position: absolute; left: 50%; top: calc(50% - 1.2rem); width: 3.4rem; height: 3.4rem;
+  transform: translate(-50%, -50%); border-radius: 9999px; background: rgba(20, 20, 20, 0.86);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25); pointer-events: none;
+}
+.studio-body figure[data-embed="youtube"]:not([data-live])::before, .studio-body figure[data-embed="vimeo"]:not([data-live])::before {
+  content: ''; position: absolute; left: calc(50% + 0.15rem); top: calc(50% - 1.2rem); transform: translate(-50%, -50%);
+  border-style: solid; border-width: 0.55rem 0 0.55rem 0.95rem; border-color: transparent transparent transparent #fff; z-index: 1; pointer-events: none;
+}
+.studio-body figure[data-embed="map"][data-tap]:not([data-live])::after {
+  content: attr(data-tap); position: absolute; right: 0.6rem; top: 0.6rem; padding: 0.28rem 0.6rem; border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.92); color: var(--studio-ink-dim); font: 0.68rem/1.2 ui-monospace, monospace;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15); pointer-events: none;
+}
+.studio-body figure[data-live]::after, .studio-body figure[data-live]::before { display: none; }
+
+/* A quoted post from X: a plain quote, the author and the link under it. No widget. */
+.studio-body figure[data-embed="post"] blockquote {
+  margin: 0; padding: 1rem 1.2rem; border: 1px solid var(--studio-line); border-left: 3px solid var(--studio-ink);
+  border-radius: 6px; background: var(--studio-surface); font-style: normal;
+}
+.studio-body figure[data-embed="post"] blockquote p { margin: 0 0 0.6em; }
+.studio-body figure[data-embed="post"] blockquote p:last-child { margin-bottom: 0; }
+
+/* A link card: a page the reader should open, as its picture, bold title, one line and the address. No iframe, no script. */
+.studio-body figure[data-embed="link"] { border: 1px solid var(--studio-line); border-radius: 8px; overflow: hidden; background: var(--studio-surface); }
+.studio-body figure[data-embed="link"] img { display: block; width: 100%; aspect-ratio: 1.91 / 1; object-fit: cover; margin: 0; border-radius: 0; }
+.studio-body figure[data-embed="link"] figcaption { margin: 0; padding: 0.75rem 1rem 0.9rem; text-align: left; font-size: 0.88rem; color: var(--studio-ink-dim); }
+.studio-body figure[data-embed="link"] figcaption strong { display: block; color: var(--studio-ink); font-weight: 650; font-size: 0.98rem; margin-bottom: 0.15em; }
+
+/* A tool of the site (figure[data-embed="tool"]): a picture everywhere; on the site itself the script frames the live page. */
+.studio-body figure[data-embed="tool"] iframe { aspect-ratio: auto; height: 640px; border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-surface); }
+.studio-body figure[data-embed="tool"] img { border: 1px solid var(--studio-line); border-radius: 8px; }
+
+/* Tables: a header row, hairlines, a zebra. A wide one scrolls inside the column on a phone. */
+.studio-body table { border-collapse: collapse; width: 100%; margin: 1.6em 0; font-size: 0.92em; line-height: 1.45; }
+.studio-body th, .studio-body td { border: 1px solid var(--studio-line); padding: 0.55em 0.75em; text-align: left; vertical-align: top; }
+.studio-body th { background: var(--studio-surface-deep); font-weight: 650; font-size: 0.9em; }
+.studio-body tbody tr:nth-child(even) td { background: rgba(0, 0, 0, 0.018); }
+
+/* A computed fact table (sunrise and sunset): the caption says what was computed, for where. */
+.studio-body table[data-block="fact"] caption { caption-side: top; text-align: left; padding: 0 0 0.5em; font-size: 0.86em; color: var(--studio-ink-dim); }
+.studio-body table[data-block="fact"] td:not(:first-child), .studio-body table[data-block="fact"] th:not(:first-child) { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Callouts: the short answer (primary), an aside (accent), and the sources box that closes a post. */
+.studio-body aside[data-callout] { border-left: 3px solid var(--studio-accent); border-radius: 6px; background: var(--studio-surface-deep); padding: 1em 1.2em; margin: 1.6em 0; font-size: 0.95em; }
+.studio-body aside[data-callout] > :last-child { margin-bottom: 0; }
+.studio-body aside[data-callout="accent"] { border-left-color: var(--studio-warn); }
+.studio-body aside[data-callout="sources"] { border-left-color: var(--studio-line); font-size: 0.88em; color: var(--studio-ink-dim); }
+
+/* The FAQ block, and its accordion once studio-blocks.js runs (without the script every answer shows). */
+.studio-body section[data-block="faq"] { margin: 2.4em 0; padding-top: 1.4em; border-top: 1px solid var(--studio-line); }
+.studio-body section[data-block="faq"] > h2 { margin-top: 0; }
+.studio-body section[data-block="faq"] h3 { font-size: 1.02rem; font-weight: 650; margin: 1.5em 0 0.4em; }
+.studio-body section[data-block="faq"] h3[data-faq-toggle] { cursor: pointer; user-select: none; display: flex; align-items: baseline; gap: 0.6em; margin: 0; padding: 0.85em 0; border-top: 1px solid var(--studio-line); }
+.studio-body section[data-block="faq"] h3[data-faq-toggle]:first-of-type { border-top: 0; }
+.studio-body section[data-block="faq"] h3[data-faq-toggle]::before {
+  content: ''; flex: none; width: 0.5em; height: 0.5em; margin-top: 0.05em;
+  border-right: 1.5px solid var(--studio-ink-mute); border-bottom: 1.5px solid var(--studio-ink-mute);
+  transform: rotate(-45deg); transition: transform 150ms ease;
+}
+.studio-body section[data-block="faq"] h3[data-faq-toggle][aria-expanded="true"]::before { transform: rotate(45deg); }
+.studio-body section[data-block="faq"] h3[data-faq-toggle]:focus-visible { outline: 2px solid var(--studio-accent); outline-offset: 2px; }
+
+/* A call to action: tone x layout on your colours (--studio-accent, --studio-on-accent, --studio-radius, --studio-button-radius). */
+.studio-body section[data-block="cta"] {
+  --studio-cta-bg: color-mix(in srgb, var(--studio-accent) 8%, var(--studio-paper));
+  --studio-cta-fg: var(--studio-ink);
+  --studio-cta-mark: var(--studio-accent);
+  --studio-cta-btn-bg: var(--studio-accent);
+  --studio-cta-btn-fg: var(--studio-on-accent);
+  margin: 2em 0;
+  padding: 1.3em 1.4em;
+  border: 1px solid color-mix(in srgb, var(--studio-accent) 22%, transparent);
+  border-radius: var(--studio-radius);
+  background: var(--studio-cta-bg);
+  color: var(--studio-cta-fg);
+  display: flow-root;
+}
+.studio-body section[data-block="cta"] > * { margin: 0.45em 0 0; }
+.studio-body section[data-block="cta"] > :first-child { margin-top: 0; }
+.studio-body section[data-block="cta"] p[data-eyebrow] { font-size: 0.74rem; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--studio-cta-mark); }
+.studio-body section[data-block="cta"] p[data-headline] { font-size: 1.3em; font-weight: 700; line-height: 1.25; color: var(--studio-cta-fg); }
+.studio-body section[data-block="cta"] ul { padding-left: 1.2em; }
+.studio-body section[data-block="cta"] figure { margin: 0 0 0.9em; }
+.studio-body section[data-block="cta"] figure img { width: 100%; border-radius: calc(var(--studio-radius) * 0.75); }
+.studio-body section[data-block="cta"] figure figcaption:empty { display: none; }
+.studio-body section[data-block="cta"] p[data-actions] { display: flex; flex-wrap: wrap; gap: 0.6em; margin-top: 0.9em; }
+.studio-body section[data-block="cta"] a[data-button] {
+  display: inline-flex; align-items: center; padding: 0.6em 1.15em; border-radius: var(--studio-button-radius);
+  font-weight: 650; line-height: 1.2; text-decoration: none;
+}
+.studio-body section[data-block="cta"] a[data-button="primary"] { background: var(--studio-cta-btn-bg); color: var(--studio-cta-btn-fg); }
+.studio-body section[data-block="cta"] a[data-button="secondary"] { color: var(--studio-cta-btn-bg); box-shadow: inset 0 0 0 1.5px var(--studio-cta-btn-bg); }
+/* Tones */
+.studio-body section[data-block="cta"][data-tone="brand"] { --studio-cta-bg: var(--studio-accent); --studio-cta-fg: var(--studio-on-accent); --studio-cta-mark: var(--studio-on-accent); --studio-cta-btn-bg: var(--studio-on-accent); --studio-cta-btn-fg: var(--studio-accent); border-color: transparent; }
+.studio-body section[data-block="cta"][data-tone="soft"] { }
+.studio-body section[data-block="cta"][data-tone="dark"] { --studio-cta-bg: #1c1c1a; --studio-cta-fg: #f6f5f1; --studio-cta-mark: #c9c6bd; border-color: transparent; }
+.studio-body section[data-block="cta"][data-tone="dark"] a[data-button="secondary"] { color: #f6f5f1; box-shadow: inset 0 0 0 1.5px #f6f5f1; }
+.studio-body section[data-block="cta"][data-tone="outline"] { --studio-cta-bg: transparent; border: 2px solid var(--studio-accent); }
+/* Layouts */
+.studio-body section[data-block="cta"][data-layout="stack"] { }
+.studio-body section[data-block="cta"][data-layout="centred"] { text-align: center; }
+.studio-body section[data-block="cta"][data-layout="centred"] ul { display: inline-block; text-align: left; }
+.studio-body section[data-block="cta"][data-layout="centred"] p[data-actions] { justify-content: center; }
+.studio-body section[data-block="cta"][data-layout="strip"] { padding: 0.9em 1.2em; }
+.studio-body section[data-block="cta"][data-layout="strip"] p[data-headline] { font-size: 1.05em; }
+@media (min-width: 640px) {
+  .studio-body section[data-block="cta"][data-layout="split"] > figure { float: left; width: 38%; margin: 0 1.4em 0 0; }
+  .studio-body section[data-block="cta"][data-layout="strip"] { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 1.4em; align-items: center; }
+  .studio-body section[data-block="cta"][data-layout="strip"] > * { grid-column: 1; margin: 0.15em 0 0; }
+  .studio-body section[data-block="cta"][data-layout="strip"] > :first-child { margin-top: 0; }
+  .studio-body section[data-block="cta"][data-layout="strip"] p[data-actions] { grid-column: 2; grid-row: 1 / span 6; margin: 0; flex-wrap: nowrap; }
+}
+
+/* The table of contents, when you render the payload's toc as <nav data-toc> (the guide shows the markup). */
+.studio-toc { margin: 0 0 2em; padding: 0.9rem 1.1rem; border: 1px solid var(--studio-line, #e4e1da); border-radius: 8px; background: var(--studio-surface, #faf9f6); font-size: 0.92em; }
+.studio-toc summary { cursor: pointer; font-weight: 650; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--studio-ink-dim, #55534e); list-style: none; }
+.studio-toc summary::-webkit-details-marker { display: none; }
+.studio-toc ol { margin: 0.7em 0 0; padding-left: 1.2em; }
+.studio-toc li { margin: 0.25em 0; }
+.studio-toc li[data-level="3"] { margin-left: 1em; font-size: 0.94em; }
+
+@media (max-width: 40rem) {
+  .studio-body table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .studio-body th, .studio-body td { overflow-wrap: normal; min-width: 5.5em; }
+  .studio-body th { white-space: nowrap; }
+  .studio-body table[data-block="fact"] { display: table; }
+  .studio-body table[data-block="fact"] th, .studio-body table[data-block="fact"] td { min-width: 0; }
+  .studio-body figure[data-embed="map"][data-tap]:not([data-live])::after { font-size: 0.62rem; }
+}

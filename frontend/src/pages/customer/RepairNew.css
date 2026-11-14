@@ -1,0 +1,9 @@
+.repair-form { width: 100%; min-width: 0; overflow-wrap: anywhere; }
+.repair-section { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid hsl(var(--border)); }
+.repair-section h2 { font-size: 1.25rem; line-height: 1.5; font-weight: 600; margin-bottom: 1.25rem; }
+.repair-form label { font-size: 1rem; line-height: 1.5; font-weight: 500; }
+.repair-form input:not([type="file"]), .repair-form [role="combobox"], .repair-form textarea { min-width: 0; width: 100%; font-size: 1rem; line-height: 1.5; }
+.repair-form input:not([type="file"]), .repair-form [role="combobox"] { min-height: 3.125rem; }
+.repair-form [aria-invalid="true"] { border-color: hsl(var(--destructive)); }
+.repair-form button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
+.repair-form [data-testid^="remove-photo-"]:focus-visible { outline-color: white; outline-offset: -4px; }

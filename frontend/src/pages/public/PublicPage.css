@@ -1,0 +1,412 @@
+.rx-public {
+  --ink: hsl(var(--foreground));
+  --muted: hsl(var(--muted-foreground));
+  --line: hsl(var(--border));
+  background: hsl(var(--background));
+  color: var(--ink);
+  font-family: var(--font-body);
+  line-height: 1.7;
+}
+.rx-public * {
+  box-sizing: border-box;
+}
+.rx-public a {
+  color: inherit;
+  text-decoration: none;
+}
+.rx-public :is(a, button, summary):focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 5px;
+}
+.rx-public h1,
+.rx-public h2,
+.rx-public h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+}
+.rx-public h1 {
+  font-size: clamp(2.6rem, 4.5vw, 4.5rem);
+}
+.rx-public h2 {
+  font-size: clamp(2rem, 3vw, 3rem);
+}
+.rx-public h3 {
+  font-size: 1.3rem;
+}
+.rx-public p {
+  color: var(--muted);
+  margin: 1rem 0;
+}
+.rx-public em {
+  font-style: normal;
+  color: hsl(var(--brand-foreground));
+}
+.rx-wrap {
+  max-width: 1280px;
+  margin: auto;
+  padding-inline: 48px;
+}
+.rx-header {
+  position: relative;
+  z-index: 20;
+  border-bottom: 1px solid var(--line);
+}
+.rx-header-inner {
+  max-width: 1280px;
+  margin: auto;
+  padding: 22px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+.rx-header nav {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.rx-header nav a:hover,
+.rx-header nav .active {
+  color: hsl(var(--brand-foreground));
+  text-decoration: underline;
+  text-underline-offset: 7px;
+}
+.rx-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid hsl(var(--input));
+  border-radius: 7px;
+  padding: 10px 15px;
+}
+.rx-menu-toggle {
+  display: none;
+}
+.rx-public .rx-eyebrow {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: hsl(var(--brand-foreground));
+  margin: 0 0 22px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.rx-eyebrow > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #659549;
+}
+.rx-public .rx-lead {
+  font-size: 17px;
+  line-height: 1.8;
+  max-width: 620px;
+  margin-top: 24px;
+}
+.rx-actions {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+.rx-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  padding: 15px 22px;
+  border-radius: 7px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground)) !important;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid var(--ink);
+}
+.rx-button:hover {
+  background: hsl(var(--primary) / 0.9);
+}
+.rx-button.rx-secondary {
+  background: transparent;
+  color: var(--ink) !important;
+  margin-top: 14px;
+}
+.rx-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.rx-text-link:hover {
+  text-decoration: underline;
+}
+.rx-public .rx-hero-coverage {
+  font-size: 11px;
+  margin-top: 26px;
+}
+.rx-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 40px;
+  margin-bottom: 35px;
+}
+.rx-section-heading > p {
+  max-width: 350px;
+  font-size: 14px;
+}
+.rx-public .rx-small {
+  font-size: 12px;
+}
+.rx-footer {
+  background: hsl(var(--secondary));
+  border-top: 1px solid var(--line);
+  padding-top: 45px;
+}
+.rx-footer-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+  padding-bottom: 40px;
+}
+.rx-footer-top p {
+  font-size: 14px;
+}
+.rx-footer nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px 55px;
+  align-content: start;
+  font-size: 13px;
+}
+.rx-footer nav a:hover {
+  text-decoration: underline;
+}
+.rx-footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 25px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  padding: 15px 0;
+}
+.rx-footer-bottom p {
+  margin: 0;
+}
+.rx-service-jumps {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 35px;
+}
+.rx-service-jumps a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+.rx-all-faq {
+  max-width: 850px;
+  margin: 0 auto 60px;
+}
+.rx-skip {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 99;
+  background: hsl(var(--card));
+  padding: 12px 20px;
+  border: 2px solid hsl(var(--ring));
+}
+.rx-skip:focus {
+  top: 10px;
+}
+@media (max-width: 1000px) {
+  .rx-wrap {
+    padding-inline: 30px;
+  }
+  .rx-header-inner {
+    padding: 20px 30px;
+  }
+  .rx-header nav {
+    gap: 15px;
+    font-size: 12px;
+  }
+}
+@media (max-width: 760px) {
+  .rx-wrap {
+    padding-inline: 22px;
+  }
+  .rx-header-inner {
+    padding: 17px 22px;
+  }
+  .rx-menu-toggle {
+    display: flex;
+    padding: 9px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: transparent;
+  }
+  .rx-header nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: hsl(var(--background));
+    border-bottom: 1px solid var(--line);
+    padding: 15px 22px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    box-shadow: 0 15px 20px hsl(var(--foreground) / 0.08);
+  }
+  .rx-header nav.is-open {
+    display: flex;
+  }
+  .rx-header nav a {
+    padding: 12px;
+    font-size: 14px;
+  }
+  .rx-account {
+    margin-top: 8px;
+    justify-content: space-between;
+  }
+  .rx-public h1 {
+    font-size: clamp(2.6rem, 8vw, 3.8rem);
+  }
+  .rx-public .rx-lead {
+    font-size: 15px;
+  }
+  .rx-public .rx-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.09em;
+    margin-bottom: 18px;
+  }
+  .rx-section-heading {
+    display: block;
+    margin-bottom: 25px;
+  }
+  .rx-section-heading > p {
+    max-width: none;
+    margin-top: 20px;
+  }
+  .rx-section-heading > .rx-text-link {
+    margin-top: 20px;
+  }
+  .rx-footer-top {
+    flex-direction: column;
+    gap: 25px;
+  }
+  .rx-footer nav {
+    gap: 15px 20px;
+  }
+  .rx-footer-bottom {
+    align-items: start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .rx-service-jumps {
+    gap: 8px;
+  }
+  .rx-service-jumps a {
+    font-size: 11px;
+    padding: 9px;
+  }
+}
+@media (max-width: 360px) {
+  .rx-wrap {
+    padding-inline: 18px;
+  }
+  .rx-public h1 {
+    font-size: 2.5rem;
+  }
+  .rx-actions {
+    gap: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rx-public * {
+    transition: none !important;
+  }
+}
+
+.rx-public :is(h1, h2, h3) {
+  overflow-wrap: anywhere;
+}
+
+.rx-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  order: 3;
+}
+@media (max-width: 760px) {
+  .rx-header-actions {
+    margin-left: auto;
+  }
+}
+/* Match the application's tablet navigation density without squeezing links. */
+@media (min-width: 761px) and (max-width: 900px) {
+  .rx-menu-toggle {
+    display: flex;
+    padding: 9px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: transparent;
+  }
+  .rx-header-actions {
+    margin-left: auto;
+  }
+  .rx-header nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: hsl(var(--background));
+    border-bottom: 1px solid var(--line);
+    padding: 15px 30px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    box-shadow: var(--shadow-overlay);
+  }
+  .rx-header nav.is-open {
+    display: flex;
+  }
+  .rx-header nav a {
+    padding: 12px;
+    font-size: 14px;
+  }
+  .rx-account {
+    margin-top: 8px;
+    justify-content: space-between;
+  }
+}
+
+/* Hero and section repair CTA: retain the original button padding and dimensions. */
+.rx-public a.rx-button.rx-repair-cta {
+  background: hsl(var(--repair-cta));
+  color: hsl(var(--repair-cta-foreground)) !important;
+  border-color: hsl(var(--repair-cta));
+  border-radius: 9999px;
+  justify-content: center;
+  gap: 12px;
+  text-decoration: none;
+}
+.rx-public a.rx-button.rx-repair-cta:hover {
+  background: hsl(var(--repair-cta-hover));
+  color: hsl(var(--repair-cta-foreground)) !important;
+}

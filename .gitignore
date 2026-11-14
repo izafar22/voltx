@@ -93,3 +93,11 @@ frontend/node_modules/.cache/default-development/0.pack
 frontend/node_modules/.cache/default-development/2.pack
 frontend/node_modules/.cache/default-development/4.pack
 frontend/node_modules/.cache/default-development/6.pack
+
+# Local browser test artifacts
+frontend/e2e/test-results/
+
+# Local Storybook output
+frontend/storybook-static/
+
+frontend/e2e/test-results-storybook/

@@ -59,7 +59,7 @@ export const Navbar = () => {
               </button>
             </div>
           ) : (
-            <Button size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex rounded-lg">
+            <Button variant="outline" size="sm" onClick={() => nav("/login")} data-testid="nav-login-btn" className="hidden sm:inline-flex">
               Sign In
             </Button>
           )}
@@ -83,7 +83,7 @@ export const Navbar = () => {
                 {user.role === "admin" && <Button variant="outline" className="flex-1" onClick={() => { nav("/admin"); setOpen(false); }}>Admin</Button>}
               </>
             ) : (
-              <Button className="flex-1" onClick={() => { nav("/login"); setOpen(false); }}>Sign In</Button>
+              <Button variant="outline" onClick={() => { nav("/login"); setOpen(false); }} className="flex-1">Sign In</Button>
             )}
           </div>
         </div>

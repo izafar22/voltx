@@ -1,0 +1,90 @@
+.rx-technical-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3/2;
+  object-fit: contain;
+}
+.rx-technical-hero {
+  margin: 0;
+  min-width: 0;
+  height: 390px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 22px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: radial-gradient(
+    ellipse at 50% 45%,
+    hsl(var(--brand-surface)),
+    hsl(var(--card))
+  );
+}
+.rx-technical-hero .rx-technical-image {
+  min-height: 0;
+  flex: 1;
+  object-fit: contain;
+}
+.rx-public .rx-art-caption {
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
+  margin: 0;
+}
+.rx-service-art {
+  max-width: 320px;
+  margin: 0 0 22px;
+  padding: 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+}
+.rx-about-art {
+  margin: 0 0 28px;
+  padding: 8px;
+  border-radius: var(--radius);
+  background: hsl(var(--brand-surface));
+}
+.rx-about-art .rx-art-caption {
+  padding: 6px 10px;
+}
+.rx-process-art {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 0 12px;
+}
+.rx-public .rx-art-notice {
+  font-size: 12px;
+  line-height: 1.7;
+  color: hsl(var(--muted-foreground));
+  max-width: 74ch;
+  margin: 0 0 28px;
+}
+@media (max-width: 1000px) {
+  .rx-technical-hero {
+    height: 350px;
+  }
+}
+@media (max-width: 760px) {
+  .rx-technical-hero {
+    height: 330px;
+    padding: 16px;
+  }
+  .rx-service-art {
+    max-width: 320px;
+  }
+  .rx-process-art {
+    width: 144px;
+  }
+}
+.rx-about-art .rx-technical-image {
+  max-height: 200px;
+  object-fit: contain;
+}
+.rx-about-statement .rx-about-art + h2 {
+  margin-top: 24px;
+}

@@ -68,3 +68,62 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+### Station map tiles
+
+The station map defaults to OpenStreetMap Standard tiles, without an API key.
+The same light basemap is used in both application themes.
+To change providers, set `REACT_APP_MAP_TILE_URL`, optionally
+`REACT_APP_MAP_TILE_DARK_URL`, and `REACT_APP_MAP_TILE_ATTRIBUTION` before building.
+Attribution must credit the selected provider and its underlying data sources.
+These values are public build-time configuration; never include secret keys.
+Review your provider's usage terms and capacity before production deployment.
+
+Location is requested once per map mount (HTTPS or localhost required), remains
+in component memory, and is not sent to the Voltx API. Distances are straight-line,
+not driving routes. Station updates use the existing parent query; the map adds
+no polling or subscriptions.
+
+The public OpenStreetMap Standard endpoint is a development/MVP fallback.
+Configure a suitable production tile provider with `REACT_APP_MAP_TILE_URL`
+and `REACT_APP_MAP_ATTRIBUTION` (the older `REACT_APP_MAP_TILE_ATTRIBUTION` also
+remains supported). Both themes use the same tiles unless a dark URL is supplied.
+All these variables are public build-time values; never include private keys.
+
+Customer discovery counts “nearby” as within 10 km straight-line distance when
+location is available. Other counts describe the loaded station dataset, not the
+entire network. Scan QR currently provides a manual station-code fallback; camera
+scanning is not implemented. Backend demo chargers remain explicitly opt-in and
+are independent of the frontend production build.
+
+### Customer sign-in
+
+The phone → OTP → optional registration flow uses the existing AuthContext.
+Axios sends cookies with `withCredentials`; the browser never reads session JWTs.
+Legacy `ev_token` entries are removed, and users sign in again once after upgrade.
+The query cache is cleared between customers. New accounts start with a zero wallet
+and empty history, with the existing discovery dashboard unchanged.
+
+Local demo controls require `REACT_APP_DEMO_AUTH=true` and a nonproduction build.
+The backend separately requires `OTP_MODE=demo`; optional code responses require
+`EXPOSE_DEMO_OTP=true`. Restart CRA after changing `.env`. Production builds strip
+the demo controls even if the flag is accidentally set. See `backend/AUTH.md` for
+trusted origins, cookie settings, SMS integration, migration, and tests.
+
+## RushX design system & Storybook
+
+Use Node 22.12+ and the repository's Yarn 1.22.22 (`corepack enable`). In `frontend`:
+
+```sh
+yarn install --frozen-lockfile
+yarn storybook        # http://127.0.0.1:6006
+yarn build-storybook  # local storybook-static; never auto-published
+```
+
+Start with [the design-system contract](../docs/DESIGN_SYSTEM.md). Use the theme and viewport toolbars to review light/dark at 320, 375, 768 and 1280px. Stories show real app components, not copies; public patterns are extracted from PR #14. Do not mount AuthProvider, import API clients, or use customer data in stories. Live fetch/XHR endpoints are blocked in preview.
+
+To add a component, first check existing `src/components/ui` and `src/components/patterns`. Reuse semantic roles from `src/design-system/tokens.css`. Add a CSF story under `src/design-system`, controls for meaningful props and states, a labelled keyboard-accessible example, and no external requests. The static story manifest automatically feeds every story into Playwright/axe checks in both themes at mobile and desktop widths. Run `yarn build-storybook`, then `cd e2e && npm ci && npx playwright install chromium && npx playwright test --config storybook.playwright.config.cjs`.
+
+For Codex and human reviews: inspect both themes, keyboard focus, hover, disabled/error/loading states, 320px overflow, text contrast, reduced motion and long content. Use the existing Logo and Lucide icons; do not invent another palette. See DESIGN_SYSTEM.md for token provenance, visual-baseline updates and PR #14/#12 integration notes. Public browser regressions still run with `cd e2e && npm test` after an app build.
+
+Issue #17's [before/after QA and integration notes](../docs/unified-design-system/QA.md) cover the real homepage, login and dashboard in both themes. Storybook also includes production LoginLayout, SidebarLinks, EmptyState and RepairCTA with safe synthetic compositions. The read-only `public/theme-init.js` bootstraps the persisted/system theme before React; ThemeContext remains the sole state owner.

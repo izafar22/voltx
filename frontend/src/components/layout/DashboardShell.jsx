@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Moon, Sun, LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useTheme } from "@/context/ThemeContext";
+import { PublicSiteLink } from "./SidebarLinks";
+import { ThemeToggle } from "../ThemeToggle";
 import { Logo } from "@/components/Logo";
 
 export const DashboardShell = ({ children, nav, title }) => {
   const loc = useLocation();
   const { user, logout } = useAuth();
-  const { theme, toggle } = useTheme();
   const [open, setOpen] = useState(false);
 
   const SideNav = () => (
@@ -28,6 +28,7 @@ export const DashboardShell = ({ children, nav, title }) => {
           </Link>
         );
       })}
+      <PublicSiteLink onClick={() => setOpen(false)} />
     </nav>
   );
 
@@ -60,9 +61,7 @@ export const DashboardShell = ({ children, nav, title }) => {
             <h1 className="font-display text-lg font-semibold">{title}</h1>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={toggle} data-testid="theme-toggle" className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200">
-              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
+            <ThemeToggle />
             <button onClick={logout} data-testid="logout-btn" className="h-9 w-9 rounded-lg flex items-center justify-center hover:bg-secondary transition-colors duration-200"><LogOut className="h-5 w-5" /></button>
           </div>
         </header>

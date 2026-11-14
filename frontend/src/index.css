@@ -1,76 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import "./design-system/tokens.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
   margin: 0;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-h1, h2, h3, h4, .font-display { font-family: 'Outfit', sans-serif; }
-.font-mono, .tabular { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+h1, h2, h3, h4, .font-display { font-family: var(--font-display); }
+.font-mono, .tabular { font-family: var(--font-code); font-variant-numeric: tabular-nums; }
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 6% 4%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 6% 4%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 4%;
-    --primary: 240 6% 6%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 147 100% 39%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 3 100% 59%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 147 100% 39%;
-    --charging: 147 100% 39%;
-    --wallet: 219 100% 50%;
-    --radius: 0.6rem;
-    --chart-1: 147 100% 39%;
-    --chart-2: 219 100% 50%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 240 6% 30%;
-    --chart-5: 280 65% 60%;
-  }
-  .dark {
-    --background: 0 0% 2%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 4%;
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 63%;
-    --accent: 151 100% 45%;
-    --accent-foreground: 0 0% 4%;
-    --destructive: 5 100% 62%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 16%;
-    --input: 0 0% 16%;
-    --ring: 151 100% 45%;
-    --charging: 151 100% 45%;
-    --wallet: 217 100% 60%;
-    --chart-1: 151 100% 45%;
-    --chart-2: 217 100% 60%;
-    --chart-3: 38 92% 55%;
-    --chart-4: 0 0% 70%;
-    --chart-5: 280 65% 65%;
-  }
-}
 
 @layer base {
   * { @apply border-border; }
@@ -85,3 +27,5 @@ h1, h2, h3, h4, .font-display { font-family: 'Outfit', sans-serif; }
 ::selection { background: hsl(var(--charging) / 0.25); }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

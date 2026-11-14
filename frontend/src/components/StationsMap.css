@@ -1,0 +1,50 @@
+.stations-map { background: hsl(var(--secondary)); }
+.station-status--available { --led: #22e582; --status-text: #08743d; --pulse-duration: 3s; }
+.station-status--in-use { --led: #ffd34d; --status-text: #805800; --pulse-duration: 4s; }
+.station-status--fault { --led: #ff5555; --status-text: #ba2020; --pulse-duration: 2.2s; }
+.station-status--offline { --led: #9299a4; --status-text: #59616c; }
+.dark .station-status--available { --status-text: #50efa0; }
+.dark .station-status--in-use { --status-text: #ffda6b; }
+.dark .station-status--fault { --status-text: #ff8585; }
+.dark .station-status--offline { --status-text: #b3bac4; }
+.station-beacon { position: relative; background: transparent; border: 0; }
+.station-beacon__led, .station-beacon__ring { position: absolute; box-sizing: border-box; border-radius: 50%; inset: 8px; }
+.station-beacon__led { background: var(--led); border: 2px solid white; box-shadow: 0 0 10px var(--led), 0 2px 4px #0008; }
+.station-beacon__ring { border: 2px solid var(--led); animation: station-radar var(--pulse-duration, 3s) ease-out infinite; }
+.station-status--fault .station-beacon__led { box-shadow: 0 0 15px var(--led), 0 2px 4px #0008; }
+.station-status--offline .station-beacon__ring { display: none; animation: none; }
+.station-status--offline .station-beacon__led { box-shadow: 0 2px 4px #0006; }
+@keyframes station-radar { 0% { transform: scale(1); opacity: .6; } 85%, 100% { transform: scale(2.5); opacity: 0; } }
+.customer-location { display: grid; place-items: center; border-radius: 50%; background: #2563eb26; box-shadow: 0 0 0 7px #2563eb20; }
+.customer-location span { width: 14px; height: 14px; border-radius: 50%; background: #2563eb; border: 3px solid white; box-shadow: 0 1px 5px #0005; }
+.stations-map .leaflet-popup-content-wrapper, .stations-map .leaflet-popup-tip { background: hsl(var(--popover)); color: hsl(var(--popover-foreground)); }
+.station-popup { min-width: 200px; max-width: 260px; font-family: 'Manrope', sans-serif; }
+.station-popup__name { display: block; font-size: 16px; }
+.station-popup__id { font-family: monospace; margin-top: 3px; }
+.station-popup__location, .station-popup__id, .station-popup__distance span { color: hsl(var(--muted-foreground)); }
+.station-popup__status { margin-top: 12px; color: var(--status-text); font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.station-popup__distance { margin-top: 4px; }
+.station-popup__distance span { font-size: 10px; }
+.station-popup__specs { display: flex; flex-wrap: wrap; gap: 5px 8px; margin: 12px 0; }
+.station-popup__specs span + span::before { content: '·'; margin-right: 8px; }
+.station-popup__action { width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: #08743d; color: white; cursor: pointer; font-weight: 700; }
+.station-popup__action:hover { background: #065d31; }
+.station-popup__action:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.map-overlay { position: absolute; z-index: 800; background: hsl(var(--card) / .96); color: hsl(var(--card-foreground)); border: 1px solid hsl(var(--border)); box-shadow: 0 2px 12px #0002; border-radius: 9px; font-size: 11px; pointer-events: none; }
+.map-summary { top: 12px; right: 12px; left: 58px; width: fit-content; margin-left: auto; max-width: 280px; padding: 8px 12px; }
+.map-summary strong, .map-summary span { display: block; }
+.map-summary strong { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px; }
+.map-legend { bottom: 28px; left: 12px; display: flex; flex-wrap: wrap; max-width: calc(100% - 24px); gap: 2px 9px; padding: 4px 9px; }
+.map-legend__item { display: flex; align-items: center; gap: 3px; }
+.map-legend .station-beacon { display: inline-block; width: 26px; height: 26px; }
+@media (prefers-reduced-motion: reduce) { .station-beacon__ring { animation: none; opacity: .25; transform: scale(1.5); } }
+
+.station-popup__navigate { margin-top: 8px; background: #1d4ed8; }
+.station-popup__navigate:hover { background: #1e40af; }
+.map-summary button { pointer-events: auto; text-align: left; }
+.map-location-retry, .map-nearest-link { color: hsl(var(--foreground)); font-weight: 700; text-decoration: underline; padding: 4px 0; }
+.map-summary button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+/* Popups remain readable above discovery overlays, including on narrow phones. */
+.stations-map .leaflet-popup-pane { z-index: 850; }
+.stations-map .leaflet-popup-content { max-width: calc(100vw - 112px); overflow-wrap: anywhere; }
+.station-popup { min-width: 0; }

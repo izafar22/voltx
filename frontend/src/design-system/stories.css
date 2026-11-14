@@ -1,0 +1,91 @@
+.ds-canvas {
+  min-height: 100vh;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  padding: var(--space-6);
+  font-family: var(--font-body);
+}
+.ds-stack {
+  display: grid;
+  gap: var(--space-6);
+  max-width: 1100px;
+}
+.ds-row {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ds-heading {
+  font: 500 clamp(1.8rem, 4vw, 3rem) / 1.15 var(--font-display);
+  margin-bottom: var(--space-4);
+}
+.ds-copy {
+  color: hsl(var(--muted-foreground));
+  max-width: 65ch;
+}
+.ds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: var(--space-4);
+}
+.ds-swatch {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.ds-swatch-color {
+  height: 100px;
+}
+.ds-swatch-label {
+  padding: var(--space-4);
+  font: 0.8rem var(--font-code);
+}
+.ds-space {
+  background: hsl(var(--charging));
+  height: 20px;
+  flex-shrink: 0;
+}
+.ds-field {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 360px;
+}
+.ds-note {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}
+.ds-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+}
+.ds-nav a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px;
+}
+.ds-nav a[aria-current="page"] {
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+.ds-nav a:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+.ds-canvas .rx-public {
+  background: transparent;
+}
+.ds-canvas .rx-service-card {
+  display: block;
+}
+.ds-preview {
+  padding: var(--space-6);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-card);
+}
