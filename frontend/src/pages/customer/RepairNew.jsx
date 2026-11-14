@@ -276,7 +276,7 @@ export default function RepairNew() {
           </div>
           <div className="mt-6 flex w-full items-start gap-3 text-base leading-relaxed text-muted-foreground">
             <input id="whatsapp-opt-in" data-testid="whatsapp-opt-in" type="checkbox" checked={false} disabled
-              className="mt-1 h-5 w-5 shrink-0 accent-green-500" />
+              className="mt-1 h-5 w-5 shrink-0" />
             <label htmlFor="whatsapp-opt-in" className="min-w-0 flex-1 break-normal">
               WhatsApp repair updates — Coming soon. You can still track your repair in the app.
             </label>
