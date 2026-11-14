@@ -107,12 +107,22 @@ test('photos retain data URLs, can be removed and reject unsupported/oversized f
   click('remove-photo-0'); expect(el('photo-0')).toBeNull(); expect(el('review-section').textContent).toContain('0 attached');
 });
 
-test('WhatsApp consent defaults off and only explicit selection opts in', async () => {
-  render(); fill(); expect(el('whatsapp-opt-in').checked).toBe(false);
-  click('whatsapp-opt-in'); expect(el('whatsapp-opt-in').checked).toBe(true);
+test('WhatsApp coming soon is disabled and repair submission always opts out', async () => {
+  render(); fill();
+  const checkbox = el('whatsapp-opt-in');
+  expect(checkbox.checked).toBe(false);
+  expect(checkbox.disabled).toBe(true);
+  const label = container.querySelector('label[for="whatsapp-opt-in"]');
+  expect(label).not.toBeNull();
+  expect(label.textContent).toContain('WhatsApp repair updates — Coming soon');
+  expect(checkbox.parentElement.className).toContain('flex');
+  expect(checkbox.parentElement.className).not.toContain('grid-cols-[');
+  click('whatsapp-opt-in');
+  expect(checkbox.checked).toBe(false);
   await act(async () => submit());
-  expect(mockPost.mock.calls[0][1].whatsapp_opt_in).toBe(true);
+  expect(mockPost.mock.calls[0][1].whatsapp_opt_in).toBe(false);
   expect(mockPost.mock.calls[0][1]).not.toHaveProperty('destination');
+  expect(el('repair-confirmation')).not.toBeNull();
 });
 
 test('ambiguous submission retry retains the same idempotency key', async () => {
