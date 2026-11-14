@@ -118,6 +118,8 @@ test('WhatsApp coming soon is disabled and repair submission always opts out', a
   expect(checkbox.parentElement.className).toContain('grid');
   expect(checkbox.parentElement.className).toContain('grid-cols-[20px_minmax(0,1fr)]');
   expect(label.className).toContain('min-w-0');
+  expect(checkbox.className).toContain('self-start');
+  expect(checkbox.className).not.toContain('mt-1');
   click('whatsapp-opt-in');
   expect(checkbox.checked).toBe(false);
   await act(async () => submit());
