@@ -1,0 +1,46 @@
+name: Deploy RushX to Oracle staging
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.repository == 'izafar22/voltx' && github.event_name == 'push' && github.ref == 'refs/heads/repair-mvp' && github.workflow_ref == 'izafar22/voltx/.github/workflows/tests.yml@refs/heads/repair-mvp'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    concurrency:
+      group: rushx-unified-staging
+      cancel-in-progress: false
+    environment:
+      name: staging
+      url: https://staging.evchargerrepair.in
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: oracle-release
+      - name: Confirm protected staging head and deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORACLE_HOST: ${{ vars.RUSHX_STAGING_ORACLE_HOST }}
+          ORACLE_USER: ${{ vars.RUSHX_STAGING_ORACLE_USER }}
+          SSH_KEY: ${{ secrets.RUSHX_STAGING_ORACLE_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.RUSHX_STAGING_ORACLE_KNOWN_HOSTS }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_SEQUENCE: ${{ github.run_number }}
+        run: bash scripts/send-oracle-release.sh staging
+      - name: Report deployment result
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: printf 'Staging release `%s` — %s\n' "$GITHUB_SHA" "$RESULT" >> "$GITHUB_STEP_SUMMARY"

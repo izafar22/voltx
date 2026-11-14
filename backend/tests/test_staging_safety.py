@@ -1,4 +1,6 @@
 """Staging preflight is pure and does not connect to Atlas."""
+import asyncio
+
 import pytest
 
 from auth_service import AuthSettings
@@ -105,3 +107,84 @@ def test_staging_whatsapp_otp_still_blocks_repair_notifications(safe_env):
     })
     with pytest.raises(RuntimeError):
         validate_staging_environment(safe_env)
+
+
+def test_release_preflight_blocks_other_senders_and_invalid_templates(safe_env):
+    from release_environment import validate_release_environment
+
+    safe_env.update({
+        "JWT_SECRET": "x" * 32,
+        "OTP_DELIVERY_PROVIDER": "whatsapp",
+        "STAGING_OTP_ALLOWED_PHONES": "+919000000001",
+        "WHATSAPP_ACCESS_TOKEN": "test-only-token",
+        "WHATSAPP_PHONE_NUMBER_ID": "123456789",
+        "RUSHX_EXPECTED_STAGING_WHATSAPP_SENDER": "123456789",
+        "WHATSAPP_OTP_TEMPLATE": "staging_otp",
+        "WHATSAPP_OTP_LANGUAGE": "en_US",
+    })
+    validate_release_environment("staging", safe_env)
+    for key, value in (("WHATSAPP_PHONE_NUMBER_ID", "987654321"), ("WHATSAPP_OTP_TEMPLATE", ""),
+                       ("WHATSAPP_OTP_LANGUAGE", "invalid"), ("GOOGLE_CLIENT_ID", "partial"),
+                       ("MONGO_URL", safe_env["MONGO_URL"] + "&tls=false"), ("APP_ENV", "production")):
+        with pytest.raises(RuntimeError):
+            validate_release_environment("staging", {**safe_env, key: value})
+
+
+def test_staging_whatsapp_mocked_send_and_non_allowlisted_denial(safe_env, monkeypatch):
+    import httpx
+    from fastapi import HTTPException
+    from mongomock_motor import AsyncMongoMockClient
+    from auth_service import AuthService
+
+    monkeypatch.setenv("OTP_DELIVERY_PROVIDER", "whatsapp")
+    monkeypatch.setenv("STAGING_OTP_ALLOWED_PHONES", "+919000000001")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "123")
+    monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "test-only-token")
+    monkeypatch.setenv("WHATSAPP_OTP_TEMPLATE", "staging_otp")
+    monkeypatch.setenv("WHATSAPP_OTP_LANGUAGE", "en_US")
+    payloads = []
+
+    async def fake_post(self, url, json, headers):
+        assert url.startswith("https://graph.facebook.com/") and url.endswith("/123/messages")
+        assert headers["Authorization"] == "Bearer test-only-token"
+        payloads.append(json)
+        return httpx.Response(200, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
+    db = AsyncMongoMockClient(tz_aware=True).db
+    service = AuthService(db, AuthSettings("x" * 32, "staging", origins=(safe_env["CORS_ORIGINS"],)))
+    async def scenario():
+        with pytest.raises(HTTPException) as denied:
+            await service.request_otp("+919000000002", "test")
+        assert denied.value.status_code == 403
+        assert await db.auth_limits.count_documents({}) == 0
+        assert payloads == []
+        await service.request_otp("+919000000001", "test")
+
+    asyncio.run(scenario())
+    [payload] = payloads
+    assert payload["to"] == "919000000001"
+    template = payload["template"]
+    assert template["name"] == "staging_otp" and template["language"] == {"code": "en_US"}
+    assert [component["type"] for component in template["components"]] == ["body", "button"]
+
+
+def test_production_preflight_checks_approved_atlas_inventory():
+    from release_environment import validate_release_environment
+
+    env = {
+        "APP_ENV": "production",
+        "JWT_SECRET": "x" * 32,
+        "CORS_ORIGINS": "https://evchargerrepair.in",
+        "MONGO_URL": "mongodb+srv://dummy_user:dummy@approved.example.mongodb.net",
+        "DB_NAME": "example_live",
+        "RUSHX_EXPECTED_ATLAS_HOST": "approved.example.mongodb.net",
+        "RUSHX_EXPECTED_ATLAS_USER": "dummy_user",
+        "RUSHX_EXPECTED_DATABASE": "example_live",
+    }
+    validate_release_environment("production", env)
+    for key, value in (("DB_NAME", "rushx_staging"), ("RUSHX_EXPECTED_ATLAS_USER", "other"),
+                       ("MONGO_URL", env["MONGO_URL"].replace("approved", "wrong")),
+                       ("MONGO_URL", env["MONGO_URL"] + "/?tlsInsecure=true")):
+        with pytest.raises(RuntimeError):
+            validate_release_environment("production", {**env, key: value})

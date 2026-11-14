@@ -18,8 +18,8 @@ The broader product history contains functionality outside the repair-focused MV
 - `development`: existing branch; audit before choosing/renaming an integration baseline.
 - `develop`: proposed integration branch, **not confirmed created**.
 - `feature/<topic>`: isolated feature work; `hotfix/<topic>`: emergency fix.
-- `release_rushx_1.0` and later versioned branches: proposed release stabilization branches.
-- Immutable `v1.0.0`-style tags identify deployed commits. Production deploys should be traceable to a tested tagged commit from `main`.
+- Oracle release branches use `release_YYYYMMDD_versionX.Y.Z` in the current repository. The proposed unified workflow requires manual authorization and successful CI on the exact release SHA. See the [Oracle CI/CD runbook](../docs/ORACLE_CICD.md).
+- Immutable `v1.0.0`-style tags remain part of the longer-term release governance plan. The transition to production from `main` has not been executed.
 - No production branch/Render switch until an approved transition plan verifies deployed SHA, rollback, and parked-feature preservation.
 
 ## Product integrity
