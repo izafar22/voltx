@@ -1,0 +1,207 @@
+{
+  "created": "2026-11-04",
+  "generator": "Built-in image_gen.imagegen (Codex imagegen skill); original generated conceptual illustrations",
+  "selection": "Selected for draft review; no production approval or supported model implied",
+  "assets": [
+    {
+      "id": "hero",
+      "file": "charger-control-assessment",
+      "prompt": "Use case: stylized-concept. Asset type: RushX EV charger repair education website hero, landscape 3:2 composition. Create an ORIGINAL premium technical 3D/isometric illustration, not a photograph. A generic compact AC EV wallbox charger in satin off-white with charcoal front inset, a small unlit status strip and a neatly curved charging cable with plausible generic Type 2 connector, beside a separate green EV charger control PCB with a realistic restrained arrangement of relays, capacitors, connectors and integrated circuits. The PCB is outside and beside the enclosure as a conceptual diagnostic pairing, not connected with imaginary wires and not an instructional exploded repair diagram. Orthographic isometric camera, 30-degree elevated view, soft top-left studio lighting, subtle ambient occlusion, precise bevels, clear silhouette and clean generous transparent margins. Palette: neutral white, light silver, charcoal; green board and small accents close to existing RushX #00c759 / #00e677, no unrelated hues except tiny natural copper contacts. Restrained engineering editorial aesthetic, realistic hardware proportions, no oversized glowing holograms. Subject fills about 80% of frame. GENUINELY TRANSPARENT background, no floor, no tile, no baked gradient or text. No letters, numbers, logos, OEM branding, slogans, watermark, people, workshop, certification, warranty or success symbols. Conceptual generic hardware, never imply a supported manufacturer/model. This will establish the visual style for a coordinated six-asset family.",
+      "styleReference": null,
+      "master": "frontend/illustration-sources/charger-control-assessment.webp",
+      "widths": [
+        480,
+        960,
+        1440
+      ],
+      "originalSize": [
+        1536,
+        1024
+      ],
+      "masterSha256": "623a7beb78deffe5c540e803822e5da7eea31a6117b44e543cb741840c7c9782",
+      "outputs": [
+        {
+          "file": "frontend/public/assets/illustrations/charger-control-assessment-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 23370,
+          "sha256": "decc81451fa400355a698ca0315c48e9890e6f519b0dba93b82c02d65d0a0bcb"
+        },
+        {
+          "file": "frontend/public/assets/illustrations/charger-control-assessment-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 63642,
+          "sha256": "b560d8739da7728bc7611c935c9c769c36224715cc0562bebb3b241343b66c71"
+        },
+        {
+          "file": "frontend/public/assets/illustrations/charger-control-assessment-1440.webp",
+          "width": 1440,
+          "height": 960,
+          "bytes": 114360,
+          "sha256": "c283bfe0bb62e254d0aa398e6d9c542274068f1c9729d1a1770b0a94d8a84f4b"
+        }
+      ]
+    },
+    {
+      "id": "pcb",
+      "file": "pcb-control-board",
+      "prompt": "Use case: stylized-concept. Create ONE new ORIGINAL premium technical 3D/isometric website illustration. The supplied image is a STYLE AND MATERIAL reference only, not an edit target: preserve the same neutral satin off-white, charcoal, silver, realistic green PCB materials and restrained RushX green (#00c759 / #00e677) accents. Match the reference's elevated orthographic view and soft top-left studio light, precise bevels, credible manufactured proportions and component detail. Landscape 3:2 frame, subject centred with 12% clear margin on every side. GENUINELY TRANSPARENT BACKGROUND, isolated clean object cutout, no floor, no panel, no vignette, no bloom or green aura, no cast-shadow rectangle. No text, lettering, numbers, logos, OEM branding, watermark, people, facilities, certification, warranty, success badge or repair instructions. This is generic conceptual hardware, never an identified supported model. Subject: a single EV charger control printed-circuit board at a 30-degree isometric angle, green solder mask, credible IC with fine pins, two small relays, several electrolytic capacitors, cream signal connectors and screw-terminal blocks. Arrange components with plausible clearances and visible mounting holes. Not a toy, not excessive decorative circuitry. No charger enclosure, cables or extra props.",
+      "styleReference": "charger-control-assessment (first generated hero, style/material reference only)",
+      "master": "frontend/illustration-sources/pcb-control-board.webp",
+      "widths": [
+        480,
+        960
+      ],
+      "originalSize": [
+        1536,
+        1024
+      ],
+      "masterSha256": "4fde524faba1f7452fd7c25c0719767597f6d7f1ba4a0c803bd16a728a9d0cee",
+      "outputs": [
+        {
+          "file": "frontend/public/assets/illustrations/pcb-control-board-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 27602,
+          "sha256": "7cf7f404dad046681fb445a0a8e1a2d1f1b11013595388ddc58ec36a73845879"
+        },
+        {
+          "file": "frontend/public/assets/illustrations/pcb-control-board-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 79620,
+          "sha256": "11df4c26df189412ace3767f47586d2410a4b3bd2b9bec47409136293c41f8a7"
+        }
+      ]
+    },
+    {
+      "id": "ac",
+      "file": "ac-wallbox-charger",
+      "prompt": "Use case: stylized-concept. Create ONE new ORIGINAL premium technical 3D/isometric website illustration. The supplied image is a STYLE AND MATERIAL reference only, not an edit target: preserve the same neutral satin off-white, charcoal, silver, realistic green PCB materials and restrained RushX green (#00c759 / #00e677) accents. Match the reference's elevated orthographic view and soft top-left studio light, precise bevels, credible manufactured proportions and component detail. Landscape 3:2 frame, subject centred with 12% clear margin on every side. GENUINELY TRANSPARENT BACKGROUND, isolated clean object cutout, no floor, no panel, no vignette, no bloom or green aura, no cast-shadow rectangle. No text, lettering, numbers, logos, OEM branding, watermark, people, facilities, certification, warranty, success badge or repair instructions. This is generic conceptual hardware, never an identified supported model. Subject: a single compact residential AC EV wallbox charger matching the reference's generic off-white/charcoal design language, modest status strip, safe closed housing, charging cable neatly looped beside it and a plausible generic Type 2 connector. External view only, no imaginary interior. No PCB or extra equipment.",
+      "styleReference": "charger-control-assessment (first generated hero, style/material reference only)",
+      "master": "frontend/illustration-sources/ac-wallbox-charger.webp",
+      "widths": [
+        480,
+        960
+      ],
+      "originalSize": [
+        1536,
+        1024
+      ],
+      "masterSha256": "12bb494775c13a9ba00ffd903bca11ee3539fed36263f6d02c1eae24ebdc7246",
+      "outputs": [
+        {
+          "file": "frontend/public/assets/illustrations/ac-wallbox-charger-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 14308,
+          "sha256": "dcc43562f0707c5f654d78f911bde88abec2dfdc19ea642e05754087a156a2dd"
+        },
+        {
+          "file": "frontend/public/assets/illustrations/ac-wallbox-charger-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 34828,
+          "sha256": "0aea256c4c19acab8d9f33882e898c18790be90cb04801ac054fae2c10abb30a"
+        }
+      ]
+    },
+    {
+      "id": "dc",
+      "file": "dc-charging-cabinet",
+      "prompt": "Use case: stylized-concept. Create ONE new ORIGINAL premium technical 3D/isometric website illustration. The supplied image is a STYLE AND MATERIAL reference only, not an edit target: preserve the same neutral satin off-white, charcoal, silver, realistic green PCB materials and restrained RushX green (#00c759 / #00e677) accents. Match the reference's elevated orthographic view and soft top-left studio light, precise bevels, credible manufactured proportions and component detail. Landscape 3:2 frame, subject centred with 12% clear margin on every side. GENUINELY TRANSPARENT BACKGROUND, isolated clean object cutout, no floor, no panel, no vignette, no bloom or green aura, no cast-shadow rectangle. No text, lettering, numbers, logos, OEM branding, watermark, people, facilities, certification, warranty, success badge or repair instructions. This is generic conceptual hardware, never an identified supported model. Subject: a single generic compact floor-standing DC EV fast-charging cabinet, off-white/silver metal body with charcoal centre, a small blank dark screen, plausible lower ventilation, stable plinth and one orderly side cable ending in a credible generic CCS2 charging handle with the characteristic larger DC pins housing. External closed view, no brand-specific model and no visible energized internals. Not a wall socket or AC wallbox.",
+      "styleReference": "charger-control-assessment (first generated hero, style/material reference only)",
+      "master": "frontend/illustration-sources/dc-charging-cabinet.webp",
+      "widths": [
+        480,
+        960
+      ],
+      "originalSize": [
+        1536,
+        1024
+      ],
+      "masterSha256": "f1979c73ed7b7b25c977758a819e93dd02bf4ffe03c7531e02819f92fd78be96",
+      "outputs": [
+        {
+          "file": "frontend/public/assets/illustrations/dc-charging-cabinet-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 9918,
+          "sha256": "b33378c7e8c04043fa3ab22b596f6eac3133028132d191ebd529a8f1763b9916"
+        },
+        {
+          "file": "frontend/public/assets/illustrations/dc-charging-cabinet-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 24978,
+          "sha256": "f1168a56215525d26d3c5033d0ff9e110b294b1cf4515d77210842e2156ae9bd"
+        }
+      ]
+    },
+    {
+      "id": "power",
+      "file": "auxiliary-power-electronics",
+      "prompt": "Use case: stylized-concept. Create ONE new ORIGINAL premium technical 3D/isometric website illustration. The supplied image is a STYLE AND MATERIAL reference only, not an edit target: preserve the same neutral satin off-white, charcoal, silver, realistic green PCB materials and restrained RushX green (#00c759 / #00e677) accents. Match the reference's elevated orthographic view and soft top-left studio light, precise bevels, credible manufactured proportions and component detail. Landscape 3:2 frame, subject centred with 12% clear margin on every side. GENUINELY TRANSPARENT BACKGROUND, isolated clean object cutout, no floor, no panel, no vignette, no bloom or green aura, no cast-shadow rectangle. No text, lettering, numbers, logos, OEM branding, watermark, people, facilities, certification, warranty, success badge or repair instructions. This is generic conceptual hardware, never an identified supported model. Subject: one compact auxiliary switched-mode power supply in a perforated silver metal enclosure with a terminal block, beside a small green power-electronics module with a realistically proportioned finned aluminium heatsink, capacitors and a single copper inductor. The two objects form one tightly composed engineering still-life. Avoid giant impossible coils or decorative wires.",
+      "styleReference": "charger-control-assessment (first generated hero, style/material reference only)",
+      "master": "frontend/illustration-sources/auxiliary-power-electronics.webp",
+      "widths": [
+        480,
+        960
+      ],
+      "originalSize": [
+        1536,
+        1024
+      ],
+      "masterSha256": "e31208487fe969277216fcd292f03821575a0a85ab741b8991ff8190c6bc5fd6",
+      "outputs": [
+        {
+          "file": "frontend/public/assets/illustrations/auxiliary-power-electronics-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 27964,
+          "sha256": "270fc78916acfba574b8c412c3636d5355132bd78f5336e8246b3a468ed832bd"
+        },
+        {
+          "file": "frontend/public/assets/illustrations/auxiliary-power-electronics-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 75088,
+          "sha256": "c83c4b2c19494edc90e40e47137d55eb46a591cf66c641024bdff318621f7b38"
+        }
+      ]
+    },
+    {
+      "id": "about",
+      "file": "repair-first-assessment",
+      "prompt": "Use case: stylized-concept. Create ONE new ORIGINAL premium technical 3D/isometric website illustration. The supplied image is a STYLE AND MATERIAL reference only, not an edit target: preserve the same neutral satin off-white, charcoal, silver, realistic green PCB materials and restrained RushX green (#00c759 / #00e677) accents. Match the reference's elevated orthographic view and soft top-left studio light, precise bevels, credible manufactured proportions and component detail. Landscape 3:2 frame, subject centred with 12% clear margin on every side. GENUINELY TRANSPARENT BACKGROUND, isolated clean object cutout, no floor, no panel, no vignette, no bloom or green aura, no cast-shadow rectangle. No text, lettering, numbers, logos, OEM branding, watermark, people, facilities, certification, warranty, success badge or repair instructions. This is generic conceptual hardware, never an identified supported model. Subject: a calm conceptual technical assessment still-life: a generic closed compact AC charger enclosure, one separate control PCB and a simple silver-rimmed magnifying lens positioned beside the board to suggest understanding a fault before deciding on repair. The lens must not distort or invent impossible circuit components. An independent repair-first concept, no staff, workshop, tools touching energized hardware, recycling/success symbols or promise of restoration.",
+      "styleReference": "charger-control-assessment (first generated hero, style/material reference only)",
+      "master": "frontend/illustration-sources/repair-first-assessment.webp",
+      "widths": [
+        480,
+        960
+      ],
+      "originalSize": [
+        1536,
+        1024
+      ],
+      "masterSha256": "6e31813b7a48006ca0b22a0d9994e30862afbcc96650be85a282fe550f646531",
+      "outputs": [
+        {
+          "file": "frontend/public/assets/illustrations/repair-first-assessment-480.webp",
+          "width": 480,
+          "height": 320,
+          "bytes": 25088,
+          "sha256": "486c021e5efbe3c424030eedad607c57bb6c67612f95ccc81ece8b8709c2ef56"
+        },
+        {
+          "file": "frontend/public/assets/illustrations/repair-first-assessment-960.webp",
+          "width": 960,
+          "height": 640,
+          "bytes": 67886,
+          "sha256": "284771ca1166c34be635d913b93c974b2ec65de0df071171413daf1f1e7ea316"
+        }
+      ]
+    }
+  ]
+}

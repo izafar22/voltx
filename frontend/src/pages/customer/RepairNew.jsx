@@ -1,20 +1,22 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   Wrench, ArrowLeft, ArrowRight, Loader2, Server, PackagePlus, X,
-  Camera, ShieldCheck, CheckCircle2, Info, FileText, MapPin,
+  Camera, ShieldCheck, CheckCircle2, FileText,
 } from "lucide-react";
-import { api } from "@/lib/api";
-import { useAuth } from "@/context/AuthContext";
-import { CustomerShell } from "@/components/layout/CustomerShell";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { api } from "../../lib/api";
+import { useAuth } from "../../context/AuthContext";
+import { CustomerShell } from "../../components/layout/CustomerShell";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import { Label } from "../../components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+
+import "./RepairNew.css";
 
 const TYPE_OPTIONS = [
   { label: "AC Charger", value: "AC" },
@@ -32,6 +34,7 @@ const MAX_MB = 5;
 
 export default function RepairNew() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [source, setSource] = useState("other");
   const [chargerId, setChargerId] = useState("");
@@ -39,8 +42,26 @@ export default function RepairNew() {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState([]);
+  const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [errors, setErrors] = useState({});
+  const submissionLock = useRef(false);
+  const creationRetry = useRef(null);
+  const clearError = (key, value) => {
+    if (value.trim()) setErrors((current) => ({ ...current, [key]: undefined }));
+  };
+  const updateInfo = (key, value) => {
+    setInfo((current) => ({ ...current, [key]: value }));
+    clearError(key, value);
+  };
+  const chooseSource = (value) => { setSource(value); setErrors({}); };
+  const fieldProps = (key, helper) => ({
+    id: key,
+    "aria-invalid": Boolean(errors[key]),
+    "aria-describedby": [helper, errors[key] && `${key}-error`].filter(Boolean).join(" ") || undefined,
+  });
+  const fieldError = (key) => errors[key] && <p id={`${key}-error`} role="alert" className="text-sm font-medium text-destructive">{errors[key]}</p>;
 
   const { data: myChargers = [] } = useQuery({
     queryKey: ["my-chargers"],
@@ -63,20 +84,25 @@ export default function RepairNew() {
     }
   };
 
-  const validate = () => {
-    if (source === "mine" && !chargerId) return "Please select one of your chargers";
+  const submit = async (event) => {
+    event.preventDefault();
+    if (submissionLock.current) return;
+    const nextErrors = {};
+    if (source === "mine" && !chargerId) nextErrors.chargerId = "Please select one of your chargers";
     if (source === "other") {
-      if (!info.brand.trim()) return "Manufacturer / Brand is required";
-      if (!info.model.trim()) return "Model is required";
-      if (!info.charger_type) return "Please select a charger type";
+      if (!info.brand.trim()) nextErrors.brand = "Brand is required";
+      if (!info.charger_type) nextErrors.charger_type = "Please select a charger type";
     }
-    if (!description.trim()) return "Please describe the problem";
-    return null;
-  };
-
-  const submit = async () => {
-    const err = validate();
-    if (err) { toast.error(err); return; }
+    if (!description.trim()) nextErrors.description = "Please describe the problem";
+    setErrors(nextErrors);
+    const firstInvalid = Object.keys(nextErrors)[0];
+    if (firstInvalid) {
+      const control = document.getElementById(firstInvalid);
+      control?.focus();
+      control?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      return;
+    }
+    submissionLock.current = true;
     setSubmitting(true);
     try {
       const payload = {
@@ -84,203 +110,185 @@ export default function RepairNew() {
         problem_description: description.trim(),
         reported_category: category || null,
         photos: photos.map((p) => p.data),
+        whatsapp_opt_in: whatsappOptIn,
       };
       if (source === "mine") {
         payload.charger_id = chargerId;
       } else {
         payload.charger_info = {
-          brand: info.brand.trim(), model: info.model.trim(),
+          brand: info.brand.trim(), model: info.model.trim() || null,
           charger_type: info.charger_type === "NOT_SURE" ? null : info.charger_type,
           serial_number: info.serial_number.trim() || null,
           power_rating: info.power_rating.trim() || null,
           purchase_date: info.purchase_date || null,
         };
       }
+      const fingerprint = JSON.stringify(payload);
+      if (creationRetry.current?.fingerprint !== fingerprint) {
+        creationRetry.current = { fingerprint, key: crypto.randomUUID() };
+      }
+      payload.idempotency_key = creationRetry.current.key;
       const { data } = await api.post("/repairs", payload);
       // Advance to AWAITING_SHIPMENT via validated Phase 1 transition (non-fatal if it fails)
       try { await api.patch(`/repairs/${data.id}/status`, { status: "AWAITING_SHIPMENT" }); }
       catch { toast.message("Repair request created. Shipment status will update shortly."); }
+      queryClient.invalidateQueries({ queryKey: ["repairs-mine"] });
       setResult({ id: data.id, number: data.repair_request_number });
     } catch (e) {
       const detail = e.response?.data?.detail;
       toast.error(typeof detail === "string" ? detail : "Could not submit repair request. Please try again.");
     } finally {
+      submissionLock.current = false;
       setSubmitting(false);
     }
   };
 
-  // ---------- Confirmation ----------
   if (result) {
-    return (
-      <CustomerShell>
-        <div className="p-4 lg:p-8 max-w-xl mx-auto" data-testid="repair-confirmation">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-            <div className="mx-auto h-16 w-16 rounded-full bg-charging/15 flex items-center justify-center"><CheckCircle2 className="h-9 w-9 text-charging" /></div>
-            <h1 className="mt-5 font-display text-2xl font-semibold tracking-tight">Repair Request Submitted</h1>
-            <p className="mt-2 text-muted-foreground">Your repair request has been created.</p>
-            <div className="mt-5 inline-flex items-center gap-2 rounded-xl border border-border/60 px-5 py-3">
-              <FileText className="h-5 w-5 text-charging" />
-              <span className="font-mono text-lg font-semibold" data-testid="repair-number">Repair Request: {result.number}</span>
-            </div>
-          </motion.div>
-
-          <div className="mt-6 rounded-2xl border border-border/60 p-5 space-y-4 text-sm">
-            <div className="flex gap-3"><MapPin className="h-5 w-5 text-muted-foreground shrink-0" /><div><p className="font-medium">Send your charger to the Voltx service center</p><p className="text-muted-foreground mt-0.5">Shipping instructions will be provided by the Voltx service team.</p></div></div>
-            <div className="flex gap-3"><Info className="h-5 w-5 text-muted-foreground shrink-0" /><p className="text-muted-foreground">Please include your repair request number <span className="font-mono text-foreground">{result.number}</span> with the charger.</p></div>
-            <div className="flex gap-3"><ShieldCheck className="h-5 w-5 text-charging shrink-0" /><p className="text-muted-foreground">Payment is not required at this stage.</p></div>
+    return <CustomerShell>
+      <div className="repair-form p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto" data-testid="repair-confirmation">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+          <CheckCircle2 className="mx-auto h-14 w-14 text-charging" aria-hidden="true" />
+          <h1 className="mt-5 font-display text-3xl font-semibold tracking-tight">Repair Request Submitted</h1>
+          <p className="mt-3 text-base text-muted-foreground">We’ve received your request.</p>
+          <div className="mt-6 rounded-xl border border-border p-5">
+            <p className="text-sm text-muted-foreground">Repair request number</p>
+            <p className="mt-2 font-mono text-xl font-semibold break-words" data-testid="repair-number"><FileText className="inline h-5 w-5 mr-2" aria-hidden="true" />{result.number}</p>
           </div>
-
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Button onClick={() => navigate(`/repairs/${result.id}`)} data-testid="view-repair-btn" className="h-12 rounded-lg">View Repair Request</Button>
-            <Button variant="outline" onClick={() => navigate("/app")} data-testid="back-dashboard-btn" className="h-12 rounded-lg">Back to Dashboard</Button>
-          </div>
+        </motion.div>
+        <section className="mt-8">
+          <h2 className="text-xl font-semibold">What happens next</h2>
+          <ol className="mt-4 list-decimal pl-6 space-y-4 text-base leading-relaxed">
+            <li>We’ve received your request.</li>
+            <li>Send the charger to the RushX service center. <span className="text-muted-foreground">Our service team will provide shipping instructions.</span></li>
+            <li>Include the repair request number with the package.</li>
+            <li>We’ll update you once the charger is received.</li>
+            <li>You’ll receive a repair estimate for approval before any paid work begins.</li>
+          </ol>
+        </section>
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Button onClick={() => navigate(`/repairs/${result.id}`)} data-testid="view-repair-btn" className="h-[52px] text-base">View Repair Request</Button>
+          <Button variant="outline" onClick={() => navigate("/app")} data-testid="back-dashboard-btn" className="h-[52px] text-base">Back to Dashboard</Button>
         </div>
-      </CustomerShell>
-    );
+      </div>
+    </CustomerShell>;
   }
 
-  // ---------- Form ----------
-  return (
-    <CustomerShell>
-      <div className="p-4 lg:p-8 max-w-2xl mx-auto" data-testid="repair-new-page">
-        <button onClick={() => navigate("/app")} data-testid="repair-back-btn" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 mb-4"><ArrowLeft className="h-4 w-4 mr-1" /> Back</button>
-
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-xl bg-charging/10 flex items-center justify-center"><Wrench className="h-6 w-6 text-charging" /></div>
-          <div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight">Repair a Charger</h1>
-            <p className="text-sm text-muted-foreground">Get your EV charger diagnosed and repaired by the Voltx service team.</p>
-          </div>
-        </div>
-        <div className="mt-4 rounded-xl bg-secondary/50 border border-border/60 px-4 py-3 text-sm flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-charging shrink-0" />
-          <span>We repair EV chargers of <b>any brand</b> — retail &amp; station chargers, AC, DC and portable.</span>
-        </div>
-
-        {/* 1. Source */}
-        <section className="mt-8">
-          <h2 className="font-display font-semibold mb-3">Which charger needs repair?</h2>
-          <div className="grid grid-cols-2 gap-3">
-            {[{ v: "mine", icon: Server, t: "My Voltx Charger", d: "Select a registered charger" }, { v: "other", icon: PackagePlus, t: "Other Charger", d: "Any brand, not on Voltx" }].map((o) => (
-              <button key={o.v} onClick={() => setSource(o.v)} data-testid={`source-${o.v}`}
-                className={`rounded-xl border p-4 text-left transition-colors duration-200 ${source === o.v ? "border-charging bg-charging/5" : "border-border/60 hover:bg-secondary/50"}`}>
-                <o.icon className={`h-6 w-6 ${source === o.v ? "text-charging" : "text-muted-foreground"}`} strokeWidth={1.5} />
-                <p className="font-medium mt-2">{o.t}</p><p className="text-xs text-muted-foreground">{o.d}</p>
+  return <CustomerShell>
+    <div className="repair-form p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto" data-testid="repair-new-page">
+      <button type="button" onClick={() => navigate("/app")} data-testid="repair-back-btn" className="min-h-11 flex items-center gap-2 text-base text-muted-foreground hover:text-foreground mb-4"><ArrowLeft className="h-4 w-4" />Back</button>
+      <div className="flex items-start gap-3">
+        <div className="h-12 w-12 shrink-0 rounded-xl bg-charging/10 flex items-center justify-center"><Wrench className="h-6 w-6 text-charging" aria-hidden="true" /></div>
+        <div className="min-w-0"><h1 className="font-display text-3xl font-semibold tracking-tight">Repair a charger</h1>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">Tell us what’s wrong with your charger.<br />We’ll diagnose it and keep you updated through the repair process.</p></div>
+      </div>
+      <div className="mt-6 rounded-xl bg-secondary/50 border border-border p-5 flex items-start gap-3">
+        <ShieldCheck className="h-6 w-6 text-charging shrink-0" aria-hidden="true" />
+        <div><p className="text-base font-semibold">We repair EV chargers from any brand</p><p className="mt-2 text-base leading-relaxed text-muted-foreground">Home chargers, station chargers, AC, DC and portable chargers are supported.</p></div>
+      </div>
+      <form onSubmit={submit} noValidate>
+        <p className="mt-6 text-sm text-muted-foreground">Fields marked * are required. Everything else is optional.</p>
+        <section className="repair-section" aria-labelledby="source-heading">
+          <h2 id="source-heading">1. Choose your charger</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[{ v: "mine", icon: Server, t: "My RushX charger", d: "Choose a charger already linked to your account" }, { v: "other", icon: PackagePlus, t: "Other charger", d: "Repair a charger from any brand" }].map((o) => (
+              <button type="button" key={o.v} onClick={() => chooseSource(o.v)} aria-pressed={source === o.v} data-testid={`source-${o.v}`}
+                className={`rounded-xl border-2 p-5 text-left transition-colors ${source === o.v ? "border-charging bg-charging/10" : "border-border hover:bg-secondary/50"}`}>
+                <div className="flex justify-between"><o.icon className={`h-6 w-6 ${source === o.v ? "text-charging" : "text-muted-foreground"}`} aria-hidden="true" />{source === o.v && <CheckCircle2 className="h-5 w-5 text-charging" aria-hidden="true" />}</div>
+                <p className="text-base font-semibold mt-3">{o.t}</p><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{o.d}</p>
               </button>
             ))}
           </div>
         </section>
-
-        {/* 2. Charger details */}
-        <section className="mt-8">
-          <h2 className="font-display font-semibold mb-3">Charger details</h2>
-          {source === "mine" ? (
-            <div className="space-y-3">
-              {myChargers.length === 0 ? (
-                <div className="rounded-xl border border-border/60 p-4 text-sm text-muted-foreground">
-                  No registered chargers found on your account. Choose <button className="text-charging font-medium" onClick={() => setSource("other")}>Other Charger</button> to continue.
-                </div>
-              ) : (
-                <>
-                  <Label>Select your charger</Label>
-                  <Select value={chargerId} onValueChange={setChargerId}>
-                    <SelectTrigger data-testid="my-charger-select" className="h-11"><SelectValue placeholder="Choose a charger" /></SelectTrigger>
-                    <SelectContent>{myChargers.map((c) => <SelectItem key={c.charger_id} value={c.charger_id}>{c.charger_id} — {c.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                  {selected && (
-                    <div className="rounded-xl border border-border/60 p-4 grid grid-cols-2 gap-y-2 text-sm" data-testid="selected-charger-info">
-                      <span className="text-muted-foreground">Charger</span><span className="text-right font-medium">{selected.name}</span>
-                      <span className="text-muted-foreground">Connector</span><span className="text-right">{selected.connector}</span>
-                      <span className="text-muted-foreground">Power</span><span className="text-right">{selected.max_power_kw} kW</span>
-                      <span className="text-muted-foreground">Location</span><span className="text-right">{selected.location || "—"}</span>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Manufacturer / Brand *</Label><Input data-testid="brand-input" value={info.brand} onChange={(e) => setInfo({ ...info, brand: e.target.value })} placeholder="e.g. Delta, ABB, Tata Power" className="h-11" /></div>
-              <div className="space-y-1.5"><Label>Model *</Label><Input data-testid="model-input" value={info.model} onChange={(e) => setInfo({ ...info, model: e.target.value })} placeholder="e.g. AC Mini 7.4" className="h-11" /></div>
-              <div className="space-y-1.5">
-                <Label>Charger Type *</Label>
-                <Select value={info.charger_type} onValueChange={(v) => setInfo({ ...info, charger_type: v })}>
-                  <SelectTrigger data-testid="type-select" className="h-11"><SelectValue placeholder="Select type" /></SelectTrigger>
-                  <SelectContent>{TYPE_OPTIONS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5"><Label>Serial Number</Label><Input data-testid="serial-input" value={info.serial_number} onChange={(e) => setInfo({ ...info, serial_number: e.target.value })} placeholder="Optional" className="h-11" /></div>
-              <div className="space-y-1.5"><Label>Power Rating</Label><Input data-testid="power-input" value={info.power_rating} onChange={(e) => setInfo({ ...info, power_rating: e.target.value })} placeholder="e.g. 7.4 kW (optional)" className="h-11" /></div>
-              <div className="space-y-1.5"><Label>Purchase Date</Label><Input data-testid="purchase-input" type="date" value={info.purchase_date} onChange={(e) => setInfo({ ...info, purchase_date: e.target.value })} className="h-11" /></div>
-            </div>
-          )}
-        </section>
-
-        {/* 3. Problem */}
-        <section className="mt-8">
-          <h2 className="font-display font-semibold mb-3">{"What's wrong with your charger?"}</h2>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Problem category</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger data-testid="category-select" className="h-11"><SelectValue placeholder="Select a category" /></SelectTrigger>
-                <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+        <section className="repair-section" aria-labelledby="details-heading">
+          <h2 id="details-heading">2. Charger details</h2>
+          {source === "mine" ? <div className="space-y-4">
+            {myChargers.length === 0 ? <div className="rounded-xl border border-border p-5 text-base text-muted-foreground">
+              No registered chargers found on your account. <button id="chargerId" type="button" {...fieldProps("chargerId")} className="underline font-medium min-h-11 text-foreground" onClick={() => chooseSource("other")}>Choose Other charger</button> to continue.
+              {fieldError("chargerId")}
+            </div> : <>
+              <Label htmlFor="chargerId">Select your charger *</Label>
+              <Select value={chargerId} onValueChange={(v) => { setChargerId(v); clearError("chargerId", v); }}>
+                <SelectTrigger {...fieldProps("chargerId")} data-testid="my-charger-select"><SelectValue placeholder="Choose a charger" /></SelectTrigger>
+                <SelectContent>{myChargers.map((c) => <SelectItem key={c.charger_id} value={c.charger_id}>{c.charger_id} — {c.name}</SelectItem>)}</SelectContent>
               </Select>
+              {fieldError("chargerId")}
+              {selected && <dl className="rounded-xl border border-border p-5 grid grid-cols-1 sm:grid-cols-2 gap-3 text-base break-words" data-testid="selected-charger-info">
+                <dt className="text-muted-foreground">Charger</dt><dd>{selected.name}</dd>
+                <dt className="text-muted-foreground">Connector</dt><dd>{selected.connector}</dd>
+                <dt className="text-muted-foreground">Power</dt><dd>{selected.max_power_kw} kW</dd>
+                <dt className="text-muted-foreground">Location</dt><dd>{selected.location || "—"}</dd>
+              </dl>}
+            </>}
+          </div> : <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {[['brand', 'Brand *', 'e.g. ABB, Delta, Tata Power'], ['model', 'Model (optional)', 'e.g. Terra AC, AC Mini 7.4']].map(([key, label, example]) => <div className="space-y-2" key={key}>
+              <Label htmlFor={key}>{label}</Label><Input {...fieldProps(key)} data-testid={`${key}-input`} value={info[key]} onChange={(e) => updateInfo(key, e.target.value)} placeholder={example} />{fieldError(key)}
+            </div>)}
+            <div className="space-y-2"><Label htmlFor="charger_type">Charger type *</Label>
+              <Select value={info.charger_type} onValueChange={(v) => updateInfo("charger_type", v)}>
+                <SelectTrigger {...fieldProps("charger_type", "type-help")} data-testid="type-select"><SelectValue placeholder="Choose a type" /></SelectTrigger>
+                <SelectContent>{TYPE_OPTIONS.map((t) => <SelectItem key={t.value} value={t.value} className="text-base">{t.label}</SelectItem>)}</SelectContent>
+              </Select><p id="type-help" className="text-sm text-muted-foreground">Don’t know the type? Choose “Not sure”.</p>{fieldError("charger_type")}
             </div>
-            <div className="space-y-1.5">
-              <Label>Describe the problem *</Label>
-              <Textarea data-testid="description-input" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="Please describe what happens when you try to use the charger..." />
+            <div className="space-y-2"><Label htmlFor="serial_number">Serial number (optional)</Label><Input id="serial_number" aria-describedby="serial-help" data-testid="serial-input" value={info.serial_number} onChange={(e) => updateInfo("serial_number", e.target.value)} /><p id="serial-help" className="text-sm text-muted-foreground">Usually printed on the charger label</p></div>
+            <div className="space-y-2"><Label htmlFor="power_rating">Power rating (optional)</Label><Input id="power_rating" data-testid="power-input" value={info.power_rating} onChange={(e) => updateInfo("power_rating", e.target.value)} placeholder="e.g. 7.4 kW" /></div>
+            <div className="space-y-2"><Label htmlFor="purchase_date">Purchase date (optional)</Label><Input id="purchase_date" data-testid="purchase-input" type="date" value={info.purchase_date} onChange={(e) => updateInfo("purchase_date", e.target.value)} /></div>
+          </div>}
+        </section>
+        <section className="repair-section" aria-labelledby="problem-heading">
+          <h2 id="problem-heading">3. Tell us what’s wrong</h2>
+          <p className="mb-6 text-base leading-relaxed text-muted-foreground">Choose the closest problem and describe what happens when you try to use the charger.</p>
+          <div className="space-y-6">
+            <div className="space-y-2"><Label htmlFor="category">Problem category (optional)</Label>
+              <Select value={category} onValueChange={setCategory}><SelectTrigger id="category" data-testid="category-select"><SelectValue placeholder="Choose the closest problem" /></SelectTrigger>
+                <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c} className="text-base">{c}</SelectItem>)}</SelectContent>
+              </Select></div>
+            <div className="space-y-2"><Label htmlFor="description">Describe the problem *</Label>
+              <Textarea {...fieldProps("description", "description-help")} data-testid="description-input" value={description} onChange={(e) => { setDescription(e.target.value); clearError("description", e.target.value); }} rows={5} className="min-h-[140px]" />
+              <p id="description-help" className="text-sm leading-relaxed text-muted-foreground">Include any error message, unusual sound, damaged cable, or what happens when charging starts.</p>{fieldError("description")}
             </div>
           </div>
         </section>
-
-        {/* 4. Photos */}
-        <section className="mt-8">
-          <h2 className="font-display font-semibold mb-1">Photos <span className="text-sm font-normal text-muted-foreground">(optional)</span></h2>
-          <p className="text-xs text-muted-foreground mb-3">Helpful: front & back of charger, rating label, connector/cable, and any visible damage. Max {MAX_PHOTOS} images, {MAX_MB}MB each.</p>
-          <div className="flex flex-wrap gap-3">
-            {photos.map((p, i) => (
-              <div key={i} className="relative h-20 w-20 rounded-lg overflow-hidden border border-border/60" data-testid={`photo-${i}`}>
-                <img src={p.data} alt={p.name} className="h-full w-full object-cover" />
-                <button onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))} data-testid={`remove-photo-${i}`} className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center"><X className="h-3 w-3" /></button>
-              </div>
-            ))}
-            {photos.length < MAX_PHOTOS && (
-              <label data-testid="photo-upload" className="h-20 w-20 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground cursor-pointer hover:border-charging transition-colors duration-200">
-                <Camera className="h-5 w-5" /><span className="text-[10px]">Add</span>
-                <input type="file" accept="image/*" multiple className="hidden" onChange={onFiles} data-testid="photo-input" />
-              </label>
-            )}
+        <section className="repair-section" aria-labelledby="photos-heading">
+          <h2 id="photos-heading">4. Add photos <span className="text-base font-normal text-muted-foreground">(optional)</span></h2>
+          <p id="photo-help" className="text-base text-muted-foreground mb-2">Show the charger, label, connector, cable or visible damage.</p>
+          <p id="photo-limits" className="text-sm text-muted-foreground mb-4">Up to 5 photos · 5 MB each</p>
+          <div className="flex flex-wrap gap-4">
+            {photos.map((p, i) => <div key={i} className="relative h-28 w-28 rounded-xl overflow-hidden border border-border" data-testid={`photo-${i}`}>
+              <img src={p.data} alt={p.name} className="h-full w-full object-cover" />
+              <button type="button" aria-label={`Remove photo ${i + 1}: ${p.name}`} onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))} data-testid={`remove-photo-${i}`} className="absolute top-1 right-1 h-11 w-11 rounded-full bg-black/80 text-white flex items-center justify-center"><X className="h-5 w-5" aria-hidden="true" /></button>
+            </div>)}
+            {photos.length < MAX_PHOTOS && <label data-testid="photo-upload" className="relative min-h-[140px] w-full sm:w-64 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-charging focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+              <Camera className="h-7 w-7 text-muted-foreground" aria-hidden="true" /><span className="text-base font-medium">Add photos</span>
+              <input type="file" aria-label="Add photos" aria-describedby="photo-help photo-limits" accept="image/*" multiple className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" onChange={onFiles} data-testid="photo-input" />
+            </label>}
           </div>
         </section>
-
-        {/* 5. Review */}
-        <section className="mt-8">
-          <h2 className="font-display font-semibold mb-3">Review</h2>
-          <div className="rounded-xl border border-border/60 p-4 space-y-3 text-sm" data-testid="review-section">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Charger</p>
-              {source === "mine" ? (
-                <p>{selected ? `${selected.charger_id} — ${selected.name}` : <span className="text-muted-foreground">No charger selected</span>}</p>
-              ) : (
-                <p>{info.brand || "—"} {info.model && `· ${info.model}`} {info.charger_type && `· ${TYPE_OPTIONS.find((t) => t.value === info.charger_type)?.label}`} {info.serial_number && `· SN: ${info.serial_number}`}</p>
-              )}
-            </div>
-            <div><p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Problem</p><p>{category || "—"}{description ? ` — ${description}` : ""}</p></div>
-            <div><p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Photos</p><p>{photos.length} uploaded</p></div>
+        <section className="repair-section" aria-labelledby="review-heading">
+          <h2 id="review-heading">5. Review and submit</h2>
+          <dl className="rounded-xl border border-border bg-secondary/20 p-5 sm:p-6 space-y-5 text-base break-words" data-testid="review-section">
+            <div><dt className="text-sm font-medium text-muted-foreground mb-1">Charger</dt><dd>{source === "mine" ? (selected ? `${selected.charger_id} — ${selected.name}` : "No charger selected") : [info.brand, info.model, TYPE_OPTIONS.find((t) => t.value === info.charger_type)?.label].filter(Boolean).join(" · ") || "Charger details not added yet"}</dd>{source === "other" && info.serial_number && <dd className="mt-1 text-sm text-muted-foreground">Serial number: {info.serial_number}</dd>}</div>
+            <div><dt className="text-sm font-medium text-muted-foreground mb-1">Problem</dt><dd>{category || "No category selected"}</dd></div>
+            <div><dt className="text-sm font-medium text-muted-foreground mb-1">Description</dt><dd className="whitespace-pre-wrap">{description || "No description added yet"}</dd></div>
+            <div><dt className="text-sm font-medium text-muted-foreground mb-1">Photos</dt><dd>{photos.length} attached</dd></div>
+          </dl>
+          <div className="mt-6 rounded-xl bg-charging/5 border border-charging/30 p-5 text-base leading-relaxed">
+            <p className="font-semibold flex items-start gap-3"><ShieldCheck className="h-6 w-6 text-charging shrink-0" aria-hidden="true" />No payment is required to submit a repair request.</p>
+            <p className="text-muted-foreground mt-3">After we receive and inspect your charger, we’ll share a repair estimate for your approval before work begins.</p>
           </div>
+          <label className="mt-6 grid w-full grid-cols-[20px_minmax(0,1fr)] items-start gap-3 text-base leading-relaxed cursor-pointer" htmlFor="whatsapp-opt-in">
+            <input id="whatsapp-opt-in" data-testid="whatsapp-opt-in" type="checkbox" checked={whatsappOptIn}
+              onChange={(e) => setWhatsappOptIn(e.target.checked)}
+              className="mt-1 shrink-0 cursor-pointer accent-green-500"
+              style={{ width: 20, height: 20, minWidth: 20, maxWidth: 20, padding: 0, flex: "none" }} />
+            <span className="min-w-0 break-normal">
+              I agree to receive RushX repair updates on WhatsApp (optional). Updates will be sent to my account phone number if one is available. I can still track my repair in the app without opting in.
+            </span>
+          </label>
+          <Button type="submit" disabled={submitting} aria-busy={submitting} data-testid="submit-repair-btn" className="w-full h-[52px] mt-6 rounded-lg text-base">
+            {submitting ? <><Loader2 className="h-5 w-5 animate-spin mr-2" aria-hidden="true" />Submitting request…</> : <>Submit repair request <ArrowRight className="h-5 w-5 ml-2" aria-hidden="true" /></>}
+          </Button>
         </section>
-
-        {/* 6. Payment note */}
-        <div className="mt-6 rounded-xl bg-charging/5 border border-charging/30 p-4 text-sm">
-          <p className="font-medium flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-charging shrink-0" /> No payment is required to submit a repair request.</p>
-          <p className="text-muted-foreground mt-1">Once we receive and diagnose your charger, we will provide a repair estimate for your approval before any repair work is carried out.</p>
-        </div>
-
-        <Button onClick={submit} disabled={submitting} data-testid="submit-repair-btn" className="w-full h-12 mt-6 rounded-lg text-base">
-          {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Submit repair request <ArrowRight className="h-4 w-4 ml-2" /></>}
-        </Button>
-      </div>
-    </CustomerShell>
-  );
+      </form>
+    </div>
+  </CustomerShell>;
 }

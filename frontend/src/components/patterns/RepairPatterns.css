@@ -1,0 +1,212 @@
+.rx-service-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.rx-service-card {
+  padding: 26px 22px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  background: hsl(var(--card));
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
+}
+.rx-service-card:hover {
+  transform: translateY(-4px);
+  border-color: hsl(var(--brand-border));
+}
+.rx-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 40px;
+  color: hsl(var(--brand-foreground));
+}
+.rx-card-top > span {
+  font-family: monospace;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+.rx-service-card p {
+  font-size: 13px;
+  min-height: 64px;
+}
+.rx-card-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 24px;
+}
+.rx-journey {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 25px;
+  list-style: none;
+  padding: 0;
+  margin: 40px 0 0;
+}
+.rx-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 39px;
+  height: 39px;
+  background: hsl(var(--brand-surface));
+  border: 1px solid hsl(var(--brand-border));
+  border-radius: 50%;
+  font-family: monospace;
+  font-size: 12px;
+  margin-bottom: 24px;
+}
+.rx-journey h3 {
+  font-size: 18px;
+}
+.rx-journey p {
+  font-size: 12px;
+}
+.rx-questions details {
+  border-bottom: 1px solid hsl(var(--border));
+}
+.rx-questions summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 23px 0;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rx-questions summary::-webkit-details-marker {
+  display: none;
+}
+.rx-questions summary > span {
+  font-size: 22px;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+.rx-questions details[open] summary > span {
+  transform: rotate(45deg);
+}
+.rx-questions details p {
+  font-size: 14px;
+  margin-top: 0;
+  padding-right: 28px;
+}
+@media (max-width: 1000px) {
+  .rx-service-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rx-service-card p {
+    min-height: 0;
+  }
+  .rx-journey {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+  }
+}
+@media (max-width: 760px) {
+  .rx-service-grid {
+    gap: 12px;
+  }
+  .rx-service-card {
+    padding: 20px 16px;
+  }
+  .rx-card-top {
+    margin-bottom: 30px;
+  }
+  .rx-service-card h3 {
+    font-size: 20px;
+  }
+  .rx-card-link {
+    font-size: 11px;
+  }
+  .rx-journey {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-top: 30px;
+  }
+  .rx-journey li {
+    position: relative;
+    padding: 0 0 28px 65px;
+    min-height: 100px;
+  }
+  .rx-journey li:not(:last-child):before {
+    content: "";
+    position: absolute;
+    left: 19px;
+    top: 40px;
+    bottom: 0;
+    border-left: 1px solid hsl(var(--brand-border));
+  }
+  .rx-step {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  .rx-journey h3 {
+    padding-top: 7px;
+  }
+  .rx-journey p {
+    font-size: 14px;
+    margin-top: 12px;
+  }
+  .rx-questions summary {
+    font-size: 14px;
+  }
+  .rx-questions details p {
+    padding-right: 0;
+  }
+}
+@media (max-width: 360px) {
+  .rx-service-grid {
+    grid-template-columns: 1fr;
+  }
+  .rx-service-card p {
+    font-size: 14px;
+  }
+  .rx-card-top {
+    margin-bottom: 25px;
+  }
+}
+.rx-service-card,
+.rx-journey,
+.rx-questions {
+  color: hsl(var(--foreground));
+  font-family: var(--font-body);
+  line-height: 1.7;
+}
+.rx-service-card {
+  display: block;
+  text-decoration: none;
+}
+.rx-service-card h3,
+.rx-journey h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+.rx-service-card h3 {
+  font-size: 1.35rem;
+}
+.rx-service-card p,
+.rx-journey p,
+.rx-questions p {
+  color: hsl(var(--muted-foreground));
+  margin: 1rem 0;
+}
+.rx-service-card:focus-visible,
+.rx-questions summary:focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 5px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rx-service-card {
+    transition: none;
+  }
+}

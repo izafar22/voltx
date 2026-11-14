@@ -1,3 +1,4 @@
+from auth_client import login_headers, new_phone
 """Phase 2 backend tests: customer repair request creation flow (as exercised by the UI)
 plus quick regression on existing endpoints. Uses the public REACT_APP_BACKEND_URL.
 """
@@ -26,17 +27,11 @@ TINY_PNG = (
 
 
 def login(phone, name=None):
-    requests.post(f"{BASE}/auth/request-otp", json={"phone": phone}, timeout=30)
-    body = {"phone": phone, "otp": OTP}
-    if name:
-        body["name"] = name
-    r = requests.post(f"{BASE}/auth/verify-otp", json=body, timeout=30)
-    assert r.status_code == 200, r.text
-    return {"Authorization": f"Bearer {r.json()['token']}"}
+    return login_headers(BASE, phone, name)
 
 
 def new_customer():
-    return login("+9197" + uuid.uuid4().hex[:8], "TEST_Phase2")
+    return login(new_phone(), "TEST_Phase2")
 
 
 @pytest.fixture(scope="module")
@@ -191,7 +186,7 @@ class TestRegression:
                           json={"charger_id": "IND000001"}, timeout=30)
         assert s.status_code in (200, 400, 409), s.text
         if s.status_code == 200:
-            sid = s.json()["id"]
+            sid = s.json()["session_id"]
             g = requests.get(f"{BASE}/sessions/{sid}/live", headers=cust, timeout=30)
             assert g.status_code == 200
             stop = requests.post(f"{BASE}/sessions/{sid}/stop", headers=cust, timeout=30)

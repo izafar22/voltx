@@ -1,23 +1,69 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 
 const ThemeContext = createContext();
-
-export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState(() => {
+const validTheme = (value) => value === "light" || value === "dark";
+const systemTheme = () =>
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+const preferredTheme = () => {
+  try {
     const stored = localStorage.getItem("rushx-theme");
-    if (stored) return stored;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  });
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
-    localStorage.setItem("rushx-theme", theme);
-  }, [theme]);
-
-  const toggle = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
-  return <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>;
+    if (validTheme(stored)) return stored;
+  } catch {
+    /* Private browsing can disable storage. */
+  }
+  return systemTheme();
 };
-
+// Storybook controls this same provider; the app uses its persisted default.
+export const ThemeProvider = ({
+  children,
+  theme: controlledTheme,
+  onThemeChange,
+}) => {
+  const [preference, setPreference] = useState(preferredTheme);
+  const theme = validTheme(controlledTheme) ? controlledTheme : preference;
+  const setTheme = (value) => {
+    if (!validTheme(value)) return;
+    setPreference(value);
+    onThemeChange?.(value);
+  };
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
+    try {
+      localStorage.setItem("rushx-theme", theme);
+    } catch {
+      /* Theme still works without persistence. */
+    }
+  }, [theme]);
+  useEffect(() => {
+    const sync = (event) => {
+      if (event.key === "rushx-theme")
+        setPreference(
+          validTheme(event.newValue) ? event.newValue : systemTheme(),
+        );
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
+  return (
+    <ThemeContext.Provider
+      value={{
+        theme,
+        setTheme,
+        toggle: () => setTheme(theme === "dark" ? "light" : "dark"),
+      }}
+    >
+      {children}
+    </ThemeContext.Provider>
+  );
+};
 export const useTheme = () => useContext(ThemeContext);
