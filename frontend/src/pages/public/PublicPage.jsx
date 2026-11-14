@@ -136,6 +136,7 @@ export default function PublicPage() {
                 {label}
               </NavLink>
             ))}
+            <a href="/blog" onClick={() => setOpen(false)}>Blog</a>
             <Link to="/repairs" onClick={() => setOpen(false)}>
               Track a repair
             </Link>
@@ -212,6 +213,7 @@ export default function PublicPage() {
                 </Link>
               ))}
               <Link to="/repairs/new">Book a Repair</Link>
+              <a href="/compare">Compare</a>
               <Link to="/repairs">Track a repair</Link>
             </nav>
           </div>
