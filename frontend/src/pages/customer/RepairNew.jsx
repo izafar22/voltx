@@ -274,14 +274,12 @@ export default function RepairNew() {
             <p className="font-semibold flex items-start gap-3"><ShieldCheck className="h-6 w-6 text-charging shrink-0" aria-hidden="true" />No payment is required to submit a repair request.</p>
             <p className="text-muted-foreground mt-3">After we receive and inspect your charger, we’ll share a repair estimate for your approval before work begins.</p>
           </div>
-          <div className="mt-6 grid w-full grid-cols-[20px_minmax(0,1fr)] items-start gap-3 text-base leading-relaxed text-muted-foreground">
+          <div className="mt-6 flex w-full items-start gap-3 text-base leading-relaxed text-muted-foreground">
             <input id="whatsapp-opt-in" data-testid="whatsapp-opt-in" type="checkbox" checked={false} disabled
-              aria-describedby="whatsapp-coming-soon"
-              className="mt-1 shrink-0 accent-green-500"
-              style={{ width: 20, height: 20, minWidth: 20, maxWidth: 20, padding: 0, flex: "none" }} />
-            <span id="whatsapp-coming-soon" className="min-w-0 break-normal">
+              className="mt-1 h-5 w-5 shrink-0 accent-green-500" />
+            <label htmlFor="whatsapp-opt-in" className="min-w-0 flex-1 break-normal">
               WhatsApp repair updates — Coming soon. You can still track your repair in the app.
-            </span>
+            </label>
           </div>
           <Button type="submit" disabled={submitting} aria-busy={submitting} data-testid="submit-repair-btn" className="w-full h-[52px] mt-6 rounded-lg text-base">
             {submitting ? <><Loader2 className="h-5 w-5 animate-spin mr-2" aria-hidden="true" />Submitting request…</> : <>Submit repair request <ArrowRight className="h-5 w-5 ml-2" aria-hidden="true" /></>}
