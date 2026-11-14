@@ -115,8 +115,9 @@ test('WhatsApp coming soon is disabled and repair submission always opts out', a
   const label = container.querySelector('label[for="whatsapp-opt-in"]');
   expect(label).not.toBeNull();
   expect(label.textContent).toContain('WhatsApp repair updates — Coming soon');
-  expect(checkbox.parentElement.className).toContain('flex');
-  expect(checkbox.parentElement.className).not.toContain('grid-cols-[');
+  expect(checkbox.parentElement.className).toContain('grid');
+  expect(checkbox.parentElement.className).toContain('grid-cols-[20px_minmax(0,1fr)]');
+  expect(label.className).toContain('min-w-0');
   click('whatsapp-opt-in');
   expect(checkbox.checked).toBe(false);
   await act(async () => submit());
