@@ -12,7 +12,7 @@ WhatsApp: `backend/services/whatsapp_service.py` contains provider configuration
 Frontend public storytelling lives under `frontend/src/pages/public/storytelling/`; assets under `frontend/public/assets/visual-storytelling/`.
 
 ## Operational boundaries
-Production hosting has been discussed as Render, but current frontend host, Render deploy branch, active database name, secret settings, production release SHA and deployment topology require live verification. Never infer deployment from a merged PR. Production database bootstrap, index checks and admin provisioning require operator-approved runbooks.
+Oracle production has independently selected frontend and backend releases. Use the read-only check in `AGENTS.md` to verify the active frontend release directory, backend working directory and service PID. See `docs/ORACLE_PRODUCTION_DEPLOYMENT.md` for the dated hosting snapshot. Production database bootstrap, index checks and admin provisioning require operator-approved runbooks.
 
 ## Before architecture changes
 Trace actual call paths, data schemas, async workers, auth boundaries, failure/retry semantics, migrations and monitoring. Update this file with verified facts, diagrams and source links as they become known. Clearly mark assumptions and planned systems.

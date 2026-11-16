@@ -14,4 +14,22 @@ Do not merge, deploy, alter Render settings, run production migrations, send pro
 
 Production deployment reference (operator-verified 2026-11-10): read `docs/ORACLE_PRODUCTION_DEPLOYMENT.md` before changing hosting, Nginx, DNS, TLS, frontend release artifacts, backend routing, or deployment automation. Treat it as a dated snapshot; verify live state.
 
+## Check the live production release
+
+When asked what is deployed, run this read-only check from the Mac with the dedicated key loaded in its SSH agent:
+
+```sh
+ssh -T -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 \
+  -i "$HOME/.ssh/rushx_prod_release_check" rushx-release-check@168.138.113.64
+```
+
+The restricted account runs the release check when connected without a remote command. Report the frontend SHA from `frontend_release_dir` and the backend SHA from `backend_working_dir` separately. Check that `backend_pid` is nonzero before reporting the backend as running. For each SHA, look for exact matches in local and cached origin release refs:
+
+```sh
+git for-each-ref --points-at "$sha" --format='%(refname:short)' \
+  'refs/heads/release_*' 'refs/remotes/origin/release_*'
+```
+
+Check `git ls-remote --heads origin 'refs/heads/release_*'` for current remote refs if needed. If the branch is ambiguous or unavailable, report the SHA and explain what could be verified. If SSH fails, report the current deployment as unverified and label any historical evidence with its date.
+
 Growth Studio blog (server-rendered by FastAPI, Nginx routing, update route): `docs/STUDIO_CMS.md`.
