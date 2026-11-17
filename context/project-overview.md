@@ -14,12 +14,11 @@ The broader product history contains functionality outside the repair-focused MV
 
 ## Branch and release policy
 - `main`: intended long-term production source of truth; **transition not yet verified or executed**.
-- `repair-mvp`: current repair-focused baseline; do not silently replace or delete.
+- `repair-mvp`: current source of truth and base for new production and staging branches.
 - `development`: existing branch; audit before choosing/renaming an integration baseline.
 - `develop`: proposed integration branch, **not confirmed created**.
 - `feature/<topic>`: isolated feature work; `hotfix/<topic>`: emergency fix.
-- `release_rushx_1.0` and later versioned branches: proposed release stabilization branches.
-- Immutable `v1.0.0`-style tags identify deployed commits. Production deploys should be traceable to a tested tagged commit from `main`.
+- Production release branches follow `release_<YYYYMMDD>_version<Major.minor.patch>`. Existing refs may use lowercase `version`. Verify deployed commits using the live check in `AGENTS.md`.
 - No production branch/Render switch until an approved transition plan verifies deployed SHA, rollback, and parked-feature preservation.
 
 ## Product integrity

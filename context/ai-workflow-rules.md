@@ -14,7 +14,7 @@ These rules apply to Codex and other agents working on RushX.
 - Documentation-only: `docs/<topic>`; urgent fixes: `hotfix/<topic>`.
 - `main` is intended to be production-only after a separately approved transition. `repair-mvp` remains the current baseline until that transition is executed.
 - Existing `development` and proposed `develop` must not be assumed equivalent.
-- Versioned `release_rushx_1.0`-style branches are for release stabilization; approved releases are tagged immutably (e.g. `v1.0.0`).
+- Create production and staging branches from `repair-mvp`. Production branches follow `release_<YYYYMMDD>_version<Major.minor.patch>`. Existing refs may use lowercase `version`.
 - Never force-push, delete historical refs, overwrite parked features, merge broad legacy snapshots or retarget CI/Render silently.
 - Do not create/rename production or archive branches without approval and an audit of their source commits.
 
@@ -34,5 +34,5 @@ These rules apply to Codex and other agents working on RushX.
 ## 5. Release and parked features
 - Keep parked code/history reachable; inventory legacy features with branch/commit evidence.
 - Restore each approved parked feature on a separate branch with integration tests and migration assessment.
-- Stabilize release branch, review, promote to `main`, tag exact deployed commit, verify smoke tests and record rollback SHA.
+- Stabilize release branch, review, promote to `repair-mvp`, tag exact deployed commit, verify smoke tests and record rollback SHA.
 - No production changes as a side effect of context-documentation tasks.
