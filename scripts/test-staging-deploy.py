@@ -26,7 +26,7 @@ class StagingDeployTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     deploy.unpack(archive, directory)
 
-    def test_failed_candidate_restores_both_components(self):
+    def test_failed_candidate_restores_both_components_and_retry_succeeds(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             live = root / "live"
@@ -49,6 +49,8 @@ class StagingDeployTests(unittest.TestCase):
                 if "--property=User" in args:
                     return "ubuntu"
                 if "--property=WorkingDirectory" in args:
+                    if dropin.read_text() == "previous backend configuration":
+                        return str(stable / "backend")
                     return str(root / "releases" / f"{sha}-2" / "backend")
                 return ""
             with patch.multiple(deploy, ROOT=root, LIVE=live, DROPIN=dropin), \
@@ -62,6 +64,12 @@ class StagingDeployTests(unittest.TestCase):
                 self.assertEqual(dropin.read_text(), "previous backend configuration")
                 self.assertFalse((root / "active.json").exists())
                 self.assertEqual(health.call_count, 3)
+                health.side_effect = None
+                deploy.deploy(None, sha, 2)
+                self.assertEqual(live.resolve(), (root / "releases" / f"{sha}-2" / "frontend").resolve())
+                active = json.loads((root / "active.json").read_text())
+                self.assertEqual(active["sha"], sha)
+                self.assertEqual(active["run_number"], 2)
 
     def test_stale_candidate_never_switches(self):
         with tempfile.TemporaryDirectory() as directory:
