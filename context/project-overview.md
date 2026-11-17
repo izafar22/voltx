@@ -18,7 +18,7 @@ The broader product history contains functionality outside the repair-focused MV
 - `development`: existing branch; audit before choosing/renaming an integration baseline.
 - `develop`: proposed integration branch, **not confirmed created**.
 - `feature/<topic>`: isolated feature work; `hotfix/<topic>`: emergency fix.
-- Production release branches follow `release_<YYYYMMDD>_Version<Major.minor.patch>`. Existing refs may use lowercase `version`. Verify deployed commits using the live check in `AGENTS.md`.
+- Production release branches follow `release_<YYYYMMDD>_version<Major.minor.patch>`. Existing refs may use lowercase `version`. Verify deployed commits using the live check in `AGENTS.md`.
 - No production branch/Render switch until an approved transition plan verifies deployed SHA, rollback, and parked-feature preservation.
 
 ## Product integrity
