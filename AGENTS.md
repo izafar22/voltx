@@ -45,4 +45,6 @@ ssh -T -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o Co
 
 Read the frontend commit from the resolved `frontend_release_dir` when its basename is a SHA. The manifest fingerprint identifies the served assets, which can be identical across commits. For the backend, report the service state from `ActiveState` and `MainPID`. Report a backend revision only when the release path or deployment metadata identifies it. A working directory such as `/opt/rushx-staging/app/backend` alone does not establish a revision. Report missing revision information or an SSH failure explicitly.
 
+The staging CD layout uses `/opt/rushx-staging/cd/releases/<SHA>-<CI-run-number>/frontend` and `backend` directories. Extract the SHA from their parent directory. Setup and recovery are documented in `docs/STAGING_CD.md`.
+
 Growth Studio blog (server-rendered by FastAPI, Nginx routing, update route): `docs/STUDIO_CMS.md`.

@@ -6,7 +6,8 @@ Deployment policy reviewed: 2026-11-18. Other work items retain their dated evid
 
 | Status | Work item | Evidence / next action |
 |---|---|---|
-| PLANNED | Automatic staging CD and selected production promotion | Requirements agreed 2026-11-18 in `docs/DEPLOYMENT_REQUIREMENTS.md`; next implement and validate the workflows |
+| IN_PROGRESS | Automatic staging CD | `feature/automatic-staging-cd` adds paired deployment after mainline CI, release metadata and rollback. Local extraction, stale-candidate and rollback checks pass. VM installation, GitHub secrets and live activation pending; see `docs/STAGING_CD.md` |
+| PLANNED | Selected production promotion | Requirements agreed 2026-11-18 in `docs/DEPLOYMENT_REQUIREMENTS.md`; implementation pending |
 | DONE | Homepage workshop hero | PR #27 merged to `repair-mvp`; deployment not independently verified |
 | DONE | WhatsApp OTP integration code | PR #26 merged to `repair-mvp`; check production runtime separately |
 | IN_PROGRESS | WhatsApp lifecycle Utility templates | User configured eight production templates; screenshot showed six active and two in review on 2026-11-06. Recheck Meta status and exact template names/languages/parameters before integration |
