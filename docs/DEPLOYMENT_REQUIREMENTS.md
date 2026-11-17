@@ -25,7 +25,7 @@ Agreed with the owner on 2026-11-18. This specification defines the intended dep
 1. The owner selects the production features or commits and approves the release scope.
 2. Prepare the release from the active production baseline, accounting for the separately deployed frontend and backend revisions.
 3. Test the selected release combination through CI before deployment. Staging tests of the full integration branch do not establish that a selected production subset passes.
-4. Production deployment requires explicit owner approval of the release. Creating or updating a release branch alone must not authorize deployment.
+4. Production deployment requires explicit owner approval of the release. Creating or updating a release branch alone must not authorize deployment. Deploy the exact frontend artifact and backend revision that passed CI and received approval. A change to either requires new CI and owner approval.
 5. Verify the deployed frontend and backend, record both active revisions, retain previous releases and provide rollback.
 
 ## Acceptance criteria

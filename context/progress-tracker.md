@@ -2,10 +2,11 @@
 
 Deployment policy agreed 2026-11-18 is recorded in `docs/DEPLOYMENT_REQUIREMENTS.md`. Automatic staging CD and selected production promotion remain implementation work.
 
-Last reviewed: 2026-11-12. Statuses: DONE / IN_PROGRESS / PLANNED / PARKED / BLOCKED. A status describes available evidence, not a claim of production deployment.
+Deployment policy reviewed: 2026-11-18. Other work items retain their dated evidence. Statuses: DONE / IN_PROGRESS / PLANNED / PARKED / BLOCKED. A status describes available evidence, not a claim of production deployment.
 
 | Status | Work item | Evidence / next action |
 |---|---|---|
+| PLANNED | Automatic staging CD and selected production promotion | Requirements agreed 2026-11-18 in `docs/DEPLOYMENT_REQUIREMENTS.md`; next implement and validate the workflows |
 | DONE | Homepage workshop hero | PR #27 merged to `repair-mvp`; deployment not independently verified |
 | DONE | WhatsApp OTP integration code | PR #26 merged to `repair-mvp`; check production runtime separately |
 | IN_PROGRESS | WhatsApp lifecycle Utility templates | User configured eight production templates; screenshot showed six active and two in review on 2026-11-06. Recheck Meta status and exact template names/languages/parameters before integration |

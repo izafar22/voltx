@@ -14,7 +14,7 @@ These rules apply to Codex and other agents working on RushX.
 - Documentation-only: `docs/<topic>`; urgent fixes: `hotfix/<topic>`.
 - `main` is intended to be production-only after a separately approved transition. `repair-mvp` remains the current baseline until that transition is executed.
 - Existing `development` and proposed `develop` must not be assumed equivalent.
-- Staging automatically follows CI-passing `repair-mvp` updates. Production candidates build on active production revisions with owner-selected changes from `repair-mvp`. Follow `docs/DEPLOYMENT_REQUIREMENTS.md`.
+- Once implemented and activated, staging automatically follows CI-passing `repair-mvp` updates. Production candidates build on active production revisions with owner-selected changes from `repair-mvp`. Follow `docs/DEPLOYMENT_REQUIREMENTS.md`.
 - Never force-push, delete historical refs, overwrite parked features, merge broad legacy snapshots or retarget CI/Render silently.
 - Do not create/rename production or archive branches without approval and an audit of their source commits.
 
