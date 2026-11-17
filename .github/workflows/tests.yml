@@ -26,6 +26,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Oracle frontend deploy regression tests
         run: bash scripts/test-oracle-frontend-deploy.sh
+      - name: Staging deployment regression tests
+        run: python3 scripts/test-staging-deploy.py
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -72,3 +74,64 @@ jobs:
             frontend/e2e/test-results
             frontend/e2e/test-results-storybook
             frontend/e2e/storybook-snapshots
+      - name: Package tested staging release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/repair-mvp'
+        run: |
+          mkdir -p staging-release/frontend
+          cp -a frontend/build/. staging-release/frontend/
+          git archive HEAD backend | tar -x -C staging-release
+          python -m pip freeze > staging-release/requirements.lock
+          python - <<'PY'
+          import json, os, pathlib
+          metadata = dict(sha=os.environ["GITHUB_SHA"], branch="repair-mvp",
+                          run_number=int(os.environ["GITHUB_RUN_NUMBER"]),
+                          run_url=os.environ["GITHUB_SERVER_URL"] + "/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + os.environ["GITHUB_RUN_ID"])
+          pathlib.Path("staging-release/release.json").write_text(json.dumps(metadata) + "\n")
+          PY
+          tar -C staging-release -czf staging-release.tar.gz .
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/repair-mvp'
+        with:
+          name: staging-release-${{ github.sha }}
+          path: staging-release.tar.gz
+          if-no-files-found: error
+
+  deploy-staging:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/repair-mvp'
+    runs-on: ubuntu-22.04
+    environment:
+      name: staging
+      url: https://staging.evchargerrepair.in
+    concurrency:
+      group: rushx-staging-deployment
+      cancel-in-progress: false
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: staging-release-${{ github.sha }}
+      - name: Deploy tested release to staging
+        env:
+          STAGING_SSH_KEY: ${{ secrets.STAGING_DEPLOY_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$STAGING_SSH_KEY" > ~/.ssh/staging_deploy
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          test -s ~/.ssh/staging_deploy
+          test -s ~/.ssh/known_hosts
+          ssh -T -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -i ~/.ssh/staging_deploy \
+            rushx-staging-deploy@137.23.43.117 "$GITHUB_SHA $GITHUB_RUN_NUMBER" < staging-release.tar.gz
+      - name: Record deployment result
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: |
+          printf 'Staging deployment of %s finished with %s.\n' "$GITHUB_SHA" "$RESULT" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$RESULT" != success ]]; then
+            echo "::error::Staging deployment failed. Check the deploy log for rollback status and verify the staging release over read-only SSH."
+          fi

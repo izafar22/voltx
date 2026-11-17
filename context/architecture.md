@@ -16,6 +16,8 @@ Oracle production has independently selected frontend and backend releases. Use 
 
 On the Oracle staging VM, Nginx serves the frontend through `/var/www/rushx-staging/staging` and proxies the API to `rushx-staging.service`. The separate staging SSH check in `AGENTS.md` resolves the frontend release and reports the backend service state and working directory.
 
+Staging CD implementation is described in `docs/STAGING_CD.md`. The proposed `deploy-staging` job follows passing mainline CI and deploys both components from its artifact through a staging-only SSH helper. Live activation requires the dedicated deployment account and GitHub staging secrets.
+
 ## Before architecture changes
 Trace actual call paths, data schemas, async workers, auth boundaries, failure/retry semantics, migrations and monitoring. Update this file with verified facts, diagrams and source links as they become known. Clearly mark assumptions and planned systems.
 
