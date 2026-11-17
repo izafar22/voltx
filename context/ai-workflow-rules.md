@@ -14,7 +14,7 @@ These rules apply to Codex and other agents working on RushX.
 - Documentation-only: `docs/<topic>`; urgent fixes: `hotfix/<topic>`.
 - `main` is intended to be production-only after a separately approved transition. `repair-mvp` remains the current baseline until that transition is executed.
 - Existing `development` and proposed `develop` must not be assumed equivalent.
-- Create production and staging branches from `repair-mvp`. Production branches follow `release_<YYYYMMDD>_version<Major.minor.patch>`. Existing refs may use lowercase `version`.
+- Staging automatically follows CI-passing `repair-mvp` updates. Production candidates build on active production revisions with owner-selected changes from `repair-mvp`. Follow `docs/DEPLOYMENT_REQUIREMENTS.md`.
 - Never force-push, delete historical refs, overwrite parked features, merge broad legacy snapshots or retarget CI/Render silently.
 - Do not create/rename production or archive branches without approval and an audit of their source commits.
 
@@ -29,7 +29,7 @@ These rules apply to Codex and other agents working on RushX.
 - Inspect diff for unrelated changes, secrets, migrations, breaking API changes and missing docs.
 - Update applicable context files, especially progress and architecture, within the same PR.
 - Open PR with scope, changed files, actual test evidence, risks, rollout and rollback. Do not claim unexecuted tests passed.
-- **Never automatically merge or deploy.** Explicit user approval is required for merge, release tagging, deploy, live DB operations, Meta sends or environment changes.
+- Explicit user approval is required for merges, release tagging, production deployment, live DB operations, Meta sends and environment configuration changes. Once implemented and activated, staging CD follows the automatic policy in `docs/DEPLOYMENT_REQUIREMENTS.md`.
 
 ## 5. Release and parked features
 - Keep parked code/history reachable; inventory legacy features with branch/commit evidence.

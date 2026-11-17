@@ -1,5 +1,7 @@
 # RushX progress tracker
 
+Deployment policy agreed 2026-11-18 is recorded in `docs/DEPLOYMENT_REQUIREMENTS.md`. Automatic staging CD and selected production promotion remain implementation work.
+
 Last reviewed: 2026-11-12. Statuses: DONE / IN_PROGRESS / PLANNED / PARKED / BLOCKED. A status describes available evidence, not a claim of production deployment.
 
 | Status | Work item | Evidence / next action |
