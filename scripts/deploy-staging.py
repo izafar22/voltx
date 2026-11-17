@@ -17,6 +17,7 @@ import urllib.request
 
 
 ROOT = Path("/opt/rushx-staging/cd")
+FRONTEND_RELEASES = Path("/var/www/rushx-staging/cd-releases")
 LIVE = Path("/var/www/rushx-staging/staging")
 DROPIN = Path("/etc/systemd/system/rushx-staging.service.d/90-staging-cd.conf")
 SERVICE = "rushx-staging.service"
@@ -99,15 +100,15 @@ def prune_releases():
             for name in ("previous_frontend", "previous_backend_working_directory"):
                 if metadata.get(name):
                     protected.append(Path(metadata[name]))
-        releases = ROOT / "releases"
-        candidates = sorted(
-            (path for path in releases.glob("*") if not path.is_symlink() and path.is_dir()
-             and re.fullmatch(r"[0-9a-f]{40}-[1-9][0-9]*", path.name)),
-            key=lambda path: int(path.name.rsplit("-", 1)[1]), reverse=True,
-        )
-        for path in candidates[5:]:
-            if not any(target.resolve().is_relative_to(path.resolve()) for target in protected):
-                shutil.rmtree(path)
+        for releases in (ROOT / "releases", FRONTEND_RELEASES):
+            candidates = sorted(
+                (path for path in releases.glob("*") if not path.is_symlink() and path.is_dir()
+                 and re.fullmatch(r"[0-9a-f]{40}-[1-9][0-9]*", path.name)),
+                key=lambda path: int(path.name.rsplit("-", 1)[1]), reverse=True,
+            )
+            for path in candidates[5:]:
+                if not any(target.resolve().is_relative_to(path.resolve()) for target in protected):
+                    shutil.rmtree(path)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"WARNING: staging release cleanup failed: {error}", file=sys.stderr, flush=True)
 
@@ -126,12 +127,14 @@ def deploy(archive, sha, sequence):
         return
     prune_releases()
     release = ROOT / "releases" / f"{sha}-{sequence}"
-    if release.exists():
-        backend_directory = Path(run("systemctl", "show", SERVICE, "--property=WorkingDirectory", "--value"))
-        if (LIVE.resolve().is_relative_to(release) or backend_directory.is_relative_to(release)
-                or release.is_symlink()):
-            raise RuntimeError("Existing candidate is active or unsafe")
-        shutil.rmtree(release)
+    frontend_release = FRONTEND_RELEASES / f"{sha}-{sequence}"
+    backend_directory = Path(run("systemctl", "show", SERVICE, "--property=WorkingDirectory", "--value"))
+    for candidate in (release, frontend_release):
+        if candidate.exists() or candidate.is_symlink():
+            if (LIVE.resolve().is_relative_to(candidate) or backend_directory.is_relative_to(candidate)
+                    or candidate.is_symlink()):
+                raise RuntimeError("Existing candidate is active or unsafe")
+            shutil.rmtree(candidate)
     release.mkdir(parents=True)
     unpack(archive, release)
     metadata = json.loads((release / "release.json").read_text())
@@ -154,6 +157,8 @@ def deploy(archive, sha, sequence):
                     "install", "--disable-pip-version-check", "-r", str(release / "requirements.lock")],
                    check=True)
     shutil.copyfile(release / "release.json", release / "frontend/release.json")
+    FRONTEND_RELEASES.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(release / "frontend", frontend_release)
     previous_frontend = LIVE.resolve()
     previous_backend = run("systemctl", "show", SERVICE, "--property=WorkingDirectory", "--value")
     previous_dropin = DROPIN.read_bytes() if DROPIN.exists() else None
@@ -163,7 +168,7 @@ def deploy(archive, sha, sequence):
         run("systemctl", "restart", SERVICE)
         if run("systemctl", "show", SERVICE, "--property=WorkingDirectory", "--value") != str(release / "backend"):
             raise RuntimeError("Backend working directory does not match the candidate")
-        replace_link(LIVE, release / "frontend")
+        replace_link(LIVE, frontend_release)
         healthy((release / "release.json").read_bytes())
         metadata["previous_frontend"] = str(previous_frontend)
         metadata["previous_backend_working_directory"] = previous_backend

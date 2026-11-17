@@ -53,7 +53,7 @@ class StagingDeployTests(unittest.TestCase):
                         return str(stable / "backend")
                     return str(root / "releases" / f"{sha}-2" / "backend")
                 return ""
-            with patch.multiple(deploy, ROOT=root, LIVE=live, DROPIN=dropin), \
+            with patch.multiple(deploy, ROOT=root, LIVE=live, DROPIN=dropin, FRONTEND_RELEASES=root / "www"), \
                     patch.object(deploy, "unpack", side_effect=fake_unpack), \
                     patch.object(deploy, "run", side_effect=fake_run), \
                     patch.object(deploy.subprocess, "run"), \
@@ -66,7 +66,7 @@ class StagingDeployTests(unittest.TestCase):
                 self.assertEqual(health.call_count, 3)
                 health.side_effect = None
                 deploy.deploy(None, sha, 2)
-                self.assertEqual(live.resolve(), (root / "releases" / f"{sha}-2" / "frontend").resolve())
+                self.assertEqual(live.resolve(), (root / "www" / f"{sha}-2").resolve())
                 active = json.loads((root / "active.json").read_text())
                 self.assertEqual(active["sha"], sha)
                 self.assertEqual(active["run_number"], 2)
@@ -77,7 +77,7 @@ class StagingDeployTests(unittest.TestCase):
             live = root / "live"
             live.symlink_to(root)
             (root / "active.json").write_text('{"run_number":10}')
-            with patch.multiple(deploy, ROOT=root, LIVE=live), \
+            with patch.multiple(deploy, ROOT=root, LIVE=live, FRONTEND_RELEASES=root / "www"), \
                     patch.object(deploy, "run", return_value="ubuntu"), \
                     patch.object(deploy, "healthy"), patch.object(deploy, "unpack") as unpack:
                 deploy.deploy(None, "a" * 40, 9)
@@ -98,7 +98,7 @@ class StagingDeployTests(unittest.TestCase):
             (root / "active.json").write_text(json.dumps(dict(
                 previous_frontend=str(paths[2] / "frontend"),
                 previous_backend_working_directory=str(paths[3] / "backend"))))
-            with patch.multiple(deploy, ROOT=root, LIVE=live), \
+            with patch.multiple(deploy, ROOT=root, LIVE=live, FRONTEND_RELEASES=root / "www"), \
                     patch.object(deploy, "run", return_value=str(paths[1] / "backend")):
                 deploy.prune_releases()
                 self.assertTrue(all(path.exists() for path in paths))

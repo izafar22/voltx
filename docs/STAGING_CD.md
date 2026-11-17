@@ -1,5 +1,7 @@
 # Automatic staging deployment
 
+Activated and verified on 2026-11-18. Run [44178531783](https://github.com/izafar22/voltx/actions/runs/44178531783) passed CI and deployed both components at `49acf600cddc29cf2caadd0d81cf25813b897b13` on retry. Its first attempt exposed an Nginx traversal permission failure and verified restoration of both previous components. The installed helper correction publishes frontend assets under the Nginx webroot. Read-only SSH independently confirmed both active revisions and an active backend after the retry.
+
 The `deploy-staging` job in `.github/workflows/tests.yml` follows the successful `test` job for pushes to `repair-mvp`. It deploys both components from that run's artifact. PR CI runs do not deploy.
 
 ## One-time installation
@@ -18,7 +20,7 @@ The installed deployment key invokes a forced dispatcher. Its account can call t
 
 ## Release and failure handling
 
-CI packages the tested frontend build, backend source, resolved Python dependency versions and source/run metadata. The VM creates a separate virtual environment per release, updates a service drop-in for `rushx-staging.service`, and switches the frontend symlink. It verifies the local API, public staging API, homepage and served release metadata. Failure during the switch restores the previous frontend link and service drop-in, restarts the backend and verifies recovery.
+CI packages the tested frontend build, backend source, resolved Python dependency versions and source/run metadata. The VM creates a separate virtual environment per backend release under `/opt/rushx-staging/cd/releases` and publishes frontend assets under `/var/www/rushx-staging/cd-releases`, which Nginx can traverse. It updates a service drop-in for `rushx-staging.service` and switches the frontend symlink. It verifies the local API, public staging API, homepage and served release metadata. Failure during the switch restores the previous frontend link and service drop-in, restarts the backend and verifies recovery.
 
 The deployment lock and monotonically increasing CI run number prevent an older candidate from replacing a newer successful deployment. A failed attempt retains its directory for diagnosis. A retry replaces that directory after checking that neither component is using it. Cleanup before and after deployment retains the latest five attempts and protects active and previous component releases.
 
