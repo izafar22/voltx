@@ -1,5 +1,7 @@
 # Automatic staging deployment
 
+Activated and verified on 2026-11-18. Run [44178531783](https://github.com/izafar22/voltx/actions/runs/44178531783) passed CI and deployed both components at `49acf600cddc29cf2caadd0d81cf25813b897b13` on retry. Its first attempt exposed an Nginx traversal permission failure and verified restoration of both previous components. The installed helper correction publishes frontend assets under the Nginx webroot. Read-only SSH independently confirmed both active revisions and an active backend after the retry.
+
 The `deploy-staging` job in `.github/workflows/tests.yml` follows the successful `test` job for pushes to `repair-mvp`. It deploys both components from that run's artifact. PR CI runs do not deploy.
 
 ## One-time installation

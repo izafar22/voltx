@@ -1,12 +1,12 @@
 # RushX progress tracker
 
-Deployment policy agreed 2026-11-18 is recorded in `docs/DEPLOYMENT_REQUIREMENTS.md`. Automatic staging CD and selected production promotion remain implementation work.
+Deployment policy agreed 2026-11-18 is recorded in `docs/DEPLOYMENT_REQUIREMENTS.md`. Staging CD is active; selected production promotion remains implementation work.
 
 Deployment policy reviewed: 2026-11-18. Other work items retain their dated evidence. Statuses: DONE / IN_PROGRESS / PLANNED / PARKED / BLOCKED. A status describes available evidence, not a claim of production deployment.
 
 | Status | Work item | Evidence / next action |
 |---|---|---|
-| IN_PROGRESS | Automatic staging CD | PR #65 merged; dedicated VM account and GitHub staging secrets configured. First automatic run 44178531783 passed CI and backend health but failed frontend checks because Nginx could not traverse the /opt parent. Paired rollback verified live. Correction publishes frontend releases under /var/www; successful deployment verification pending. See `docs/STAGING_CD.md` |
+| DONE | Automatic staging CD | Verified 2026-11-18. PR #65 merged; dedicated VM account and GitHub staging secrets configured. Run 44178531783 initially failed frontend checks due to Nginx traversal permissions and verified paired rollback. After installing the corrected helper, retry passed. Read-only SSH confirmed frontend and backend at 49acf600cddc29cf2caadd0d81cf25813b897b13; backend active. PR #66 records the corrected /var/www frontend path. See `docs/STAGING_CD.md` |
 | PLANNED | Selected production promotion | Requirements agreed 2026-11-18 in `docs/DEPLOYMENT_REQUIREMENTS.md`; implementation pending |
 | DONE | Homepage workshop hero | PR #27 merged to `repair-mvp`; deployment not independently verified |
 | DONE | WhatsApp OTP integration code | PR #26 merged to `repair-mvp`; check production runtime separately |
