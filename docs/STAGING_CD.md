@@ -18,7 +18,7 @@ The installed deployment key invokes a forced dispatcher. Its account can call t
 
 ## Release and failure handling
 
-CI packages the tested frontend build, backend source, resolved Python dependency versions and source/run metadata. The VM creates a separate virtual environment per release, updates a service drop-in for `rushx-staging.service`, and switches the frontend symlink. It verifies the local API, public staging API, homepage and served release metadata. Failure during the switch restores the previous frontend link and service drop-in, restarts the backend and verifies recovery.
+CI packages the tested frontend build, backend source, resolved Python dependency versions and source/run metadata. The VM creates a separate virtual environment per backend release under `/opt/rushx-staging/cd/releases` and publishes frontend assets under `/var/www/rushx-staging/cd-releases`, which Nginx can traverse. It updates a service drop-in for `rushx-staging.service` and switches the frontend symlink. It verifies the local API, public staging API, homepage and served release metadata. Failure during the switch restores the previous frontend link and service drop-in, restarts the backend and verifies recovery.
 
 The deployment lock and monotonically increasing CI run number prevent an older candidate from replacing a newer successful deployment. A failed attempt retains its directory for diagnosis. A retry replaces that directory after checking that neither component is using it. Cleanup before and after deployment retains the latest five attempts and protects active and previous component releases.
 
