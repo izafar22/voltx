@@ -20,7 +20,7 @@ The installed deployment key invokes a forced dispatcher. Its account can call t
 
 CI packages the tested frontend build, backend source, resolved Python dependency versions and source/run metadata. The VM creates a separate virtual environment per release, updates a service drop-in for `rushx-staging.service`, and switches the frontend symlink. It verifies the local API, public staging API, homepage and served release metadata. Failure during the switch restores the previous frontend link and service drop-in, restarts the backend and verifies recovery.
 
-The deployment lock and monotonically increasing CI run number prevent an older candidate from replacing a newer successful deployment. A failed attempt retains its directory for diagnosis. A retry replaces that directory after checking that neither component is using it.
+The deployment lock and monotonically increasing CI run number prevent an older candidate from replacing a newer successful deployment. A failed attempt retains its directory for diagnosis. A retry replaces that directory after checking that neither component is using it. Cleanup before and after deployment retains the latest five attempts and protects active and previous component releases.
 
 Backend restart creates a short interruption. Frontend and backend switches occur sequentially. Keep changes compatible during that transition. Rollback restores application revisions and configuration selection; database writes or index changes are outside application rollback.
 

@@ -83,6 +83,32 @@ class StagingDeployTests(unittest.TestCase):
                 deploy.deploy(None, "a" * 40, 9)
                 unpack.assert_not_called()
 
+    def test_pruning_protects_active_and_previous_components(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            releases = root / "releases"
+            paths = []
+            for number in range(1, 10):
+                path = releases / f'{"a" * 40}-{number}'
+                path.mkdir(parents=True)
+                paths.append(path)
+            live = root / "live"
+            live.symlink_to(paths[0] / "frontend")
+            (paths[0] / "frontend").mkdir()
+            (root / "active.json").write_text(json.dumps(dict(
+                previous_frontend=str(paths[2] / "frontend"),
+                previous_backend_working_directory=str(paths[3] / "backend"))))
+            with patch.multiple(deploy, ROOT=root, LIVE=live), \
+                    patch.object(deploy, "run", return_value=str(paths[1] / "backend")):
+                deploy.prune_releases()
+                self.assertTrue(all(path.exists() for path in paths))
+                (root / "active.json").write_text("{}")
+                deploy.prune_releases()
+                self.assertTrue(paths[0].exists())
+                self.assertTrue(paths[1].exists())
+                self.assertFalse(paths[2].exists())
+                self.assertFalse(paths[3].exists())
+
 
 if __name__ == "__main__":
     unittest.main()

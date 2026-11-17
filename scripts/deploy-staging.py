@@ -89,6 +89,29 @@ def write_dropin(release):
     )
 
 
+def prune_releases():
+    """Retain recent attempts and both active and previous component releases."""
+    try:
+        protected = [LIVE.resolve(), Path(run("systemctl", "show", SERVICE, "--property=WorkingDirectory", "--value"))]
+        marker = ROOT / "active.json"
+        if marker.exists():
+            metadata = json.loads(marker.read_text())
+            for name in ("previous_frontend", "previous_backend_working_directory"):
+                if metadata.get(name):
+                    protected.append(Path(metadata[name]))
+        releases = ROOT / "releases"
+        candidates = sorted(
+            (path for path in releases.glob("*") if not path.is_symlink() and path.is_dir()
+             and re.fullmatch(r"[0-9a-f]{40}-[1-9][0-9]*", path.name)),
+            key=lambda path: int(path.name.rsplit("-", 1)[1]), reverse=True,
+        )
+        for path in candidates[5:]:
+            if not any(target.resolve().is_relative_to(path.resolve()) for target in protected):
+                shutil.rmtree(path)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print(f"WARNING: staging release cleanup failed: {error}", file=sys.stderr, flush=True)
+
+
 def deploy(archive, sha, sequence):
     if not LIVE.is_symlink() or not LIVE.resolve().is_dir():
         raise RuntimeError("Staging frontend must already be a working symlink")
@@ -101,6 +124,7 @@ def deploy(archive, sha, sequence):
     if sequence <= previous.get("run_number", 0):
         print("Skipping candidate superseded by a deployed CI run")
         return
+    prune_releases()
     release = ROOT / "releases" / f"{sha}-{sequence}"
     if release.exists():
         backend_directory = Path(run("systemctl", "show", SERVICE, "--property=WorkingDirectory", "--value"))
@@ -161,6 +185,7 @@ def deploy(archive, sha, sequence):
         except BaseException:
             print("CRITICAL: staging rollback failed; operator action required", file=sys.stderr, flush=True)
         raise
+    prune_releases()
     print(f"STAGING DEPLOYED: {sha} from CI run {sequence}", flush=True)
 
 
