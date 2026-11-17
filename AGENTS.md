@@ -1,5 +1,7 @@
 # RushX agent entrypoint
 
+Deployment policy and acceptance criteria are recorded in `docs/DEPLOYMENT_REQUIREMENTS.md`.
+
 Before making changes, read all six files in `context/`, then inspect the relevant source code, tests, and current Git branch. Treat documentation as guidance, not proof of runtime behavior. If code and context disagree, report the mismatch and update context in the PR.
 
 Required reading order:

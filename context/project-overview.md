@@ -14,7 +14,7 @@ The broader product history contains functionality outside the repair-focused MV
 
 ## Branch and release policy
 - `main`: intended long-term production source of truth; **transition not yet verified or executed**.
-- `repair-mvp`: current source of truth and base for new production and staging branches.
+- `repair-mvp`: integration source of truth. Staging automatically follows passing updates once CD is implemented and activated. Production candidates build on deployed revisions with owner-selected changes from this branch. See `docs/DEPLOYMENT_REQUIREMENTS.md`.
 - `development`: existing branch; audit before choosing/renaming an integration baseline.
 - `develop`: proposed integration branch, **not confirmed created**.
 - `feature/<topic>`: isolated feature work; `hotfix/<topic>`: emergency fix.

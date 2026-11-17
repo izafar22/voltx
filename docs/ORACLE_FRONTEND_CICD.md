@@ -3,7 +3,7 @@
 **Status: code prepared only. No production deployment or server migration has been performed.**
 
 ## Trigger and safety gate
-Pushes to `release_*` branches trigger build, frontend tests, and isolated rollback regression tests. The deploy job runs **only when repository variable `RUSHX_AUTO_DEPLOY_ENABLED` is exactly `true`**; leave it unset or false until production readiness is verified. This is an automatic deployment policy, not a manual-review policy. GitHub environment `production` must have no required-reviewer gate if unattended deployment is desired. The existing release process and branch naming remain unchanged.
+Pushes to `release_*` branches trigger build, frontend tests, and isolated rollback regression tests. The deploy job is gated by `RUSHX_AUTO_DEPLOY_ENABLED=true`. Production deployment requires explicit owner approval of the exact tested frontend artifact and backend revision, as specified in `docs/DEPLOYMENT_REQUIREMENTS.md`. A release branch push or enabling the variable alone does not authorize deployment. Before activation, verify that the deployment path enforces this approval requirement. Retain any configured production reviewer gate.
 
 ## Mandatory one-time server migration — separate approval required
 The old live path `/var/www/rushx/frontend` is a real directory. The new deploy script **refuses to run** until it is converted to a symlink pointing to an existing, healthy release within `/var/www/rushx/releases/`. This migration must be scheduled and tested separately. Preserve the old frontend as the initial stable release, validate Nginx root resolution, symlink traversal, permissions, TLS, disk space, and rollback before activation. Do not perform this migration from CI or automatically.
