@@ -32,4 +32,15 @@ git for-each-ref --points-at "$sha" --format='%(refname:short)' \
 
 Check `git ls-remote --heads origin 'refs/heads/release_*'` for current remote refs if needed. If the branch is ambiguous or unavailable, report the SHA and explain what could be verified. If SSH fails, report the current deployment as unverified and label any historical evidence with its date.
 
+## Check the live staging release
+
+Run this read-only check from the Mac with the dedicated staging key loaded in its SSH agent:
+
+```sh
+ssh -T -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 \
+  -i "$HOME/.ssh/rushx_staging_release_check" rushx-staging-release-check@137.23.43.117
+```
+
+Read the frontend commit from the resolved `frontend_release_dir` when its basename is a SHA. The manifest fingerprint identifies the served assets, which can be identical across commits. For the backend, report the service state from `ActiveState` and `MainPID`. Report a backend revision only when the release path or deployment metadata identifies it. A working directory such as `/opt/rushx-staging/app/backend` alone does not establish a revision. Report missing revision information or an SSH failure explicitly.
+
 Growth Studio blog (server-rendered by FastAPI, Nginx routing, update route): `docs/STUDIO_CMS.md`.
