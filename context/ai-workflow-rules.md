@@ -34,5 +34,5 @@ These rules apply to Codex and other agents working on RushX.
 ## 5. Release and parked features
 - Keep parked code/history reachable; inventory legacy features with branch/commit evidence.
 - Restore each approved parked feature on a separate branch with integration tests and migration assessment.
-- Stabilize release branch, review, promote to `main`, tag exact deployed commit, verify smoke tests and record rollback SHA.
+- Stabilize release branch, review, promote to `repair-mvp`, tag exact deployed commit, verify smoke tests and record rollback SHA.
 - No production changes as a side effect of context-documentation tasks.
