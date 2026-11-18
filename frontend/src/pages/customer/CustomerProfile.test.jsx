@@ -6,25 +6,45 @@ import { CustomerPhoneLink } from "../../components/CustomerPhoneLink";
 const mockPost = jest.fn(),
   mockPatch = jest.fn(),
   mockSetUser = jest.fn(),
-  mockSetData = jest.fn();
-let mockProfile;
+  mockSetData = jest.fn(),
+  mockCancel = jest.fn(),
+  mockDelete = jest.fn();
+let mockProfile, mockQueryError, mockParams, mockGeneration;
 jest.mock(
   "react-router-dom",
-  () => ({ useSearchParams: () => [new URLSearchParams()] }),
+  () => ({ useSearchParams: () => [new URLSearchParams(mockParams)] }),
   { virtual: true },
 );
 jest.mock("@tanstack/react-query", () => ({
-  useQuery: () => ({ data: mockProfile }),
-  useQueryClient: () => ({ setQueryData: mockSetData }),
+  useQuery: () => ({
+    data: mockProfile,
+    isError: mockQueryError,
+    refetch: jest.fn(),
+  }),
+  useQueryClient: () => ({
+    setQueryData: mockSetData,
+    cancelQueries: mockCancel,
+  }),
 }));
 jest.mock("../../lib/api", () => ({
   api: {
     post: (...args) => mockPost(...args),
     patch: (...args) => mockPatch(...args),
+    delete: (...args) => mockDelete(...args),
   },
 }));
 jest.mock("../../context/AuthContext", () => ({
-  useAuth: () => ({ user: mockProfile.user, setUser: mockSetUser }),
+  useAuth: () => ({
+    user: mockProfile.user,
+    beginUserUpdate: () => {
+      const started = mockGeneration;
+      return (next) => {
+        if (started !== mockGeneration) return false;
+        mockSetUser(next);
+        return true;
+      };
+    },
+  }),
 }));
 jest.mock("../../components/layout/CustomerShell", () => ({
   CustomerShell: ({ children }) => <main>{children}</main>,
@@ -38,6 +58,10 @@ let root, container;
 beforeEach(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   jest.clearAllMocks();
+  mockCancel.mockResolvedValue();
+  mockQueryError = false;
+  mockParams = "";
+  mockGeneration = 0;
   mockProfile = {
     user: {
       user_id: "test",
@@ -103,8 +127,18 @@ test("first address preselects defaults but allows both to be cleared", async ()
       />,
     ),
   );
-  const checks = [...document.querySelectorAll("input[type=checkbox]")];
-  expect(checks.every((c) => c.checked)).toBe(true);
+  const checks = ["Default pickup address", "Default delivery address"].map(
+    (text) => {
+      const label = [...document.querySelectorAll("label")].find(
+        (node) => node.textContent.trim() === text,
+      );
+      expect(label).toBeDefined();
+      const control = label.querySelector("input[type=checkbox]");
+      expect(control).not.toBeNull();
+      expect(control.checked).toBe(true);
+      return control;
+    },
+  );
   act(() => checks.forEach((c) => c.click()));
   for (const [key, value] of Object.entries({
     label: "Home",
@@ -125,7 +159,7 @@ test("first address preselects defaults but allows both to be cleared", async ()
       country: "India",
     }),
   );
-  expect(saved).toHaveBeenCalledWith(mockProfile);
+  expect(saved).toHaveBeenCalledWith(mockProfile, undefined);
 });
 test("WhatsApp conflict retains dialog and current account", async () => {
   const saved = jest.fn();
@@ -152,9 +186,153 @@ test("WhatsApp conflict retains dialog and current account", async () => {
     },
   });
   await submit();
+  expect(mockPost).toHaveBeenNthCalledWith(2, "/auth/link/phone/verify", {
+    phone: "9876543210",
+    otp: "123456",
+    challenge_id: "test-challenge",
+  });
   expect(document.querySelector("[role=alert]").textContent).toContain(
     "already linked",
   );
   expect(document.querySelector("#link-phone").value).toBe("9876543210");
   expect(saved).not.toHaveBeenCalled();
+});
+const renderProfile = () => act(() => root.render(<CustomerProfile />));
+const button = (text) =>
+  [...document.querySelectorAll("button")].find(
+    (el) => el.textContent === text,
+  );
+test.each(["__proto__", "constructor", "toString", "unknown"])(
+  "unknown callback status %s cannot crash the profile",
+  (status) => {
+    mockParams = `google_link=${status}`;
+    renderProfile();
+    expect(container.textContent).toContain("Your profile");
+  },
+);
+test("dirty name survives refresh and typing during a pending save", async () => {
+  renderProfile();
+  fill("profile-name", "My draft");
+  mockProfile = {
+    ...mockProfile,
+    user: { ...mockProfile.user, name: "Other tab" },
+  };
+  renderProfile();
+  expect(document.getElementById("profile-name").value).toBe("My draft");
+  let resolve;
+  mockPatch.mockReturnValue(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  await submit();
+  fill("profile-name", "Still typing");
+  await act(async () =>
+    resolve({
+      data: { ...mockProfile, user: { ...mockProfile.user, name: "My draft" } },
+    }),
+  );
+  expect(document.getElementById("profile-name").value).toBe("Still typing");
+});
+test("delayed name save cannot restore a different session and cancels old reads first", async () => {
+  renderProfile();
+  fill("profile-name", "Draft");
+  let resolve;
+  mockPatch.mockReturnValue(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  await submit();
+  mockGeneration += 1;
+  await act(async () => resolve({ data: mockProfile }));
+  expect(mockCancel).toHaveBeenCalledWith({
+    queryKey: ["customer-profile", "test"],
+    exact: true,
+  });
+  expect(mockSetUser).not.toHaveBeenCalled();
+  expect(mockSetData).not.toHaveBeenCalled();
+});
+test("background error preserves an open address draft and its original revision", async () => {
+  renderProfile();
+  act(() => button("Add address").click());
+  fill("address-line1", "Draft street");
+  mockQueryError = true;
+  mockProfile = { ...mockProfile, revision: 1 };
+  renderProfile();
+  expect(document.getElementById("address-line1").value).toBe("Draft street");
+  expect(document.body.textContent).toContain("Your draft is preserved");
+  mockPost.mockRejectedValue({
+    response: { status: 409, data: { detail: "stale" } },
+  });
+  const form = document.getElementById("address-line1").closest("form");
+  await act(async () =>
+    form.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    ),
+  );
+  expect(mockPost).toHaveBeenCalledWith(
+    "/customer/addresses",
+    expect.objectContaining({ revision: 0 }),
+  );
+  expect(document.getElementById("address-line1").value).toBe("Draft street");
+});
+test("delete choices require review after a background revision change", async () => {
+  const addresses = ["A", "B", "C"].map((id) => ({
+    id,
+    label: id,
+    line1: "Test street",
+  }));
+  mockProfile = { ...mockProfile, addresses, pickup_id: "B", revision: 2 };
+  renderProfile();
+  act(() => button("Delete C").click());
+  mockProfile = { ...mockProfile, pickup_id: "A", revision: 3 };
+  renderProfile();
+  expect(button("Confirm deletion").disabled).toBe(true);
+  expect(mockDelete).not.toHaveBeenCalled();
+  act(() => button("Reload deletion choices").click());
+  mockDelete.mockResolvedValue({ data: mockProfile });
+  await act(async () => button("Confirm deletion").click());
+  expect(mockDelete).toHaveBeenCalledWith("/customer/addresses/C", {
+    data: { revision: 3, pickup_id: "A", delivery_id: null },
+  });
+});
+test("phone verification merges user into the latest cached profile", async () => {
+  renderProfile();
+  act(() => button("Add and verify mobile number").click());
+  fill("link-phone", "9876543210");
+  mockPost.mockResolvedValueOnce({
+    data: { challenge_id: "challenge", resend_after: 60 },
+  });
+  await act(async () =>
+    document
+      .getElementById("link-phone")
+      .closest("form")
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+  );
+  fill("link-otp", "123456");
+  let resolve;
+  mockPost.mockReturnValueOnce(
+    new Promise((done) => {
+      resolve = done;
+    }),
+  );
+  await act(async () =>
+    document
+      .getElementById("link-otp")
+      .closest("form")
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+  );
+  const latest = { ...mockProfile, addresses: [{ id: "new" }], revision: 4 };
+  await act(async () =>
+    resolve({ data: { user: { ...mockProfile.user, phone_verified: true } } }),
+  );
+  const updater = mockSetData.mock.calls[0][1];
+  expect(updater(latest)).toEqual({
+    ...latest,
+    user: { ...mockProfile.user, phone_verified: true },
+  });
+  expect(mockCancel.mock.invocationCallOrder[0]).toBeLessThan(
+    mockSetData.mock.invocationCallOrder[0],
+  );
 });

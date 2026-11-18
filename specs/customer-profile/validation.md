@@ -46,3 +46,13 @@ No new environment variables, OAuth callback destinations, secondary indexes or 
 New WhatsApp registrations accept blank email only; verified email is added by connecting Google. Historical email data is preserved, while profile responses expose only Google-verified email. Phone verification timestamps are recorded on normal OTP login as well as authenticated linking.
 
 Repair address fields are additive. Existing address-free requests retain their original idempotency fingerprint. A rollback preserves added MongoDB documents and repair snapshots, although earlier UI versions will not display them. Previously linked Google and phone fields use the existing user identity schema, so normal sign-in can still resolve the same user. Rolling back to code that does not enforce OTP purpose separation could allow an unexpired linking challenge to enter its login path; allow the ten-minute challenge lifetime to expire before an ordinary rollback, or use a separately authorized runbook to invalidate outstanding linking challenges.
+
+## CodeRabbit follow-up (2026-11-19)
+
+All 13 initial review findings were checked against the source and addressed. Phone replacement now commits session retention alongside the phone and epoch in one atomic user update, including when session writes are unavailable. Retention requires an existing, unexpired session and the matching retention epoch, so logout and later account-wide revocation remain effective.
+
+Profile saves capture the auth generation before their requests, cancel old profile reads before publishing data and ignore responses after a session change. Phone verification merges only user fields into the latest profile. Dirty names and open address drafts survive background refresh errors. Address editors pin their initial revision; deletion choices pin their own revision and require refreshed choices to be reviewed before another confirmation. Unknown Google callback statuses are ignored. Repairs navigation stays active across the repair section, and address defaults freeze at the first repair attempt so a late profile response cannot create a duplicate retry.
+
+Regression tests cover these races and strengthen the default-checkbox and phone-verification request assertions. Follow-up validation passed: 187 frontend tests, 65 backend auth/profile tests, the frontend build and 24 profile browser checks. Staging acceptance remains pending.
+
+Rolling back to an earlier auth implementation does not recognize the retained-session exception, so a customer who replaced their phone may need to sign in again. The new phone remains the account identity.

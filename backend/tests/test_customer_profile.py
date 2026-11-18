@@ -249,3 +249,30 @@ def test_google_customer_adds_phone_and_both_sign_ins_retain_dashboard_data():
         assert (await browser.get('/api/customer/profile')).json()['addresses'][0]['id'] == aid
         assert (await browser.get('/api/repairs')).json()[0]['id'] == repair['id']
     run(scenario)
+
+
+def test_phone_replacement_retention_is_single_document_and_survives_session_store_failure():
+    async def scenario(auth, db, browser, clock):
+        await sign_in(auth, db, browser)
+        original = browser.cookies.get('access_token')
+        await sign_in(auth, db, browser)
+        initiating = browser.cookies.get('access_token')
+        sid = auth.decode(initiating, 'session')['jti']
+        for offset, number in enumerate(['9876543211', '9876543212']):
+            cid = (await browser.post('/api/auth/link/phone/request', json={'phone': number})).json()['challenge_id']
+            with patch.object(db.auth_sessions, 'update_one', side_effect=RuntimeError('Session store write unavailable')):
+                response = await browser.post('/api/auth/link/phone/verify', json={'phone': number,'challenge_id':cid,'otp':'123456'})
+            assert response.status_code == 200
+            user = await db.users.find_one({'user_id':'customer'})
+            assert user['phone'] == '+91'+number and user['auth_epoch'] == offset+1
+            assert user['retained_session_id'] == sid
+            assert (await browser.get('/api/auth/me')).status_code == 200
+        await db.users.update_one({'user_id':'customer'}, {'$inc': {'auth_epoch':1}})
+        assert (await browser.get('/api/auth/me')).status_code == 401
+        browser.cookies.set('access_token',original)
+        assert (await browser.get('/api/auth/me')).status_code == 401
+        browser.cookies.set('access_token',initiating)
+        await browser.post('/api/auth/logout')
+        browser.cookies.set('access_token',initiating)
+        assert (await browser.get('/api/auth/me')).status_code == 401
+    run(scenario)

@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 
-export function CustomerPhoneLink({ hasPhone, onSaved, onClose }) {
+export function CustomerPhoneLink({ hasPhone, onSaved, onClose, onBeginSave }) {
   const [phone, setPhone] = useState(""),
     [otp, setOtp] = useState(""),
     [challenge, setChallenge] = useState(null);
@@ -33,6 +33,7 @@ export function CustomerPhoneLink({ hasPhone, onSaved, onClose }) {
     lock.current = true;
     setBusy(true);
     setError("");
+    const complete = verify ? onBeginSave?.() : undefined;
     try {
       if (verify) {
         const { data } = await api.post("/auth/link/phone/verify", {
@@ -40,7 +41,7 @@ export function CustomerPhoneLink({ hasPhone, onSaved, onClose }) {
           otp,
           challenge_id: challenge.challenge_id,
         });
-        onSaved(data.user);
+        await onSaved(data.user, complete);
       } else {
         const { data } = await api.post("/auth/link/phone/request", { phone });
         setChallenge(data);

@@ -31,7 +31,7 @@ import {
 } from "../../components/ui/dialog";
 
 export default function CustomerProfile() {
-  const { user, setUser } = useAuth();
+  const { user, beginUserUpdate } = useAuth();
   const qc = useQueryClient();
   const [params] = useSearchParams();
   const query = useQuery({
@@ -47,16 +47,37 @@ export default function CustomerProfile() {
     [phoneOpen, setPhoneOpen] = useState(false),
     [deleting, setDeleting] = useState(null);
   const lock = useRef(false);
+  const nameDirty = useRef(false);
+  const nameVersion = useRef(0);
   const savedName = profile?.user.name;
   useEffect(() => {
-    if (savedName !== undefined) setName(savedName);
+    if (!nameDirty.current && savedName !== undefined) setName(savedName);
   }, [savedName]);
-  const saved = (data) => {
-    qc.setQueryData(profileKey(user), data);
-    setUser(data.user);
-    setMessage("Changes saved.");
-    setError("");
+  const beginSave = () => {
+    const updateUser = beginUserUpdate();
+    const key = profileKey(user);
+    return async (data, userOnly = false) => {
+      await qc.cancelQueries({ queryKey: key, exact: true });
+      if (!updateUser(data.user)) return false;
+      qc.setQueryData(
+        key,
+        userOnly
+          ? (current) => (current ? { ...current, user: data.user } : current)
+          : data,
+      );
+      setMessage("Changes saved.");
+      setError("");
+      return true;
+    };
   };
+  const deletionChoices = (address) => ({
+    address,
+    revision: profile.revision,
+    pickup_id: profile.pickup_id === address.id ? null : profile.pickup_id,
+    delivery_id:
+      profile.delivery_id === address.id ? null : profile.delivery_id,
+  });
+  const deletionStale = deleting && deleting.revision !== profile?.revision;
   const mutate = async (operation) => {
     if (lock.current) return;
     lock.current = true;
@@ -64,7 +85,7 @@ export default function CustomerProfile() {
     setError("");
     setMessage("");
     try {
-      await operation();
+      await operation(beginSave());
     } catch (e) {
       setError(profileError(e));
       if (e.response?.status === 409) query.refetch();
@@ -74,14 +95,17 @@ export default function CustomerProfile() {
     }
   };
   const googleResult = params.get("google_link");
-  const googleMessage = {
+  const googleMessages = {
     success:
       "Google connected. You can now sign in with Google or WhatsApp OTP.",
     conflict:
       "This Google account is already linked to another RushX account. Choose a different Google account.",
     failed:
       "Google connection was cancelled or could not be verified. Please try again.",
-  }[googleResult];
+  };
+  const googleMessage = Object.hasOwn(googleMessages, googleResult)
+    ? googleMessages[googleResult]
+    : null;
   const connectGoogle = () =>
     mutate(async () => {
       const { data } = await api.post("/auth/link/google/start");
@@ -110,9 +134,17 @@ export default function CustomerProfile() {
           </p>
         )}
         {message && <p role="status">{message}</p>}
-        {query.isPending ? (
+        {query.isError && profile && (
+          <div role="alert">
+            <p>Unable to refresh your profile. Your draft is preserved.</p>
+            <Button variant="outline" onClick={() => query.refetch()}>
+              Retry
+            </Button>
+          </div>
+        )}
+        {query.isPending && !profile ? (
           <p role="status">Loading profile…</p>
-        ) : query.isError ? (
+        ) : query.isError && !profile ? (
           <div role="alert">
             <p>Unable to load your profile.</p>
             <Button variant="outline" onClick={() => query.refetch()}>
@@ -131,11 +163,19 @@ export default function CustomerProfile() {
                     className="space-y-4"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      mutate(async () =>
-                        saved(
-                          (await api.patch("/customer/profile", { name })).data,
-                        ),
-                      );
+                      const submittedVersion = nameVersion.current;
+                      mutate(async (saved) => {
+                        const { data } = await api.patch("/customer/profile", {
+                          name,
+                        });
+                        if (
+                          (await saved(data)) &&
+                          nameVersion.current === submittedVersion
+                        ) {
+                          nameDirty.current = false;
+                          setName(data.user.name);
+                        }
+                      });
                     }}
                   >
                     <div className="space-y-2">
@@ -147,7 +187,11 @@ export default function CustomerProfile() {
                         minLength={2}
                         maxLength={100}
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e) => {
+                          nameDirty.current = true;
+                          nameVersion.current += 1;
+                          setName(e.target.value);
+                        }}
                       />
                     </div>
                     <Button type="submit" disabled={busy}>
@@ -205,19 +249,7 @@ export default function CustomerProfile() {
                         <Button
                           variant="outline"
                           disabled={busy}
-                          onClick={() =>
-                            setDeleting({
-                              address: a,
-                              pickup_id:
-                                profile.pickup_id === a.id
-                                  ? null
-                                  : profile.pickup_id,
-                              delivery_id:
-                                profile.delivery_id === a.id
-                                  ? null
-                                  : profile.delivery_id,
-                            })
-                          }
+                          onClick={() => setDeleting(deletionChoices(a))}
                         >
                           Delete {a.label}
                         </Button>
@@ -229,7 +261,7 @@ export default function CustomerProfile() {
                               variant="ghost"
                               disabled={busy}
                               onClick={() =>
-                                mutate(async () =>
+                                mutate(async (saved) =>
                                   saved(
                                     (
                                       await api.patch(
@@ -262,23 +294,24 @@ export default function CustomerProfile() {
               </Card>
               {editor && (
                 <CustomerAddressEditor
+                  onBeginSave={beginSave}
                   onStale={() => query.refetch()}
                   profile={profile}
                   address={editor.address}
                   onClose={() => setEditor(null)}
-                  onSaved={(data) => {
-                    saved(data);
-                    setEditor(null);
+                  onSaved={async (data, complete) => {
+                    if (await complete(data)) setEditor(null);
                   }}
                 />
               )}
               {phoneOpen && (
                 <CustomerPhoneLink
+                  onBeginSave={beginSave}
                   hasPhone={!!profile.user.phone}
                   onClose={() => setPhoneOpen(false)}
-                  onSaved={(next) => {
-                    saved({ ...profile, user: next });
-                    setPhoneOpen(false);
+                  onSaved={async (next, complete) => {
+                    if (await complete({ user: next }, true))
+                      setPhoneOpen(false);
                   }}
                 />
               )}
@@ -300,6 +333,27 @@ export default function CustomerProfile() {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
+                      {deletionStale && (
+                        <div role="alert">
+                          <p>
+                            Your saved addresses changed. Reload the deletion
+                            choices and review them before confirming.
+                          </p>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              const currentAddress = profile.addresses.find(
+                                (a) => a.id === deleting.address.id,
+                              );
+                              if (currentAddress)
+                                setDeleting(deletionChoices(currentAddress));
+                              else setDeleting(null);
+                            }}
+                          >
+                            Reload deletion choices
+                          </Button>
+                        </div>
+                      )}
                       {["pickup", "delivery"].map((k) => (
                         <AddressChoice
                           key={k}
@@ -311,23 +365,23 @@ export default function CustomerProfile() {
                           onChange={(value) =>
                             setDeleting({ ...deleting, [`${k}_id`]: value })
                           }
-                          disabled={busy}
+                          disabled={busy || deletionStale}
                         />
                       ))}
                       <p className="text-sm">
                         Choose later explicitly clears that default.
                       </p>
                       <Button
-                        disabled={busy}
+                        disabled={busy || deletionStale}
                         onClick={() =>
-                          mutate(async () => {
-                            saved(
+                          mutate(async (saved) => {
+                            await saved(
                               (
                                 await api.delete(
                                   `/customer/addresses/${deleting.address.id}`,
                                   {
                                     data: {
-                                      revision: profile.revision,
+                                      revision: deleting.revision,
                                       pickup_id: deleting.pickup_id,
                                       delivery_id: deleting.delivery_id,
                                     },

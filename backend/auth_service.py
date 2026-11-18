@@ -376,7 +376,9 @@ class AuthService:
         if not user:
             raise HTTPException(401, "Not authenticated")
         self.ensure_active(user)
-        if session.get("auth_epoch", 0) != user.get("auth_epoch", 0):
+        if (session.get("auth_epoch", 0) != user.get("auth_epoch", 0)
+                and not (session["_id"] == user.get("retained_session_id")
+                         and user.get("retained_session_epoch") == user.get("auth_epoch", 0))):
             raise HTTPException(401, "Session expired. Please sign in again.")
         return user
 
@@ -421,6 +423,8 @@ class AuthService:
         epoch = user.get('auth_epoch', 0)
         if replacing:
             changes['auth_epoch'] = epoch + 1
+            changes['retained_session_id'] = binding['session_id']
+            changes['retained_session_epoch'] = epoch + 1
         try:
             result = await self.db.users.update_one({'user_id': user['user_id'], 'phone': user.get('phone'),
                 'auth_epoch': {'$in': [None, 0]} if epoch == 0 else epoch, 'status': {'$in': [None, 'active']}}, {'$set': changes})
@@ -428,11 +432,8 @@ class AuthService:
             raise HTTPException(409, {'code': 'identity_conflict', 'message': 'This mobile number is already linked to another RushX account. Use a different number.'}) from None
         if not result.matched_count:
             raise HTTPException(409, {'code': 'identity_changed', 'message': 'Your account changed. Reload and try again.'})
-        if replacing:
-            # The user epoch change invalidates every old session atomically.
-            # Restore only the initiating session, never an arbitrary old session.
-            await self.db.auth_sessions.update_one({'_id': binding['session_id'], 'user_id': user['user_id'],
-                'auth_epoch': epoch}, {'$set': {'auth_epoch': epoch + 1}})
+        # Phone, epoch and the sole retained session ID commit in the same user write.
+        # Authentication still requires that session's live, unexpired database record.
         response.headers['Cache-Control'] = 'no-store'
         return {'user': safe_user({**user, **changes})}
 

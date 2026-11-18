@@ -18,6 +18,7 @@ export function CustomerAddressEditor({
   onSaved,
   onClose,
   onStale,
+  onBeginSave,
 }) {
   const [form, setForm] = useState(() => ({
     label: "",
@@ -35,6 +36,7 @@ export function CustomerAddressEditor({
       ? profile.delivery_id === address.id
       : profile.addresses.length === 0,
   }));
+  const [baseRevision] = useState(() => profile.revision);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const lock = useRef(false);
@@ -44,16 +46,22 @@ export function CustomerAddressEditor({
     lock.current = true;
     setBusy(true);
     setError("");
+    const complete = onBeginSave?.();
     try {
       const { id, ...fields } = form;
       const { data } = await api[address ? "patch" : "post"](
         address ? `/customer/addresses/${address.id}` : "/customer/addresses",
-        { ...fields, revision: profile.revision },
+        { ...fields, revision: baseRevision },
       );
-      onSaved(data);
+      await onSaved(data, complete);
     } catch (e) {
       setError(profileError(e));
-      if (e.response?.status === 409) onStale?.();
+      if (e.response?.status === 409) {
+        setError(
+          "This address list changed. Close and reopen this form to review the latest details before saving.",
+        );
+        onStale?.();
+      }
     } finally {
       lock.current = false;
       setBusy(false);

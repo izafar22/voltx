@@ -15,7 +15,7 @@ const nav = [
   { to: "/app", icon: Home, label: "Home" },
   { to: "/app/wallet", icon: WalletIcon, enabled: () => FEATURES.wallet, label: "Wallet" },
   { to: "/app/history", icon: History, enabled: () => FEATURES.charging, label: "History" },
-  { to: "/repairs/new", icon: Wrench, enabled: () => FEATURES.repair, label: "Repairs" },
+  { to: "/repairs/new", matchPath: "/repairs", icon: Wrench, enabled: () => FEATURES.repair, label: "Repairs" },
 ];
 
 export const CustomerShell = ({ children }) => {

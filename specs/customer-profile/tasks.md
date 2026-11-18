@@ -125,6 +125,6 @@ Implementation was authorized on 2026-11-18. The CP-04 session revocation policy
 
 Implementation notes: address fields are bounded at 40 characters for labels, 200 for each address line and 100 for city/state, with up to 20 addresses per customer. The MongoDB collection is `customer_profiles`, keyed by user ID in `_id`; no new secondary index or customer-data migration is required. Repair creation accepts optional address IDs and stores server-owned snapshots. An inline add-address dialog preserves repair drafts without browser storage of customer details.
 
-The initiating session is retained through its stored session epoch after verified phone replacement; all other sessions fail the incremented account epoch check. New registration rejects unverified email input and directs customers to Google linking. Historical data remains untouched.
+The initiating session is retained through an ID and epoch recorded atomically with the new phone and account epoch in the user document; its stored session must still exist and be unexpired. Other sessions fail the account epoch check, and later account-wide epoch revocation invalidates the retention exception. New registration rejects unverified email input and directs customers to Google linking. Historical data remains untouched.
 
 Validation results and the review/staging checklist are recorded in `validation.md`. CP-10 remains in progress until the owner approves merging and staging acceptance is completed.

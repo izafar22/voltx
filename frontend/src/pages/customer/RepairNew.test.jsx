@@ -137,3 +137,12 @@ test('ambiguous submission retry retains the same idempotency key', async () => 
   expect(mockPost.mock.calls[0][1].idempotency_key).toBe(mockPost.mock.calls[1][1].idempotency_key);
   expect(mockPost.mock.calls[0][1].idempotency_key).toBeTruthy();
 });
+test('late defaults cannot change an ambiguous retry payload or idempotency key', async () => {
+  mockProfile = undefined; render(); fill();
+  mockPost.mockRejectedValueOnce(new Error('response lost'));
+  await act(async () => submit());
+  const first = mockPost.mock.calls[0][1];
+  mockProfile = { addresses: [{ id:'late-address',label:'Home',line1:'Test' }], revision:1,pickup_id:'late-address',delivery_id:'late-address' };
+  render(); await act(async () => submit());
+  expect(mockPost.mock.calls[1][1]).toEqual(first);
+});

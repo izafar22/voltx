@@ -110,6 +110,9 @@ export default function RepairNew() {
       control?.scrollIntoView?.({ behavior: "smooth", block: "center" });
       return;
     }
+    // Freeze the selected defaults for this attempt, including an explicit absence.
+    // A late profile fetch must not change an ambiguous retry's payload/key.
+    setAddressSelection({ pickup: pickupId ?? null, delivery: deliveryId ?? null });
     submissionLock.current = true;
     setSubmitting(true);
     try {
