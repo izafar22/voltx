@@ -19,6 +19,7 @@ These rules apply to Codex and other agents working on RushX.
 - Do not create/rename production or archive branches without approval and an audit of their source commits.
 
 ## 3. Implementation
+- Store every new spec in `specs/<spec-name>/` with `requirements.md`, `design.md` and `tasks.md`, using lowercase hyphenated folder names. Follow `specs/README.md`: finalize requirements, review design where needed, then review implementation tasks before implementing. Record approvals and maintain these documents as the spec's source of truth.
 - Make the smallest coherent change. Preserve existing public contracts and working OTP/auth behavior.
 - Respect least privilege, consent, PII minimization, validation, idempotency, retries and rollback.
 - Never hardcode secrets or write production credentials in docs, code, tests or logs.
