@@ -1,3 +1,4 @@
+import { addressText } from "../../lib/customerProfile";
 import RepairPaymentPanel from "../../components/RepairPaymentPanel";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -76,6 +77,7 @@ export default function RepairDetail() {
   return (
     <CustomerShell>
       <div className="p-4 lg:p-8 max-w-2xl mx-auto" data-testid="repair-detail-page">
+        {r && (r.pickup_address || r.delivery_address) && <section className="mb-6 space-y-3" aria-label="Repair addresses"><h2 className="font-display text-xl font-semibold">Pickup and delivery</h2>{[['Pickup', r.pickup_address], ['Delivery', r.delivery_address]].map(([label, address]) => address && <div key={label}><h3 className="font-medium">{label} address</h3><p className="break-words">{addressText(address)}</p></div>)}</section>}
         <button onClick={() => navigate("/app")} data-testid="detail-back-btn" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 mb-4"><ArrowLeft className="h-4 w-4 mr-1" /> Back</button>
 
         {isLoading && <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-charging" /></div>}

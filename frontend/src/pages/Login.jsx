@@ -41,9 +41,8 @@ export default function Login() {
   const [challenge, setChallenge] = useState(null);
   const [registrationToken, setRegistrationToken] = useState(null);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(new URLSearchParams(window.location.search).has("google_error") ? "Google sign-in could not be completed. Please try again or use SMS." : "");
+  const [error, setError] = useState(new URLSearchParams(window.location.search).has("google_error") ? "Google sign-in could not be completed. Please try again or use WhatsApp." : "");
   const [remaining, setRemaining] = useState(0);
   const resendAt = useRef(0);
   const lock = useRef(false);
@@ -85,9 +84,8 @@ export default function Login() {
   const register = (event) => {
     event.preventDefault();
     if (name.trim().length < 2 || name.trim().length > 100) { setError("Enter your full name (2–100 characters)."); return; }
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError("Enter a valid email address."); return; }
     run(async () => {
-      const { data } = await api.post("/auth/register-customer", { name: name.trim(), email: email.trim() }, { headers: { Authorization: `Bearer ${registrationToken}` } });
+      const { data } = await api.post("/auth/register-customer", { name: name.trim(), email: "" }, { headers: { Authorization: `Bearer ${registrationToken}` } });
       setRegistrationToken(null); complete(data);
     }, "Unable to create your account. Please try again.");
   };
@@ -110,13 +108,12 @@ export default function Login() {
         {demoEnabled && challenge?.demo_otp && <p>Demo code: {challenge.demo_otp}</p>}
         <div><label htmlFor="otp">Six-digit code</label><Input id="otp" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} disabled={busy} aria-describedby={error ? "auth-error" : undefined} data-testid="otp-input" className="h-14 text-center text-2xl font-mono tracking-widest" /></div>
         <Button type="submit" disabled={busy || otp.length !== 6} className="w-full h-12" data-testid="verify-otp-btn">{busy ? "Verifying…" : "Verify"}</Button>
-        <p className="text-xs text-muted-foreground">Codes expire after 5 minutes.</p>
+        <p className="text-xs text-muted-foreground">Codes expire after 10 minutes.</p>
         <Button type="button" variant="outline" disabled={busy || remaining > 0} onClick={() => requestCode()} className="w-full">{remaining > 0 ? `Resend in ${remaining}s` : "Resend code"}</Button>
       </form>}
       {step === "register" && <form onSubmit={register} className="space-y-5" data-testid="registration-step" noValidate>
         <div><h1 className="font-display text-3xl font-medium">Create your account</h1><p className="mt-2 text-muted-foreground">Your number has been verified.</p></div>
         <div><label htmlFor="full-name">Full name *</label><Input id="full-name" autoComplete="name" value={name} maxLength={100} onChange={e => setName(e.target.value)} disabled={busy} className="h-12 mt-2" /></div>
-        <div><label htmlFor="email">Email (optional)</label><Input id="email" type="email" autoComplete="email" value={email} maxLength={254} onChange={e => setEmail(e.target.value)} disabled={busy} className="h-12 mt-2" /></div>
         <Button type="submit" disabled={busy} className="w-full h-12">{busy ? "Creating account…" : "Create account"}</Button>
       </form>}
       {step !== "phone" && <button type="button" onClick={changePhone} disabled={busy} className="text-sm underline focus-visible:outline focus-visible:outline-2" data-testid="change-phone-btn">Change phone number</button>}

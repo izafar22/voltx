@@ -5,7 +5,8 @@ import { FEATURES } from '../../config/features';
 const defaultFeatures = { ...FEATURES };
 const mockGet = jest.fn(() => Promise.resolve({ data: [] }));
 const mockLogout = jest.fn();
-jest.mock('react-router-dom', () => ({ Link: ({ children, to, onClick, ...props }) => <a href={to} {...props} onClick={event => { event.preventDefault(); onClick?.(event); }}>{children}</a>, useLocation: () => ({ pathname: '/app' }), useNavigate: () => jest.fn() }), { virtual: true });
+let mockPath = '/app';
+jest.mock('react-router-dom', () => ({ Link: ({ children, to, onClick, ...props }) => <a href={to} {...props} onClick={event => { event.preventDefault(); onClick?.(event); }}>{children}</a>, useLocation: () => ({ pathname: mockPath }), useNavigate: () => jest.fn() }), { virtual: true });
 jest.mock('@/lib/api', () => ({ api: { get: (...args) => mockGet(...args) } }), { virtual: true });
 jest.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { name: 'Customer', role: 'customer' }, logout: mockLogout }) }), { virtual: true });
 jest.mock('@/context/ThemeContext', () => ({ useTheme: () => ({ theme: 'light', toggle: jest.fn() }) }), { virtual: true });
@@ -13,7 +14,7 @@ jest.mock('@/components/Logo', () => ({ Logo: () => <span>RushX</span> }), { vir
 jest.mock('@/components/ui/sheet', () => require('../ui/sheet'), { virtual: true });
 jest.mock('@/components/ui/badge', () => ({ Badge: ({ children }) => <span>{children}</span> }), { virtual: true });
 jest.mock('@/lib/utils', () => ({ cn: (...classes) => classes.filter(Boolean).join(' ') }), { virtual: true });
-beforeEach(() => { jest.clearAllMocks(); mockGet.mockResolvedValue({ data: [] }); Object.assign(FEATURES, defaultFeatures); });
+beforeEach(() => { mockPath = "/app"; jest.clearAllMocks(); mockGet.mockResolvedValue({ data: [] }); Object.assign(FEATURES, defaultFeatures); });
 afterEach(() => Object.assign(FEATURES, defaultFeatures));
 test('mobile navigation opens an accessible drawer and closes when selecting a route', async () => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -27,7 +28,7 @@ test('mobile navigation opens an accessible drawer and closes when selecting a r
     const drawer = document.querySelector('[data-testid="mobile-drawer"]');
     expect(drawer.getAttribute('role')).toBe('dialog');
     expect(drawer.textContent).toContain('RushX');
-    expect(drawer.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs');
+    expect(drawer.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs/new');
     expect(document.querySelector('[data-testid="nav-wallet"]')).toBeNull();
     expect(document.querySelector('[data-testid="nav-history"]')).toBeNull();
     expect(mockGet).not.toHaveBeenCalled();
@@ -54,6 +55,16 @@ test('authenticated navigation offers a public-site return without replacing rep
   const container = document.createElement('div'); const root = createRoot(container);
   act(() => root.render(<CustomerShell><p>Dashboard content</p></CustomerShell>));
   expect(container.querySelector('a[href="/"]').textContent).toContain('Explore RushX');
-  expect(container.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs');
+  expect(container.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs/new');
   act(() => root.unmount());
 });
+
+ test.each(['/repairs', '/repairs/new', '/repairs/test-id'])('Repairs stays active on %s', pathname => {
+  mockPath = pathname;
+  const container = document.createElement('div'); const root = createRoot(container);
+  act(() => root.render(<CustomerShell>Repair</CustomerShell>));
+  const link = container.querySelector('[data-testid="nav-repairs"]');
+  expect(link.getAttribute('href')).toBe('/repairs/new');
+  expect(link.getAttribute('aria-current')).toBe('page');
+  act(() => root.unmount());
+ });

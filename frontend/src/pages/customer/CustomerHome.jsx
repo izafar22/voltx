@@ -68,6 +68,7 @@ export default function CustomerHome() {
 
   return <CustomerShell><div className="customer-dashboard">
     <div><p className="text-sm text-muted-foreground">Welcome back</p><h1 className="font-display text-2xl lg:text-3xl font-semibold tracking-tight break-words">{user?.name || "Your repair dashboard"}</h1></div>
+    {user?.role === 'customer' && <section className="dashboard-card p-4 space-y-3" aria-label="Profile summary"><p className="text-sm break-words">{[user.google_linked && user.email, user.phone_verified && user.phone].filter(Boolean).join(' · ') || 'Manage your contact details and sign-in methods.'}</p><Button variant="outline" onClick={() => navigate('/app/profile')}>Manage profile</Button></section>}
     {FEATURES.charging && active && <button onClick={() => navigate(`/app/live/${active.session_id}`)} data-testid="active-session-banner" className="dashboard-active"><span><strong>Charging in progress</strong><span className="block text-sm">{active.charger_name}</span></span><ArrowRight aria-hidden="true" className="h-5 w-5" /></button>}
     {FEATURES.repair && <>
       <RepairCTA onRequest={() => navigate("/repairs/new")} />

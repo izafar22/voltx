@@ -2,7 +2,7 @@
 
 Version 1.0 requirements agreed with the owner on 2026-11-18.
 
-Requirements and design are finalized and approved by the owner on 2026-11-18, including the corrected RushX branding and full repair-form navigation. See `design.md`. The proposed implementation tasks are recorded in `tasks.md` for owner review.
+Requirements and design are finalized and approved by the owner on 2026-11-18, including the corrected RushX branding and full repair-form navigation. See `design.md`. Implementation tasks are recorded in `tasks.md` and were authorized by the owner on 2026-11-18.
 
 ## Customer outcome
 

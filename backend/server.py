@@ -7,6 +7,7 @@ if __package__:
     from .services.whatsapp_service import payment_received_notification
     from .services.payment_service import PaymentService, ManualPaymentProcessor
     from .demo_chargers import seed_demo_chargers
+    from .customer_profile import ProfileService, profile_router
     from .auth_service import AuthService, AuthSettings, auth_router, normalize_phone
     from .services.studio_cms import studio_router, REVALIDATE_PATH
 else:
@@ -18,6 +19,7 @@ else:
     from services.whatsapp_service import payment_received_notification
     from services.payment_service import PaymentService, ManualPaymentProcessor
     from demo_chargers import seed_demo_chargers
+    from customer_profile import ProfileService, profile_router
     from auth_service import AuthService, AuthSettings, auth_router, normalize_phone
     from services.studio_cms import studio_router, REVALIDATE_PATH
 
@@ -49,7 +51,7 @@ from pymongo.errors import DuplicateKeyError
 from decimal import Decimal
 import random
 from pymongo import ReturnDocument
-from pydantic import BaseModel, Field, StrictBool, field_validator
+from pydantic import BaseModel, Field, StrictBool, field_validator, model_validator
 from typing import Optional, List, Literal
 from datetime import datetime, timezone, timedelta
 
@@ -205,6 +207,7 @@ def compute_live(session, charger, max_cost=None):
 
 # ---------------- Auth routes ----------------
 api_router.include_router(auth_router(auth_service))
+api_router.include_router(profile_router(lambda: auth_service))
 
 
 def require_demo_finance():
@@ -604,6 +607,15 @@ class ChargerInfo(BaseModel):
 
 
 class RepairCreate(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def reject_client_snapshots(cls, values):
+        if isinstance(values, dict) and any(key in values for key in ('pickup_address', 'delivery_address')):
+            raise ValueError('Select a saved address ID; address snapshots are server-owned')
+        return values
+
+    pickup_address_id: Optional[str] = Field(None, min_length=1, max_length=100)
+    delivery_address_id: Optional[str] = Field(None, min_length=1, max_length=100)
     idempotency_key: Optional[str] = Field(None, min_length=1, max_length=128)
     customer_type: Literal["RETAIL", "STATION_OWNER"] = "RETAIL"
     charger_id: Optional[str] = None
@@ -736,6 +748,9 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
     if user.get("role") not in ("customer", "owner", "admin") or not text_fact(user.get("user_id")):
         raise HTTPException(403, "Unsupported repair actor")
     payload = body.model_dump(exclude={"idempotency_key"})
+    for key in ('pickup_address_id', 'delivery_address_id'):
+        if payload[key] is None:
+            payload.pop(key)
     fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     creation_key = None
     if body.idempotency_key is not None:
@@ -747,6 +762,7 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
             if existing["creation_fingerprint"] != fingerprint:
                 raise HTTPException(409, "Idempotency key reused with different repair details")
             return sanitize_repair(existing, user)
+    snapshots = await ProfileService(auth_service, db=db).snapshots(user['user_id'], body.pickup_address_id, body.delivery_address_id)
     charger_id = None
     info = body.charger_info.model_dump() if body.charger_info else {}
     if body.charger_id:
@@ -774,6 +790,7 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
         "diagnosis": None, "estimate": None, "incoming_shipment": None, "return_shipment": None,
         "created_at": now, "updated_at": now,
     }
+    r.update(snapshots)
     r["whatsapp_consent"] = consent
     event = event_for(r, "REQUESTED", event_id, WhatsAppSettings.from_env(), customer=user)
     r["whatsapp_outbox"] = [event] if event else []

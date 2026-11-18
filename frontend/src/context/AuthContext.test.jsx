@@ -22,3 +22,18 @@ test('failed logout does not pretend the server session ended', async () => {
   mockGet.mockResolvedValue({data:{name:'Asha'}}); await mount(); mockPost.mockRejectedValue(new Error('offline'));
   await act(async () => context.logout()); expect(context.user.name).toBe('Asha'); expect(context.authError).toContain('Unable to sign out');
 });
+test('session-scoped profile updates reject responses after logout or another login', async () => {
+  mockGet.mockResolvedValue({data:{user_id:'one',name:'First'}}); await mount();
+  const afterLogout = context.beginUserUpdate();
+  mockPost.mockResolvedValue({data:{ok:true}}); await act(async () => context.logout());
+  act(() => expect(afterLogout({user_id:'one',name:'Late first'})).toBe(false));
+  expect(context.user).toBeNull();
+  act(() => context.login({user_id:'one',name:'First'}));
+  const afterSwitch = context.beginUserUpdate();
+  act(() => context.login({user_id:'two',name:'Second'}));
+  act(() => expect(afterSwitch({user_id:'one',name:'Late first'})).toBe(false));
+  expect(context.user.user_id).toBe('two');
+  const current = context.beginUserUpdate();
+  act(() => expect(current({user_id:'two',name:'Updated second'})).toBe(true));
+  expect(context.user.name).toBe('Updated second');
+});
