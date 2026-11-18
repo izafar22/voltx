@@ -27,7 +27,7 @@ test('mobile navigation opens an accessible drawer and closes when selecting a r
     const drawer = document.querySelector('[data-testid="mobile-drawer"]');
     expect(drawer.getAttribute('role')).toBe('dialog');
     expect(drawer.textContent).toContain('RushX');
-    expect(drawer.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs');
+    expect(drawer.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs/new');
     expect(document.querySelector('[data-testid="nav-wallet"]')).toBeNull();
     expect(document.querySelector('[data-testid="nav-history"]')).toBeNull();
     expect(mockGet).not.toHaveBeenCalled();
@@ -54,6 +54,6 @@ test('authenticated navigation offers a public-site return without replacing rep
   const container = document.createElement('div'); const root = createRoot(container);
   act(() => root.render(<CustomerShell><p>Dashboard content</p></CustomerShell>));
   expect(container.querySelector('a[href="/"]').textContent).toContain('Explore RushX');
-  expect(container.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs');
+  expect(container.querySelector('[data-testid="nav-repairs"]').getAttribute('href')).toBe('/repairs/new');
   act(() => root.unmount());
 });

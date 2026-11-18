@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import PublicPage from "./pages/public/PublicPage";
 import Login from "@/pages/Login";
+import CustomerProfile from "@/pages/customer/CustomerProfile";
 import CustomerHome from "@/pages/customer/CustomerHome";
 import ChargerPage from "@/pages/customer/ChargerPage";
 import LivePage from "@/pages/customer/LivePage";
@@ -30,6 +31,7 @@ function App() {
               {["/", "/services", "/about", "/how-it-works", "/faq"].map(path => <Route key={path} path={path} element={<PublicPage />} />)}
 
               <Route path="/app" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><CustomerHome /></ProtectedRoute>} />
+              <Route path="/app/profile" element={<ProtectedRoute roles={["customer"]}><CustomerProfile /></ProtectedRoute>} />
               <Route path="/app/wallet" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.wallet ? <WalletPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
               <Route path="/app/history" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.charging ? <HistoryPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />
               <Route path="/app/charger/:id" element={<ProtectedRoute roles={["customer", "admin", "owner"]}>{FEATURES.charging ? <ChargerPage /> : <Navigate to="/app" replace />}</ProtectedRoute>} />

@@ -16,6 +16,9 @@ import { Textarea } from "../../components/ui/textarea";
 import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
+import { CustomerAddressChoice } from '../../components/CustomerAddressChoice';
+import { CustomerAddressEditor } from '../../components/CustomerAddressEditor';
+import { addressText, profileKey } from '../../lib/customerProfile';
 import "./RepairNew.css";
 
 const TYPE_OPTIONS = [
@@ -36,6 +39,12 @@ export default function RepairNew() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const profileQuery = useQuery({ queryKey: profileKey(user), enabled: user?.role === 'customer', queryFn: async () => (await api.get('/customer/profile')).data });
+  const profile = profileQuery.data;
+  const [addressSelection, setAddressSelection] = useState({});
+  const [addingAddress, setAddingAddress] = useState(false);
+  const pickupId = addressSelection.pickup !== undefined ? addressSelection.pickup : profile?.pickup_id;
+  const deliveryId = addressSelection.delivery !== undefined ? addressSelection.delivery : profile?.delivery_id;
   const [source, setSource] = useState("other");
   const [chargerId, setChargerId] = useState("");
   const [info, setInfo] = useState({ brand: "", model: "", charger_type: "", serial_number: "", power_rating: "", purchase_date: "" });
@@ -111,6 +120,8 @@ export default function RepairNew() {
         photos: photos.map((p) => p.data),
         whatsapp_opt_in: false,
       };
+      if (pickupId) payload.pickup_address_id = pickupId;
+      if (deliveryId) payload.delivery_address_id = deliveryId;
       if (source === "mine") {
         payload.charger_id = chargerId;
       } else {
@@ -135,7 +146,7 @@ export default function RepairNew() {
       setResult({ id: data.id, number: data.repair_request_number });
     } catch (e) {
       const detail = e.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : "Could not submit repair request. Please try again.");
+      toast.error(typeof detail === "string" ? detail : detail?.message || "Could not submit repair request. Please try again.");
     } finally {
       submissionLock.current = false;
       setSubmitting(false);
@@ -262,13 +273,18 @@ export default function RepairNew() {
             </label>}
           </div>
         </section>
+        {user?.role === 'customer' && <section className="repair-section" aria-labelledby="addresses-heading"><h2 id="addresses-heading">5. Pickup and delivery addresses (optional)</h2>
+          <p className="text-muted-foreground mb-4">Choose saved addresses or arrange these later.</p>
+          {profileQuery.isPending ? <p role="status">Loading addresses…</p> : profileQuery.isError ? <div role="alert"><p>Unable to load saved addresses. You can choose later.</p><Button type="button" variant="outline" onClick={() => profileQuery.refetch()}>Retry addresses</Button></div> : profile?.addresses && <div className="space-y-4"><div className="grid grid-cols-1 sm:grid-cols-2 gap-6">{[['pickup', pickupId], ['delivery', deliveryId]].map(([kind, value]) => <CustomerAddressChoice key={kind} label={`${kind === 'pickup' ? 'Pickup' : 'Delivery'} address`} value={value} addresses={profile.addresses} onChange={v => setAddressSelection(current => ({ ...current, [kind]: v }))} disabled={submitting} />)}</div><Button type="button" variant="outline" disabled={submitting || profile.addresses.length >= 20} onClick={() => setAddingAddress(true)}>Add an address</Button></div>}
+        </section>}
         <section className="repair-section" aria-labelledby="review-heading">
-          <h2 id="review-heading">5. Review and submit</h2>
+          <h2 id="review-heading">{user?.role === 'customer' ? '6' : '5'}. Review and submit</h2>
           <dl className="rounded-xl border border-border bg-secondary/20 p-5 sm:p-6 space-y-5 text-base break-words" data-testid="review-section">
             <div><dt className="text-sm font-medium text-muted-foreground mb-1">Charger</dt><dd>{source === "mine" ? (selected ? `${selected.charger_id} — ${selected.name}` : "No charger selected") : [info.brand, info.model, TYPE_OPTIONS.find((t) => t.value === info.charger_type)?.label].filter(Boolean).join(" · ") || "Charger details not added yet"}</dd>{source === "other" && info.serial_number && <dd className="mt-1 text-sm text-muted-foreground">Serial number: {info.serial_number}</dd>}</div>
             <div><dt className="text-sm font-medium text-muted-foreground mb-1">Problem</dt><dd>{category || "No category selected"}</dd></div>
             <div><dt className="text-sm font-medium text-muted-foreground mb-1">Description</dt><dd className="whitespace-pre-wrap">{description || "No description added yet"}</dd></div>
             <div><dt className="text-sm font-medium text-muted-foreground mb-1">Photos</dt><dd>{photos.length} attached</dd></div>
+            {user?.role === 'customer' && [['Pickup', pickupId], ['Delivery', deliveryId]].map(([kind, aid]) => <div key={kind}><dt className="text-sm font-medium text-muted-foreground mb-1">{kind} address</dt><dd>{addressText(profile?.addresses?.find(a => a.id === aid))}</dd></div>)}
           </dl>
           <div className="mt-6 rounded-xl bg-charging/5 border border-charging/30 p-5 text-base leading-relaxed">
             <p className="font-semibold flex items-start gap-3"><ShieldCheck className="h-6 w-6 text-charging shrink-0" aria-hidden="true" />No payment is required to submit a repair request.</p>
@@ -286,6 +302,7 @@ export default function RepairNew() {
           </Button>
         </section>
       </form>
+      {addingAddress && profile && <CustomerAddressEditor onStale={() => profileQuery.refetch()} profile={profile} onClose={() => setAddingAddress(false)} onSaved={data => { queryClient.setQueryData(profileKey(user), data); setAddingAddress(false); }} />}
     </div>
   </CustomerShell>;
 }
