@@ -31,7 +31,7 @@ Customers can use Continue with Google at `https://staging.evchargerrepair.in/lo
 3. The existing staging secret has been installed. Keep credential files and client secrets outside Git and chat.
 4. The three Google settings are in the staging service's environment file. An existing operator SSH key on the Mac was verified to provide staging admin access.
 5. Service restart, health and Google redirect checks passed.
-6. Real sign-in, session reload, repair destination and cancellation checks passed. After the next automatic staging deployment, verify the Google redirect and authenticated browser session again.
+6. Real sign-in, session reload, repair destination and cancellation checks passed. After the next automatic staging deployment, log out of the application, open `/repairs/new` and complete a fresh Google sign-in with the test account. Confirm the callback completes and returns to `/repairs/new`. This exercises the callback token exchange using the deployed client secret.
 
 Google's [web server OAuth documentation](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) describes client creation and credential storage.
 
@@ -41,6 +41,6 @@ Google's [web server OAuth documentation](https://developers.google.com/identity
 - An authorized test account can return to staging with a valid application session.
 - The intended post-login destination is preserved.
 - Cancellation or an invalid callback returns a clear login error.
-- Staging credentials remain available after an automatic staging deployment.
+- A fresh Google sign-in after an automatic staging deployment completes the callback token exchange and restores the intended destination.
 
 Record the verified runtime revision and actual browser results when this work resumes.

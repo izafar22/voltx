@@ -6,7 +6,7 @@ Deployment policy reviewed: 2026-11-18. Other work items retain their dated evid
 
 | Status | Work item | Evidence / next action |
 |---|---|---|
-| IN_PROGRESS | Staging Google login configuration | Verified 2026-11-18. Existing staging client now includes current callback; missing settings installed securely on Oracle. Real Google login, reload, preserved repair destination, and cancellation checks pass. Next verify after automatic staging deployment. See `docs/STAGING_GOOGLE_LOGIN_SPEC.md` |
+| IN_PROGRESS | Staging Google login configuration | Verified 2026-11-18. Existing staging client now includes current callback; missing settings installed securely on Oracle. Real Google login, reload, preserved repair destination, and cancellation checks pass. Next complete a fresh Google sign-in and verify callback completion and the repair destination after automatic staging deployment. See `docs/STAGING_GOOGLE_LOGIN_SPEC.md` |
 | DONE | Automatic staging CD | Verified 2026-11-18. PR #65 merged; dedicated VM account and GitHub staging secrets configured. Run 44178531783 initially failed frontend checks due to Nginx traversal permissions and verified paired rollback. After installing the corrected helper, retry passed. Read-only SSH confirmed frontend and backend at 49acf600cddc29cf2caadd0d81cf25813b897b13; backend active. PR #66 records the corrected /var/www frontend path. See `docs/STAGING_CD.md` |
 | PLANNED | Selected production promotion | Requirements agreed 2026-11-18 in `docs/DEPLOYMENT_REQUIREMENTS.md`; implementation pending |
 | DONE | Homepage workshop hero | PR #27 merged to `repair-mvp`; deployment not independently verified |
