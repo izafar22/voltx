@@ -1,6 +1,6 @@
 # Customer profile design
 
-Design finalized and approved by the owner on 2026-11-18 after correcting the preview's RushX branding and repair-form navigation. Requirements remain recorded in `requirements.md`. Next prepare implementation tasks for owner review before implementation.
+Design finalized and approved by the owner on 2026-11-18 after correcting the preview's RushX branding and repair-form navigation. Requirements remain recorded in `requirements.md`. Implementation was authorized by the owner on 2026-11-18 and is tracked in `tasks.md`.
 
 ## Navigation and page structure
 
@@ -101,7 +101,7 @@ Each selector offers saved addresses, Add an address and Choose later. For this 
 
 When creating a request, the server verifies address ownership and copies the selected address details into the repair record as snapshots. Later edits or deletion of a saved address preserve those request snapshots. Changing logistics on an existing repair remains governed by that repair's workflow.
 
-## Data and API proposal
+## Data and API design
 
 Preserve the existing customer user_id as the account key. Repairs and saved addresses reference that same key regardless of sign-in method.
 
@@ -153,4 +153,4 @@ Profile writes accept explicitly allowed fields. Identity attachment requires it
 
 The owner accepted the mobile-number replacement session policy on 2026-11-18: refresh and retain the initiating session, and invalidate all other existing account sessions after successful verification and replacement.
 
-Implementation tasks and their acceptance checks are recorded in `tasks.md` for owner review. Implementation remains pending task-plan approval.
+Implementation tasks and acceptance checks are recorded in `tasks.md`; validation evidence is tracked in `validation.md`.

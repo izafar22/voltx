@@ -1,6 +1,6 @@
 # Customer profile implementation tasks
 
-Prepared 2026-11-18 from the approved [requirements](requirements.md) and [design](design.md). Status: proposed task plan for owner review. Implementation has not started.
+Prepared 2026-11-18 from the approved [requirements](requirements.md) and [design](design.md). Task plan approved and implementation authorized by the owner on 2026-11-18. Implementation is on `feature/customer-profile`; PR review and staging acceptance are tracked below.
 
 Integration target: `repair-mvp`, followed by its existing staging CI/CD. Each task includes its regression tests. Merge approval remains separate from task approval.
 
@@ -8,16 +8,16 @@ Integration target: `repair-mvp`, followed by its existing staging CI/CD. Each t
 
 | Task | Deliverable | Depends on | Status |
 |---|---|---|---|
-| CP-01 | Profile contracts and MongoDB persistence | — | PLANNED |
-| CP-02 | Saved-address APIs and defaults | CP-01 | PLANNED |
-| CP-03 | Google identity linking | CP-01 | PLANNED |
-| CP-04 | WhatsApp mobile linking and replacement | CP-01 | PLANNED |
-| CP-05 | Profile page, dashboard summary and navigation | CP-01 | PLANNED |
-| CP-06 | Google and WhatsApp verification interfaces | CP-03, CP-04, CP-05 | PLANNED |
-| CP-07 | Saved-address management interface | CP-02, CP-05 | PLANNED |
-| CP-08 | Repair address snapshots and form integration | CP-02, CP-07 | PLANNED |
-| CP-09 | Integrated regression and design validation | CP-06, CP-07, CP-08 | PLANNED |
-| CP-10 | PR evidence and staging acceptance | CP-09 | PLANNED |
+| CP-01 | Profile contracts and MongoDB persistence | — | DONE |
+| CP-02 | Saved-address APIs and defaults | CP-01 | DONE |
+| CP-03 | Google identity linking | CP-01 | DONE |
+| CP-04 | WhatsApp mobile linking and replacement | CP-01 | DONE |
+| CP-05 | Profile page, dashboard summary and navigation | CP-01 | DONE |
+| CP-06 | Google and WhatsApp verification interfaces | CP-03, CP-04, CP-05 | DONE |
+| CP-07 | Saved-address management interface | CP-02, CP-05 | DONE |
+| CP-08 | Repair address snapshots and form integration | CP-02, CP-07 | DONE |
+| CP-09 | Integrated regression and design validation | CP-06, CP-07, CP-08 | DONE |
+| CP-10 | PR evidence and staging acceptance | CP-09 | IN_PROGRESS |
 
 ## CP-01 — Profile contracts and persistence
 
@@ -121,6 +121,10 @@ Acceptance: CI and staging evidence identify the tested commit; persisted data a
 
 ## Review point
 
-Approve this task plan before implementation. The CP-04 session revocation policy was explicitly accepted on 2026-11-18. Existing-data cleanup and account consolidation remain outside this version's tasks.
+Implementation was authorized on 2026-11-18. The CP-04 session revocation policy was explicitly accepted on 2026-11-18. Existing-data cleanup and account consolidation remain outside this version's tasks.
 
-Planning validation: source paths and existing auth, index, repair-idempotency and navigation behavior were inspected. Application tests have not been run for this documentation-only plan; the checks above are future implementation gates.
+Implementation notes: address fields are bounded at 40 characters for labels, 200 for each address line and 100 for city/state, with up to 20 addresses per customer. The MongoDB collection is `customer_profiles`, keyed by user ID in `_id`; no new secondary index or customer-data migration is required. Repair creation accepts optional address IDs and stores server-owned snapshots. An inline add-address dialog preserves repair drafts without browser storage of customer details.
+
+The initiating session is retained through its stored session epoch after verified phone replacement; all other sessions fail the incremented account epoch check. New registration rejects unverified email input and directs customers to Google linking. Historical data remains untouched.
+
+Validation results and the review/staging checklist are recorded in `validation.md`. CP-10 remains in progress until the owner approves merging and staging acceptance is completed.
