@@ -87,5 +87,5 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 - 2026-11-19: owner agreed to prioritize WhatsApp repair lifecycle updates and authorized preparation of this spec.
 - 2026-11-19: owner explicitly approved all nine messages, including payment received, and team acceptance before shipping instructions.
 - 2026-11-20: owner requested finalization of requirements.md and specified the name WhatsApp lifecycle updates. Requirements finalized in `specs/whatsapp-lifecycle-updates/requirements.md`.
-- Design: audit only; not approved.
+- 2026-11-20: owner authorized detailed design work. Design proposal prepared in design.md; approval pending.
 - Implementation tasks: not finalized or approved; implementation is not authorized by requirements finalization.
