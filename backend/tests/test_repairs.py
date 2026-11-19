@@ -12,6 +12,13 @@ OWNER_PHONE = "+919000000002"  # seeded owner of IND000001..6
 ADMIN_PHONE = "+919000000001"  # seeded admin
 
 
+def accept_for_inspection(rid, admin):
+    preview = requests.get(f"{BASE}/repairs/{rid}", headers=admin).json()['intake_preview']
+    assert preview
+    return requests.patch(f"{BASE}/repairs/{rid}/status", headers=admin, json={
+        'status': 'AWAITING_SHIPMENT', 'acceptance': {'confirmed': True, 'preview_digest': preview['digest']}})
+
+
 def login(phone, name=None):
     return login_headers(BASE, phone, name)
 
@@ -100,8 +107,10 @@ def test_valid_status_transition_by_customer():
     h, _ = new_customer()
     rep = requests.post(f"{BASE}/repairs", headers=h, json={"charger_info": {"brand": "X"}, "problem_description": "abc"}).json()
     r = requests.patch(f"{BASE}/repairs/{rep['id']}/status", headers=h, json={"status": "AWAITING_SHIPMENT"})
+    assert r.status_code == 403, r.text
+    assert accept_for_inspection(rep['id'], login(ADMIN_PHONE)).status_code == 200
+    r = requests.patch(f"{BASE}/repairs/{rep['id']}/status", headers=h, json={'status': 'IN_TRANSIT_TO_VOLTX'})
     assert r.status_code == 200, r.text
-    assert r.json()["status"] == "AWAITING_SHIPMENT"
 
 
 def test_invalid_status_transition_rejected():
@@ -115,7 +124,7 @@ def test_invalid_status_transition_rejected():
 def test_customer_cannot_set_admin_only_status():
     h, _ = new_customer()
     rep = requests.post(f"{BASE}/repairs", headers=h, json={"charger_info": {"brand": "X"}, "problem_description": "abc"}).json()
-    requests.patch(f"{BASE}/repairs/{rep['id']}/status", headers=h, json={"status": "AWAITING_SHIPMENT"})
+    assert accept_for_inspection(rep['id'], login(ADMIN_PHONE)).status_code == 200
     requests.patch(f"{BASE}/repairs/{rep['id']}/status", headers=h, json={"status": "IN_TRANSIT_TO_VOLTX"})
     # RECEIVED_AT_VOLTX is a valid next transition but restricted to admin/repair team
     r = requests.patch(f"{BASE}/repairs/{rep['id']}/status", headers=h, json={"status": "RECEIVED_AT_VOLTX"})
@@ -129,7 +138,8 @@ def test_admin_full_flow_diagnosis_estimate_and_approval():
     admin = login(ADMIN_PHONE)
     # move to RECEIVED_AT_VOLTX via valid path (admin can do all)
     for s in ["AWAITING_SHIPMENT", "IN_TRANSIT_TO_VOLTX", "RECEIVED_AT_VOLTX", "DIAGNOSING"]:
-        assert requests.patch(f"{BASE}/repairs/{rid}/status", headers=admin, json={"status": s}).status_code == 200
+        response = accept_for_inspection(rid, admin) if s == 'AWAITING_SHIPMENT' else requests.patch(f"{BASE}/repairs/{rid}/status", headers=admin, json={"status": s})
+        assert response.status_code == 200, response.text
     # diagnosis with internal notes
     assert requests.patch(f"{BASE}/repairs/{rid}/diagnosis", headers=admin, json={
         "diagnosis": "PCB fault", "repairability": "REPAIRABLE", "technician_notes": "secret", "internal_notes": "order part"}).status_code == 200
@@ -153,7 +163,10 @@ def test_customer_approve_without_estimate_rejected():
     rep = requests.post(f"{BASE}/repairs", headers=h, json={"charger_info": {"brand": "X"}, "problem_description": "abc"}).json()
     admin = login(ADMIN_PHONE)
     for s in ["AWAITING_SHIPMENT", "IN_TRANSIT_TO_VOLTX", "RECEIVED_AT_VOLTX", "DIAGNOSING", "ESTIMATE_SENT"]:
-        requests.patch(f"{BASE}/repairs/{rep['id']}/status", headers=admin, json={"status": s})
+        if s == 'AWAITING_SHIPMENT':
+            assert accept_for_inspection(rep['id'], admin).status_code == 200
+        else:
+            requests.patch(f"{BASE}/repairs/{rep['id']}/status", headers=admin, json={"status": s})
     # no estimate was created -> approval blocked
     r = requests.patch(f"{BASE}/repairs/{rep['id']}/status", headers=h, json={"status": "CUSTOMER_APPROVED"})
     assert r.status_code == 400

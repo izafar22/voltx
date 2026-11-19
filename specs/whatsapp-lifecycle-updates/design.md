@@ -1,6 +1,6 @@
 # WhatsApp lifecycle updates — detailed design
 
-Status: OWNER-APPROVED DESIGN DIRECTION, updated 2026-11-20 for the approved eight-message amendment. The original requirements were finalized and merged in PR #72 at `repair-mvp` commit `20ff7ca96fa1513b3f2eb2d32b0936ec741c7772`; the owner-approved eight-message amendment is recorded in this PR and requirements.md. The owner approved the design and requested the eight-message amendment; the plan below records the updated contracts and defaults, not implemented behavior. Implementation tasks are prepared for separate review. No runtime implementation, activation or live sends are authorized by this documentation update.
+Status: OWNER-APPROVED DESIGN DIRECTION, updated 2026-11-20 for the approved eight-message amendment. The original requirements were finalized and merged in PR #72 at `repair-mvp` commit `20ff7ca96fa1513b3f2eb2d32b0936ec741c7772`; the owner-approved eight-message amendment is recorded in this PR and requirements.md. The owner approved the design and requested the eight-message amendment; the contracts below are implemented on feature/whatsapp-lifecycle-updates following subsequent owner task approval. See validation.md for offline evidence and remaining operational gates. No live activation or sends have been performed.
 
 ## 1. Customer experience
 

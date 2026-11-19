@@ -1,6 +1,6 @@
 # WhatsApp lifecycle updates — implementation task plan
 
-Prepared 2026-11-20 from the finalized [requirements](requirements.md) and owner-approved [design](design.md), including the approved eight-message amendment and existing RushX logo. Status: IMPLEMENTATION AUTHORIZED on 2026-11-20. Owner instructed proceeding with the task plan; offline implementation and verification are authorized. No runtime code, templates, service configuration, indexes or data were changed to prepare this plan.
+Prepared 2026-11-20 from the finalized [requirements](requirements.md) and owner-approved [design](design.md), including the approved eight-message amendment and existing RushX logo. Status: IMPLEMENTATION AUTHORIZED on 2026-11-20. Owner instructed proceeding with the task plan; offline implementation and verification are authorized. Offline implementation and validation are now recorded in validation.md. Live templates, service configuration, indexes and data have not been changed.
 
 The eight customer messages are request received, accepted-for-inspection/inbound instructions, charger received, estimate ready, estimate approval confirmed, combined repair completion/verified balance, payment received, and return dispatched/tracking. The combined milestone has mutually exclusive positive- and zero-balance template variants; it does not send both. Internal repair statuses remain distinct.
 
@@ -20,16 +20,16 @@ The eight customer messages are request received, accepted-for-inspection/inboun
 
 | Task | Deliverable | Depends on | Status |
 |---|---|---|---|
-| WL-01 | Active eight-milestone/template contracts and snapshot schema | Task approval | PLANNED |
-| WL-02 | Explicit team intake acceptance and customer next-step contract | WL-01 | PLANNED |
-| WL-03 | Verified phone generation and consent-capability binding | WL-01 | PLANNED |
-| WL-04 | Repair-specific consent state, withdrawal and safe projections | WL-03 | PLANNED |
-| WL-05 | Combined completion/verified-balance event and durable reservation | WL-01, WL-04 | PLANNED |
-| WL-06 | Fenced ordered dispatch, freshness, suppression and replay | WL-02, WL-04, WL-05 | PLANNED |
-| WL-07 | Shared API/worker staging isolation and activation controls | WL-01, WL-06 | PLANNED |
-| WL-08 | Worker supervision, readiness, monitoring and recovery runbooks | WL-06, WL-07 | PLANNED |
-| WL-09 | Consent, verification, team acceptance and repair-detail UI | WL-02, WL-03, WL-04 | PLANNED |
-| WL-10 | Integrated regression / concurrency / UI verification | WL-05 through WL-09 | PLANNED |
+| WL-01 | Active eight-milestone/template contracts and snapshot schema | Task approval | DONE (offline) |
+| WL-02 | Explicit team intake acceptance and customer next-step contract | WL-01 | DONE (offline) |
+| WL-03 | Verified phone generation and consent-capability binding | WL-01 | DONE (offline) |
+| WL-04 | Repair-specific consent state, withdrawal and safe projections | WL-03 | DONE (offline) |
+| WL-05 | Combined completion/verified-balance event and durable reservation | WL-01, WL-04 | DONE (offline) |
+| WL-06 | Fenced ordered dispatch, freshness, suppression and replay | WL-02, WL-04, WL-05 | DONE (offline) |
+| WL-07 | Shared API/worker staging isolation and activation controls | WL-01, WL-06 | DONE (offline) |
+| WL-08 | Worker supervision, readiness, monitoring and recovery runbooks | WL-06, WL-07 | DONE (offline) |
+| WL-09 | Consent, verification, team acceptance and repair-detail UI | WL-02, WL-03, WL-04 | DONE (offline) |
+| WL-10 | Integrated regression / concurrency / UI verification | WL-05 through WL-09 | DONE (offline) |
 | WL-11 | Code review, CI and merge evidence | WL-10 | PLANNED |
 | WL-12 | Live template audit and authorized staging acceptance | WL-08, WL-11, explicit operational approvals | PLANNED |
 | WL-13 | Selected production release, verification and activation | WL-12, explicit release/activation approvals | PLANNED |

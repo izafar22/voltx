@@ -99,3 +99,5 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 - Implementation tasks: not finalized or approved; implementation is not authorized by requirements finalization.
 
 - 2026-11-20: owner said “lets proceed” after agreeing the eight-message list; authorized updating the spec and preparing the implementation task plan. This does not authorize live sends or production activation.
+
+- 2026-11-20: owner approved proceeding with the implementation task plan. Offline implementation completed on feature/whatsapp-lifecycle-updates; see validation.md. Merge and live operational gates remain separate.

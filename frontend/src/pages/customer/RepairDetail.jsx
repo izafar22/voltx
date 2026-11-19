@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Wrench, MapPin, Info, ShieldCheck, FileText, Calendar, Check, X, XCircle } from "lucide-react";
+import { ArrowLeft, Loader2, Wrench, MapPin, FileText, Calendar, Check, X, XCircle } from "lucide-react";
 import { api, inr } from "@/lib/api";
 import { CustomerShell } from "@/components/layout/CustomerShell";
 import { RepairStatus } from "../../components/patterns/RepairStatus";
@@ -46,6 +46,7 @@ export default function RepairDetail() {
   const qc = useQueryClient();
   const [withdrawalMessage, setWithdrawalMessage] = useState("");
   const [withdrawalBusy, setWithdrawalBusy] = useState(false);
+  const [confirmWithdrawal, setConfirmWithdrawal] = useState(false);
   const [busy, setBusy] = useState(null); // target status while the PATCH request is in flight
   const [pendingAction, setPendingAction] = useState(null); // CUSTOMER_APPROVED | CUSTOMER_DECLINED | CANCELLED
   const { data: r, isLoading, isError, error } = useQuery({
@@ -129,14 +130,22 @@ export default function RepairDetail() {
             )}
 
             {r.payment_summary && <RepairPaymentPanel repairId={r.id} refreshToken={r.updated_at} />}
-            <section className="mt-4 rounded-xl border border-border/60 p-4" aria-label="WhatsApp updates">
-              <Button variant="outline" disabled={withdrawalBusy} onClick={async () => {
-                setWithdrawalBusy(true);
-                try { await api.delete(`/repairs/${id}/whatsapp-consent`); setWithdrawalMessage("WhatsApp updates stopped for this repair."); }
-                catch { setWithdrawalMessage("Could not update your preference. Please try again or contact RushX support."); }
-                finally { setWithdrawalBusy(false); }
-              }}>Stop WhatsApp updates</Button>
-              {withdrawalMessage && <p role="status" className="mt-2 text-sm">{withdrawalMessage}</p>}
+            <section className="mt-4 rounded-xl border border-border/60 p-4 space-y-3" aria-label="WhatsApp updates">
+              <h2 className="font-medium">WhatsApp updates</h2>
+              <p className="text-sm text-muted-foreground">{r.whatsapp_updates?.state === 'enabled' ? `Milestone updates are enabled for your mobile ending ${r.whatsapp_updates.destination}.` :
+                r.whatsapp_updates?.state === 'paused_phone_change' ? 'Your mobile changed, so WhatsApp updates are paused for this repair. Continue following progress here.' :
+                r.whatsapp_updates?.state === 'stopped' ? 'WhatsApp updates are stopped for this repair. Follow progress here.' :
+                  r.whatsapp_updates?.state === 'unavailable' ? 'WhatsApp delivery is currently unavailable. Continue following progress here.' :
+                  'WhatsApp updates are not enabled for this repair. Follow progress here.'}</p>
+              {r.whatsapp_updates?.can_stop && !confirmWithdrawal && <Button variant="outline" onClick={() => setConfirmWithdrawal(true)}>Stop WhatsApp updates</Button>}
+              {confirmWithdrawal && <div className="space-y-3"><p className="text-sm">Stop future updates? A message already being sent may still arrive. Your repair remains available here.</p>
+                <div className="flex flex-wrap gap-3"><Button disabled={withdrawalBusy} onClick={async () => {
+                  setWithdrawalBusy(true);
+                  try { await api.delete(`/repairs/${id}/whatsapp-consent`); setWithdrawalMessage('WhatsApp updates stopped for this repair.'); setConfirmWithdrawal(false); qc.invalidateQueries({ queryKey: ['repair', id] }); }
+                  catch { setWithdrawalMessage('Could not update your preference. Please try again or contact RushX support.'); }
+                  finally { setWithdrawalBusy(false); }
+                }}>Stop updates</Button><Button variant="outline" disabled={withdrawalBusy} onClick={() => setConfirmWithdrawal(false)}>Keep updates</Button></div></div>}
+              {withdrawalMessage && <p role="status" className="text-sm">{withdrawalMessage}</p>}
             </section>
             {r.estimate && (
               <div className="mt-4 rounded-xl border border-border/60 p-4" data-testid="estimate-section">
@@ -179,9 +188,17 @@ export default function RepairDetail() {
             )}
 
             <div className="mt-4 rounded-xl bg-secondary/50 border border-border/60 p-4 space-y-3 text-sm">
-              <div className="flex gap-3"><MapPin className="h-5 w-5 text-charging shrink-0" /><div><p className="font-medium">Next step</p><p className="text-muted-foreground mt-0.5">Please send your charger to the RushX service center. Shipping instructions will be provided by the RushX service team.</p></div></div>
-              <div className="flex gap-3"><Info className="h-5 w-5 text-muted-foreground shrink-0" /><p className="text-muted-foreground">Include your repair request number <span className="font-mono text-foreground">{r.repair_request_number}</span> with the charger.</p></div>
-              <div className="flex gap-3"><ShieldCheck className="h-5 w-5 text-charging shrink-0" /><p className="text-muted-foreground">Payment is not required at this stage.</p></div>
+              <div className="flex gap-3"><MapPin className="h-5 w-5 text-charging shrink-0" /><div><p className="font-medium">Next step</p>
+                <p className="text-muted-foreground mt-1">{r.status === 'REQUESTED' ? 'Wait for RushX to review your request. Please do not ship your charger yet.' :
+                  r.status === 'AWAITING_SHIPMENT' ? (r.intake_acceptance ? 'Your charger is accepted for inspection. Follow the intake instructions below.' : 'Contact RushX to confirm the intake instructions before sending your charger.') :
+                    r.status === 'ESTIMATE_SENT' ? 'Review the repair estimate and approve or decline it below.' :
+                      r.status === 'PAYMENT_PENDING' ? 'Review the verified outstanding balance and payment instructions.' :
+                        r.status === 'SHIPPED_TO_CUSTOMER' ? 'Your charger has been dispatched. Follow the confirmed return-shipment details.' :
+                          ['CANCELLED', 'NOT_REPAIRABLE', 'CUSTOMER_DECLINED'].includes(r.status) ? 'Contact RushX for the next steps for this repair.' :
+                            ['DELIVERED', 'COMPLETED'].includes(r.status) ? 'Your return journey is recorded. Contact RushX if you need assistance.' :
+                              'Follow the current repair stage and history here. RushX will record the next milestone when confirmed.'}</p>
+                {r.status === 'AWAITING_SHIPMENT' && r.intake_acceptance && <div className="mt-3 space-y-2"><p className="whitespace-pre-wrap">{r.intake_acceptance.address}</p><p>Pack the charger securely and include repair number {r.repair_request_number}.</p><p className="text-muted-foreground">Acceptance is for inspection. Repair feasibility and the estimate require separate assessment and approval.</p></div>}
+              </div></div>
             </div>
 
             {(canDecide || canCancel) && (

@@ -14,6 +14,7 @@ import pytest
 from fastapi import FastAPI
 from mongomock_motor import AsyncMongoMockClient
 
+from services.lifecycle_policy import instruction_preview
 from services.whatsapp_service import (
     Settings,
     WhatsAppService,
@@ -493,7 +494,12 @@ def test_api_creation_consent_transitions_and_origin_security(monkeypatch):
                 assert (
                     await browser.patch(endpoint, json={"status": "REPAIR_COMPLETED"})
                 ).status_code == 400
-                for status in ["AWAITING_SHIPMENT", "IN_TRANSIT_TO_VOLTX"]:
+                assert (await browser.patch(endpoint, json={"status": "AWAITING_SHIPMENT"})).status_code == 403
+                actor[0] = ADMIN
+                assert (await browser.patch(endpoint, json={'status': 'AWAITING_SHIPMENT', 'acceptance': {
+                    'confirmed': True, 'preview_digest': instruction_preview(SETTINGS)['digest']}})).status_code == 200
+                actor[0] = USER
+                for status in ["IN_TRANSIT_TO_VOLTX"]:
                     assert (
                         await browser.patch(endpoint, json={"status": status})
                     ).status_code == 200
@@ -720,7 +726,7 @@ def test_all_relevant_transitions_keep_private_fields_out_of_jobs():
                     )
                 await server.update_repair_status(
                     rid,
-                    server.RepairStatusUpdate(status=status, note="sensitive note"),
+                    server.RepairStatusUpdate(status=status, note="sensitive note", **({'acceptance': {'confirmed': True, 'preview_digest': instruction_preview(SETTINGS)['digest']}} if status == 'AWAITING_SHIPMENT' else {})),
                     ADMIN,
                 )
             stored = await db.repair_requests.find_one({"id": rid})

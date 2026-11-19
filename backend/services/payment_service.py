@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import inspect
 from typing import Protocol
 from uuid import uuid4
 
@@ -85,9 +86,11 @@ class PaymentService:
         repository: PaymentRepository,
         processor: PaymentProcessor,
         notification_factory=None,
+        balance_notification_factory=None,
     ):
         self.repository = repository
         self.notification_factory = notification_factory
+        self.balance_notification_factory = balance_notification_factory
         self.processor = processor
 
     async def verify_balance(
@@ -185,11 +188,15 @@ class PaymentService:
                 "verified_at": timestamp,
                 "reference": reference,
             }
-            committed = await self.repository.commit(
-                repair,
-                {"payment_summary": summary, "updated_at": timestamp},
-                {"payment_records": record},
-            )
+            fields = {"payment_summary": summary, "updated_at": timestamp}
+            pushes = {"payment_records": record}
+            if self.balance_notification_factory and not repair.get('completion_notice'):
+                notification = await self.balance_notification_factory({**repair, 'payment_summary': summary})
+                if notification:
+                    fields['completion_notice'] = {'event_id': notification['_id'], 'at': timestamp,
+                                                   'payment_record_id': record_id}
+                    pushes['whatsapp_outbox'] = notification
+            committed = await self.repository.commit(repair, fields, pushes)
             if committed:
                 return {"ok": True}
             # Only replay an identical winning operation. Never overwrite a new balance.
@@ -395,6 +402,8 @@ class PaymentService:
         pushes = {"payment_events": event}
         if self.notification_factory:
             notification = self.notification_factory(repair, event, customer)
+            if inspect.isawaitable(notification):
+                notification = await notification
             if notification:
                 pushes["whatsapp_outbox"] = notification
         committed = await self.repository.commit(

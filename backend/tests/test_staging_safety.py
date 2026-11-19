@@ -105,3 +105,16 @@ def test_staging_whatsapp_otp_still_blocks_repair_notifications(safe_env):
     })
     with pytest.raises(RuntimeError):
         validate_staging_environment(safe_env)
+
+
+def test_staging_lifecycle_test_gate_is_explicit_and_separate_from_otp(safe_env):
+    safe_env.update(WHATSAPP_ENABLED='true', WHATSAPP_LIFECYCLE_ENABLED='true',
+        WHATSAPP_LIFECYCLE_ACTIVATION_ID='test-only-activation', WHATSAPP_MODE='staging',
+        STAGING_LIFECYCLE_TEST_ENABLED='true', STAGING_LIFECYCLE_ALLOWED_PHONES='+919876543210',
+        STAGING_LIFECYCLE_PHONE_NUMBER_ID='12345', WHATSAPP_PHONE_NUMBER_ID='12345')
+    validate_staging_environment(safe_env)
+    for key, value in [('STAGING_LIFECYCLE_TEST_ENABLED', 'false'),
+            ('WHATSAPP_MODE', 'production'), ('STAGING_LIFECYCLE_ALLOWED_PHONES', ''),
+            ('STAGING_LIFECYCLE_PHONE_NUMBER_ID', 'different'), ('WHATSAPP_PRODUCTION_APPROVED', 'true')]:
+        with pytest.raises(RuntimeError):
+            validate_staging_environment({**safe_env, key: value})
