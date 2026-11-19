@@ -101,3 +101,24 @@ for (const theme of ['light', 'dark']) {
     expect(data.errors).toEqual([]);
   });
 }
+
+for (const theme of ['light', 'dark']) {
+  test(`withdrawal confirmation resets when navigating between repairs ${theme}`, async ({ page }) => {
+    await fixture(page, theme);
+    await page.route('**/api/repairs/lifecycle-second', route => route.fulfill({ json: {
+      id: 'lifecycle-second', repair_request_number: 'TEST-SECOND', status: 'REQUESTED',
+      charger_info: { brand: 'Second charger' }, status_history: [], created_at: '2026-11-20T00:00:00Z',
+      whatsapp_updates: { state: 'enabled', destination: '••42', can_stop: true }
+    } }));
+    await page.goto('/repairs/lifecycle-test');
+    await page.getByRole('button', { name: 'Stop WhatsApp updates', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Stop updates', exact: true })).toBeVisible();
+    await page.evaluate(() => {
+      history.pushState({}, '', '/repairs/lifecycle-second');
+      dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await expect(page.getByTestId('detail-number')).toHaveText('TEST-SECOND');
+    await expect(page.getByRole('button', { name: 'Stop updates', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Stop WhatsApp updates', exact: true })).toBeVisible();
+  });
+}

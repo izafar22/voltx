@@ -43,7 +43,14 @@ async def change(db, settings, action, reviewed=False, test_window=0):
     validate_settings(settings)
     if not settings.enabled or await missing_indexes(db):
         raise ValueError("Configuration and indexes must be reviewed before activation")
+    used_ids = {
+        str(UUID(value)) for value in (previous or {}).get("used_activation_ids", [])
+    }
+    if previous and previous.get("activation_id"):
+        used_ids.add(str(UUID(previous["activation_id"])))
     if action == "activate":
+        if str(UUID(settings.activation_id)) in used_ids:
+            raise ValueError("Retired activation IDs cannot be reused")
         if previous and (
             previous.get("paused") is not True
             or previous.get("activation_id") == settings.activation_id
@@ -78,9 +85,11 @@ async def change(db, settings, action, reviewed=False, test_window=0):
             activation_id=previous.get("activation_id"),
             paused=previous.get("paused"),
             changed_at=previous.get("changed_at"),
+            used_activation_ids=previous.get("used_activation_ids"),
         )
     fields = {
         "activation_id": settings.activation_id,
+        "used_activation_ids": sorted(used_ids | {str(UUID(settings.activation_id))}),
         "paused": False,
         "mode": settings.mode,
         "manifest_digest": digest(settings.templates),

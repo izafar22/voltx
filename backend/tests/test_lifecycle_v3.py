@@ -14,6 +14,7 @@ import pytest
 from fastapi import HTTPException
 from mongomock_motor import AsyncMongoMockClient
 from motor.motor_asyncio import AsyncIOMotorClient
+from urllib.parse import urlsplit
 
 from auth_service import AuthService, AuthSettings
 from services.lifecycle_policy import (
@@ -26,6 +27,7 @@ from services.payment_repository import MongoPaymentRepository
 from services.payment_service import PaymentService, ManualPaymentProcessor
 from services.whatsapp_service import (
     Settings,
+    SnapshotError,
     WhatsAppService,
     LIFECYCLE_CATALOG,
     message_payload,
@@ -90,13 +92,21 @@ async def fixture(db, settings=ACTIVE, status="REQUESTED"):
     return policy, repair
 
 
+def validate_local_uri(uri):
+    parsed = urlsplit(uri)
+    assert parsed.scheme == "mongodb"
+    assert parsed.hostname in ("127.0.0.1", "localhost", "::1")
+    assert parsed.port and "," not in parsed.netloc and "@" not in parsed.netloc
+    assert not parsed.query and not parsed.fragment
+
+
 def run(scenario, real=False):
     async def execute():
         if real:
             uri = os.getenv("MONGO_URL", "mongodb://127.0.0.1:27017")
-            assert uri.startswith(("mongodb://127.0.0.1:", "mongodb://localhost:"))
+            validate_local_uri(uri)
             client = AsyncIOMotorClient(
-                uri, tz_aware=True, serverSelectionTimeoutMS=3000
+                uri, tz_aware=True, serverSelectionTimeoutMS=3000, directConnection=True
             )
         else:
             client = AsyncMongoMockClient(tz_aware=True)
@@ -506,8 +516,8 @@ def test_readiness_is_read_only_and_requires_all_reviewed_indexes():
         assert await db.whatsapp_jobs.index_information() == {}
         # Explicit test-only installation into a disposable database.
         for collection, plans in INDEX_PLAN.items():
-            for keys in plans:
-                await db[collection].create_index(keys)
+            for keys, options in plans:
+                await db[collection].create_index(keys, **options)
         assert (await report(db, ACTIVE))["ready"] is True
         await db.whatsapp_control.update_one(
             {"_id": policy.scope_id()}, {"$set": {"paused": True}}
@@ -665,8 +675,8 @@ def test_control_changes_require_confirmation_and_paused_verified_scope():
     async def scenario(db):
         policy, _ = await fixture(db)
         for collection, plans in INDEX_PLAN.items():
-            for keys in plans:
-                await db[collection].create_index(keys)
+            for keys, options in plans:
+                await db[collection].create_index(keys, **options)
         with pytest.raises(ValueError):
             await change(db, ACTIVE, "pause")
         await change(db, ACTIVE, "pause", reviewed=True)
@@ -816,8 +826,8 @@ def test_initial_activation_cannot_overwrite_a_concurrent_operator_scope():
 
     async def scenario(db):
         for collection, plans in INDEX_PLAN.items():
-            for keys in plans:
-                await db[collection].create_index(keys)
+            for keys, options in plans:
+                await db[collection].create_index(keys, **options)
         newer = replace(ACTIVE, activation_id="00000000-0000-4000-8000-000000000043")
         results = await asyncio.gather(
             change(db, ACTIVE, "activate", reviewed=True),
@@ -834,3 +844,322 @@ def test_initial_activation_cannot_overwrite_a_concurrent_operator_scope():
         assert await db.whatsapp_control.count_documents({}) == 1
 
     run(scenario, real=True)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "mongodb://127.0.0.1:27017,remote:27017",
+        "mongodb://127.0.0.1:27017/?replicaSet=remote",
+        "mongodb+srv://localhost/database",
+        "mongodb://remote:27017",
+    ],
+)
+def test_local_database_guard_rejects_discovery_and_nonlocal_seeds(uri):
+    with pytest.raises((AssertionError, ValueError)):
+        validate_local_uri(uri)
+
+
+def test_readiness_accepts_existing_sparse_outbox_index():
+    from services.lifecycle_readiness import missing_indexes
+
+    async def scenario(db):
+        worker = WhatsAppService(db, ACTIVE)
+        await worker.initialize()
+        await db.whatsapp_jobs.create_index(
+            [
+                ("activation_id", 1),
+                ("repair_id", 1),
+                ("source_revision", 1),
+                ("state", 1),
+            ]
+        )
+        assert not await missing_indexes(db)
+
+    run(scenario)
+
+
+def test_retired_activation_cannot_be_reused_after_an_intermediate_activation():
+    from services.lifecycle_control import change
+    from services.lifecycle_readiness import INDEX_PLAN
+
+    async def scenario(db):
+        policy, repair = await fixture(db)
+        for collection, plans in INDEX_PLAN.items():
+            for keys, options in plans:
+                await db[collection].create_index(keys, **options)
+        original = await policy.event(repair, "REQUESTED", "initial")
+        newer = replace(ACTIVE, activation_id="00000000-0000-4000-8000-000000000043")
+        await change(db, ACTIVE, "pause", reviewed=True)
+        await change(db, newer, "activate", reviewed=True)
+        await change(db, newer, "pause", reviewed=True)
+        with pytest.raises(ValueError, match="Retired"):
+            await change(db, ACTIVE, "activate", reviewed=True)
+        assert await policy.reject_reason(original) == "activation_mismatch"
+
+    run(scenario)
+
+
+@pytest.mark.parametrize("failure_check", [1, 2])
+def test_transient_control_lookup_defers_without_losing_or_ambiguating_job(
+    failure_check,
+):
+    from unittest.mock import patch
+    from pymongo.errors import AutoReconnect
+
+    async def scenario(db):
+        policy, repair = await fixture(db)
+        job = await policy.event(repair, "REQUESTED", "initial")
+        await db.repair_requests.update_one(
+            {"id": "repair"}, {"$push": {"whatsapp_outbox": job}}
+        )
+        clock = [datetime.now(timezone.utc)]
+        calls = []
+
+        async def transport(request):
+            calls.append(request)
+            return httpx.Response(200, json={"messages": [{"id": "synthetic-review"}]})
+
+        original = LifecyclePolicy.scope
+        checks = 0
+
+        async def unavailable(self, *args, **kwargs):
+            nonlocal checks
+            if kwargs.get("fail_on_error"):
+                checks += 1
+                if checks == failure_check:
+                    raise AutoReconnect("synthetic")
+            return await original(self, *args, **kwargs)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as http:
+            worker = WhatsAppService(db, ACTIVE, http, clock=lambda: clock[0])
+            await worker.reconcile()
+            with patch.object(LifecyclePolicy, "scope", unavailable):
+                assert await worker.process_one()
+            stored = await db.whatsapp_jobs.find_one({"_id": job["_id"]})
+            assert stored["state"] == "pending" and stored["attempts"] == 0
+            assert not stored.get("dispatch_started_at") and not calls
+            clock[0] += timedelta(seconds=3)
+            assert await worker.process_one()
+        assert len(calls) == 1
+        assert (await db.whatsapp_jobs.find_one({"_id": job["_id"]}))["state"] == "sent"
+
+    run(scenario)
+
+
+def test_test_template_with_no_parameters_omits_components_but_validates_snapshot():
+    async def scenario(db):
+        settings = replace(
+            ACTIVE,
+            mode="test",
+            phone_number_id=ACTIVE.test_phone_number_id,
+            test_recipients=(USER["phone"],),
+            templates={
+                **TEMPLATES,
+                "REQUESTED": {
+                    "name": "hello_world",
+                    "language": "en_US",
+                    "parameters": [],
+                },
+            },
+        )
+        policy, repair = await fixture(db, settings)
+        job = await policy.event(repair, "REQUESTED", "initial")
+        assert "components" not in message_payload(job, settings)["template"]
+        job["values"]["charger_description"] = ""
+        with pytest.raises(SnapshotError):
+            message_payload(job, settings)
+
+    run(scenario)
+
+
+def test_shutdown_during_receipt_reconciliation_does_not_claim_another_job():
+    from unittest.mock import AsyncMock, patch
+
+    async def scenario(db):
+        await fixture(db)
+        stop = asyncio.Event()
+        worker = WhatsAppService(db, ACTIVE)
+        worker.reconcile = AsyncMock()
+
+        async def receipts():
+            stop.set()
+
+        worker.apply_receipts = receipts
+        worker.process_one = AsyncMock()
+        with patch(
+            "services.lifecycle_readiness.missing_indexes", AsyncMock(return_value=[])
+        ):
+            await worker.run(stop)
+        worker.process_one.assert_not_awaited()
+
+    run(scenario)
+
+
+def test_creation_retry_list_and_detail_share_outage_state_without_losing_consent():
+    from unittest.mock import patch
+    from test_customer_profile import run as profile_run, sign_in
+    import server
+
+    async def scenario(auth, db, browser, clock):
+        await sign_in(auth, db, browser, uid=USER["user_id"], phone=USER["phone"])
+        policy = LifecyclePolicy(db, ACTIVE)
+        await db.whatsapp_control.insert_one(
+            {
+                "_id": policy.scope_id(),
+                "activation_id": ACTIVE.activation_id,
+                "mode": ACTIVE.mode,
+                "paused": False,
+                "manifest_digest": digest(ACTIVE.templates),
+                "instructions_digest": digest(instruction_preview(ACTIVE)),
+                "heartbeat_at": datetime.now(timezone.utc),
+            }
+        )
+        with patch.object(server.WhatsAppSettings, "from_env", return_value=ACTIVE):
+            cap = (await browser.get("/api/customer/whatsapp-capability")).json()
+            await db.whatsapp_control.update_one(
+                {"_id": policy.scope_id()},
+                {
+                    "$set": {
+                        "heartbeat_at": datetime.now(timezone.utc)
+                        - timedelta(minutes=2)
+                    }
+                },
+            )
+            body = {
+                "charger_info": {"brand": "Synthetic charger"},
+                "problem_description": "Synthetic fault",
+                "whatsapp_opt_in": True,
+                "whatsapp_binding": cap["binding"],
+                "idempotency_key": "outage-test",
+            }
+            created = await browser.post("/api/repairs", json=body)
+            assert created.status_code == 200, created.text
+            rid = created.json()["id"]
+            retry = await browser.post("/api/repairs", json=body)
+            detail = await browser.get(f"/api/repairs/{rid}")
+            listing = (await browser.get("/api/repairs")).json()
+            responses = [
+                created.json(),
+                retry.json(),
+                detail.json(),
+                next(r for r in listing if r["id"] == rid),
+            ]
+            assert all(
+                r["whatsapp_updates"] == responses[0]["whatsapp_updates"]
+                for r in responses
+            )
+            assert responses[0]["whatsapp_updates"]["state"] == "unavailable"
+            assert all(
+                "whatsapp_consent" not in r and "whatsapp_outbox" not in r
+                for r in responses
+            )
+            stored = await db.repair_requests.find_one({"id": rid})
+            assert (
+                stored["whatsapp_consent"]["opted_in"] is True
+                and len(stored["whatsapp_outbox"]) == 1
+            )
+            await db.whatsapp_control.update_one(
+                {"_id": policy.scope_id()},
+                {"$set": {"heartbeat_at": datetime.now(timezone.utc)}},
+            )
+            assert (await browser.get(f"/api/repairs/{rid}")).json()[
+                "whatsapp_updates"
+            ]["state"] == "enabled"
+            assert (await browser.get("/api/repairs")).json()[0]["whatsapp_updates"][
+                "state"
+            ] == "enabled"
+
+    profile_run(scenario)
+
+
+@pytest.mark.parametrize(
+    "charger_info", [{"brand": None, "model": None}, {"brand": "  ", "model": ""}]
+)
+def test_registered_charger_fills_blank_description_and_unregistered_whitespace_rejected(
+    charger_info,
+):
+    from test_customer_profile import run as profile_run, sign_in
+
+    async def scenario(auth, db, browser, clock):
+        await sign_in(auth, db, browser, uid=USER["user_id"], phone=USER["phone"])
+        await db.chargers.insert_one(
+            {"charger_id": "synthetic-charger", "name": "Registered test charger"}
+        )
+        response = await browser.post(
+            "/api/repairs",
+            json={
+                "charger_id": "synthetic-charger",
+                "charger_info": charger_info,
+                "problem_description": "Synthetic fault",
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["charger_info"]["brand"] == "Registered test charger"
+        response = await browser.post(
+            "/api/repairs",
+            json={
+                "charger_info": {"brand": "   "},
+                "problem_description": "Synthetic fault",
+            },
+        )
+        assert response.status_code == 400
+
+    profile_run(scenario)
+
+
+def test_notification_failures_do_not_abort_balance_or_receipt_and_log_no_details(
+    caplog,
+):
+    from pymongo.errors import AutoReconnect
+
+    async def scenario(db):
+        await fixture(db, status="REPAIR_COMPLETED")
+
+        async def broken(*args):
+            raise AutoReconnect("sensitive synthetic text must not be logged")
+
+        service = PaymentService(
+            MongoPaymentRepository(db.repair_requests, db.payment_references),
+            ManualPaymentProcessor(),
+            notification_factory=broken,
+            balance_notification_factory=broken,
+        )
+        assert await service.verify_balance(
+            "repair", "100.00", "test reconciliation", "admin", "balance"
+        ) == {"ok": True}
+        await db.repair_requests.update_one(
+            {"id": "repair"}, {"$set": {"status": "PAYMENT_PENDING"}}
+        )
+        result = await service.receive(
+            "repair", "100.00", "cash", None, "admin", "receipt", True, VERIFIED
+        )
+        assert result["state"] == "PAID"
+        stored = await db.repair_requests.find_one({"id": "repair"})
+        assert (
+            stored["payment_receipt"] and stored["payment_summary"]["state"] == "PAID"
+        )
+        assert not stored["whatsapp_outbox"]
+
+    run(scenario)
+    assert "balance_notification_construction_failed" in caplog.text
+    assert "receipt_notification_construction_failed" in caplog.text
+    assert "sensitive synthetic" not in caplog.text
+
+
+def test_actual_control_read_error_is_transient_only_for_dispatch():
+    from unittest.mock import AsyncMock
+    from pymongo.errors import AutoReconnect
+
+    async def scenario(db):
+        policy, repair = await fixture(db)
+        job = await policy.event(repair, "REQUESTED", "initial")
+        policy.db = SimpleNamespace(
+            whatsapp_control=SimpleNamespace(
+                find_one=AsyncMock(side_effect=AutoReconnect("synthetic"))
+            )
+        )
+        assert await policy.scope() is None
+        assert await policy.reject_reason(job) == "activation_unavailable"
+
+    run(scenario)
