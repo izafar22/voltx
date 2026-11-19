@@ -17,7 +17,7 @@ Integration target: `repair-mvp`, followed by its existing staging CI/CD. Each t
 | CP-07 | Saved-address management interface | CP-02, CP-05 | DONE |
 | CP-08 | Repair address snapshots and form integration | CP-02, CP-07 | DONE |
 | CP-09 | Integrated regression and design validation | CP-06, CP-07, CP-08 | DONE |
-| CP-10 | PR evidence and staging acceptance | CP-09 | IN_PROGRESS |
+| CP-10 | PR evidence and staging acceptance | CP-09 | DONE |
 
 ## CP-01 — Profile contracts and persistence
 
@@ -127,4 +127,4 @@ Implementation notes: address fields are bounded at 40 characters for labels, 20
 
 The initiating session is retained through an ID and epoch recorded atomically with the new phone and account epoch in the user document; its stored session must still exist and be unexpired. Other sessions fail the account epoch check, and later account-wide epoch revocation invalidates the retention exception. New registration rejects unverified email input and directs customers to Google linking. Historical data remains untouched.
 
-Validation results and the review/staging checklist are recorded in `validation.md`. CP-10 remains in progress until the owner approves merging and staging acceptance is completed.
+Validation results and the review/staging checklist are recorded in `validation.md`. CP-10 is complete: PR #69 was merged with owner approval, staging release evidence is recorded in validation.md, and the owner confirmed the remaining manual acceptance checks on 2026-11-19.

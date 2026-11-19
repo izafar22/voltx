@@ -29,7 +29,7 @@ A manually dispatched GitHub Actions workflow on a `release_*` branch will build
 
 Blog posts and Studio pages are rendered on the server by FastAPI (`backend/services/studio_cms.py`), not by React: `/blog`, `/blog/<slug>`, `/sitemap.xml`, `POST /api/revalidate`, and a catch-all that serves Studio pages at any address, the React `index.html` (200) for the app's own routes, and a real 404 otherwise. Activation needs the Nginx routing and the `CMS_REVALIDATE_SECRET` backend variable described in `docs/STUDIO_CMS.md`. New React routes must also be added to `SPA_EXACT`/`SPA_PREFIXES` (a test enforces this). `/api/revalidate` is exempt from the browser-Origin guard; it authenticates with the shared secret.
 
-## Customer profile implementation (2026-11-18, feature branch)
+## Customer profile implementation (production verified 2026-11-19)
 
 `backend/customer_profile.py` implements customer-scoped profile and saved-address APIs. MongoDB `customer_profiles` uses the existing user ID as `_id`, with an address array, independent default references and revision-conditional atomic writes. Existing MongoDB `_id` uniqueness handles document creation races, so this feature adds no secondary index or existing-data migration.
 
@@ -37,4 +37,4 @@ Authenticated linking operations in `auth_service.py` and `google_oidc.py` bind 
 
 Repair creation accepts optional pickup/delivery address IDs, resolves them against the customer profile and embeds location snapshots. Existing idempotent retries return the original repair before resolving mutable saved addresses. Repair-response redaction also applies to the new location fields.
 
-`/app/profile` uses CustomerShell and shared profile/address/verification components. The repair form adds optional selectors and an inline address dialog to retain its draft. Profile data is held in memory, not local storage. See `specs/customer-profile/validation.md` for evidence and remaining staging acceptance. This describes feature-branch code, not verified deployment.
+`/app/profile` uses CustomerShell and shared profile/address/verification components. The repair form adds optional selectors and an inline address dialog to retain its draft. Profile data is held in memory, not local storage. Staging acceptance is complete, including owner-confirmed provider/session checks. Production frontend and backend are both at `479d2ee1e7337bd3db46a898d7a6ffb53887a994` on `release_20261119_version1.1.0`, independently verified on 2026-11-19. Production retains `/etc/rushx/backend.env`; the backend uses a separate release virtual environment and `zz-release-1.1.0.conf` systemd override. See `docs/CUSTOMER_PROFILE_PRODUCTION_RELEASE.md` for CI, smoke checks and paired rollback evidence. Authenticated production profile/provider journeys were not exercised during deployment.
