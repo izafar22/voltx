@@ -50,7 +50,7 @@ A small **WhatsApp updates** panel shows one of: Enabled for this repair, Not en
 
 After phone replacement, show: “WhatsApp updates for this repair are paused because your mobile changed. Continue following progress here.” Successful same-number OTP login does not pause existing consent. Authentication by WhatsApp never opts a repair in.
 
-All screens use canonical tokens/components, both themes, keyboard focus/labels and existing toast/error patterns. No public homepage redesign or promotional delivery promise is included.
+All screens use canonical tokens/components, both themes, keyboard focus/labels and existing toast/error patterns. Preserve the existing `frontend/src/components/Logo.jsx` in CustomerShell and the admin shell: the green rounded-square mark with the filled Zap symbol and the complete RushX wordmark from PRODUCT_NAME. Do not replace it with plain text, recolor only the X, or create a parallel logo. No public homepage redesign or promotional delivery promise is included.
 
 ## 2. RushX acceptance and authorization
 
@@ -227,3 +227,8 @@ The following audit is retained as evidence of what existed before this design, 
 | PAYMENT_RECEIVED | `rushx_payment_received_v1` | customer_name, repair_number, verified_amount, safe_reference |
 
 All local entries use en_US and proposed Utility category. Exact live name, locale, category, full body, components/parameter order and current status must be verified with authorized access before sends; no template edit/submission is authorized.
+
+## UI review record
+
+- 2026-11-20: owner accepted the interactive UI direction with one correction: preserve the existing RushX logo. The preview was corrected to match Logo.jsx (mark, symbol and wordmark). Production implementation must reuse that component directly.
+- This is UI feedback, not approval of the entire technical design or implementation task plan. Those review gates remain pending.
