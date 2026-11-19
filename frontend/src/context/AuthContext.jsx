@@ -34,6 +34,14 @@ export const AuthProvider = ({ children }) => {
     } catch { setAuthError("Unable to sign out. Please try again."); }
     finally { logoutLock.current = false; setLoggingOut(false); }
   };
-  return <AuthContext.Provider value={{ user, setUser, loading, login, logout, loggingOut, authError, loadMe }}>{children}</AuthContext.Provider>;
+  const beginUserUpdate = useCallback(() => {
+    const startedGeneration = generation.current;
+    return (profile) => {
+      if (generation.current !== startedGeneration || logoutLock.current) return false;
+      setUser(profile);
+      return true;
+    };
+  }, []);
+  return <AuthContext.Provider value={{ user, setUser, beginUserUpdate, loading, login, logout, loggingOut, authError, loadMe }}>{children}</AuthContext.Provider>;
 };
 export const useAuth = () => useContext(AuthContext);
