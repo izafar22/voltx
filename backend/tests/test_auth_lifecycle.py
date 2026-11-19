@@ -108,7 +108,8 @@ def test_new_customer_cookie_registration_wallet_and_logout():
         headers = {'Authorization': 'Bearer ' + token}
         assert (await browser.post('/api/auth/register-customer', headers=headers, json={'name': 'New Customer', 'role': 'admin'})).status_code == 422
         assert (await browser.post('/api/auth/register-customer', headers=headers, json={'name': '  '})).status_code == 422
-        response = await browser.post('/api/auth/register-customer', headers=headers, json={'name': '  New Customer  ', 'email': 'hello@example.com'})
+        assert (await browser.post('/api/auth/register-customer', headers=headers, json={'name': 'New Customer', 'email': 'hello@example.com'})).status_code == 422
+        response = await browser.post('/api/auth/register-customer', headers=headers, json={'name': '  New Customer  '})
         assert response.status_code == 200
         assert 'token' not in response.json()
         assert 'HttpOnly' in response.headers['set-cookie'] and 'SameSite=lax' in response.headers['set-cookie']

@@ -47,12 +47,12 @@ test('existing user verifies then enters dashboard', async () => {
   expect(mockPost).toHaveBeenLastCalledWith('/auth/verify-otp', { phone: '+919876543210', challenge_id: 'challenge', otp: '123456' });
   expect(mockLogin).toHaveBeenCalledWith(user); expect(mockNavigate).toHaveBeenCalledWith('/app', { replace: true });
 });
-test('new user requires name and optional email validation before registration', async () => {
+test('new user provides a name and adds verified email later through Google', async () => {
   await registration(); expect(container.textContent).toContain('Your number has been verified');
   fill('full-name', '  '); await submit(); expect(container.textContent).toContain('Enter your full name');
-  fill('full-name', ' Asha Sharma '); fill('email', 'bad'); await submit(); expect(container.textContent).toContain('Enter a valid email');
-  fill('email', 'asha@example.com'); mockPost.mockResolvedValueOnce({ data: { user: { name: 'Asha Sharma', role: 'customer' } } });
-  await submit(); expect(mockPost).toHaveBeenLastCalledWith('/auth/register-customer', { name: 'Asha Sharma', email: 'asha@example.com' }, { headers: { Authorization: 'Bearer scoped-test-grant' } });
+  fill('full-name', ' Asha Sharma '); expect(container.querySelector('#email')).toBeNull();
+  mockPost.mockResolvedValueOnce({ data: { user: { name: 'Asha Sharma', role: 'customer' } } });
+  await submit(); expect(mockPost).toHaveBeenLastCalledWith('/auth/register-customer', { name: 'Asha Sharma', email: '' }, { headers: { Authorization: 'Bearer scoped-test-grant' } });
   expect(mockNavigate).toHaveBeenCalledWith('/app', { replace: true });
 });
 test('resend waits for server countdown and then requests a fresh challenge', async () => {

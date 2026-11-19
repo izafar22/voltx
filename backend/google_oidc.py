@@ -31,7 +31,7 @@ class GoogleOIDC:
 
     def configured(self):
         if not all((self.client_id, self.client_secret, self.redirect_uri)):
-            raise HTTPException(503, 'Google sign-in is unavailable. Please use SMS or try later.')
+            raise HTTPException(503, 'Google sign-in is unavailable. Please use WhatsApp or try later.')
         allowed = {origin + '/api/auth/google/callback' for origin in self.auth.settings.origins}
         if self.redirect_uri not in allowed:
             raise HTTPException(503, 'Google sign-in configuration is unavailable.')
@@ -46,18 +46,22 @@ class GoogleOIDC:
         response.headers['Cache-Control'] = 'no-store'
         response.headers['Referrer-Policy'] = 'no-referrer'
 
-    async def login(self, request):
+    async def login(self, request, linking_user=None):
         self.configured()
         await self.auth.limit('google:' + (request.client.host if request.client else 'unknown'), 30, 3600)
         state, binding, nonce, verifier = [secrets.token_urlsafe(32) for _ in range(4)]
         await self.auth.db.auth_google_transactions.insert_one({
             '_id': self.auth.digest(state), 'binding': self.auth.digest(binding), 'nonce': nonce,
+            'purpose': 'link_google' if linking_user else 'login',
+            **({'user_id': linking_user['user_id'], 'session_id': self.auth.session_id(request)} if linking_user else {}),
             'verifier': verifier, 'expires_at': self.auth.clock() + timedelta(minutes=5)})
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
         response = RedirectResponse(AUTHORIZE + '?' + urlencode({
             'client_id': self.client_id, 'redirect_uri': self.redirect_uri, 'response_type': 'code',
             'scope': 'openid email profile', 'state': state, 'nonce': nonce,
             'code_challenge': challenge, 'code_challenge_method': 'S256'}), status_code=303)
+        if linking_user:
+            response.headers['location'] += '&prompt=select_account'
         self.cookie(response, binding)
         return response
 
@@ -120,8 +124,30 @@ class GoogleOIDC:
                 'email': claims['email'], 'google_verified_email': claims['email'], 'google_verified_at': now}})
         await self.auth.db.wallets.update_one({'user_id': user['user_id']}, {'$setOnInsert': {'balance': 0.0}}, upsert=True)
         if verified:
-            user = {**user, 'email': claims['email']}
+            user = {**user, 'email': claims['email'], 'google_verified_email': claims['email'], 'google_verified_at': now}
         return user
+
+    async def link(self, request, transaction, claims):
+        user = await self.auth.link_customer(request)
+        if transaction['user_id'] != user['user_id'] or transaction['session_id'] != self.auth.session_id(request):
+            raise HTTPException(401, 'Initiating session changed')
+        if claims.get('email_verified') is not True or not isinstance(claims.get('email'), str) or not 1 <= len(claims['email']) <= 254:
+            raise ValueError('Verified Google email required')
+        identity = {'auth_provider': 'google', 'auth_subject': claims['sub']}
+        owner = await self.auth.db.users.find_one(identity)
+        if owner and owner['user_id'] != user['user_id']:
+            raise HTTPException(409, 'Google identity conflict')
+        if user.get('auth_subject') and (user.get('auth_provider') != 'google' or user['auth_subject'] != claims['sub']):
+            raise HTTPException(409, 'Google identity replacement is unavailable')
+        try:
+            result = await self.auth.db.users.update_one({'user_id': user['user_id'],
+                'auth_subject': user.get('auth_subject'), 'auth_epoch': user.get('auth_epoch', 0) if user.get('auth_epoch') else {'$in': [None, 0]},
+                'status': {'$in': [None, 'active']}}, {'$set': {**identity, 'email': claims['email'],
+                    'google_verified_email': claims['email'], 'google_verified_at': self.auth.clock().isoformat()}})
+        except DuplicateKeyError:
+            raise HTTPException(409, 'Google identity conflict') from None
+        if not result.matched_count:
+            raise HTTPException(409, 'Account changed')
 
     async def callback(self, request):
         response = RedirectResponse('/login?google_error=1', status_code=303)
@@ -138,6 +164,8 @@ class GoogleOIDC:
             transaction = await self.auth.db.auth_google_transactions.find_one_and_delete({
                 '_id': self.auth.digest(state), 'binding': self.auth.digest(binding),
                 'expires_at': {'$gt': self.auth.clock()}})
+            if transaction and transaction.get('purpose') == 'link_google':
+                response.headers['location'] = '/app/profile?google_link=failed'
             code = request.query_params.get('code', '')
             if not transaction or request.query_params.get('error') or not 1 <= len(code) <= 4096:
                 return response
@@ -147,10 +175,19 @@ class GoogleOIDC:
                     'redirect_uri': self.redirect_uri, 'code_verifier': transaction['verifier']})
                 result.raise_for_status()
                 claims = await self.claims(client, result.json()['id_token'], transaction['nonce'])
+            if transaction.get('purpose') == 'link_google':
+                await self.link(request, transaction, claims)
+                response.headers['location'] = '/app/profile?google_link=success'
+                return response
+            if transaction.get('purpose', 'login') != 'login':
+                return response
             user = await self.user(claims)
             await self.auth.login_response(user, response, request)
             response.headers['location'] = '/login'
-        except (HTTPException, httpx.HTTPError, jwt.PyJWTError, ValueError, KeyError, TypeError):
+        except HTTPException as error:
+            if response.headers['location'].startswith('/app/profile') and error.status_code == 409:
+                response.headers['location'] = '/app/profile?google_link=conflict'
+        except (httpx.HTTPError, jwt.PyJWTError, ValueError, KeyError, TypeError):
             # Never include provider error payloads, codes, tokens or secrets in errors/logs.
             pass
         return response

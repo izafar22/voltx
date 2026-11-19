@@ -24,6 +24,7 @@ jest.mock('./context/AuthContext', () => ({ useAuth: () => ({ user: mockUser, lo
 jest.mock('@/components/ui/sonner', () => ({ Toaster: () => null }), { virtual: true });
 jest.mock('@/components/ProtectedRoute', () => require('./components/ProtectedRoute'), { virtual: true });
 jest.mock('@/pages/Login', () => () => <p>Login screen</p>, { virtual: true });
+jest.mock('@/pages/customer/CustomerProfile', () => () => <p>Customer profile</p>, { virtual: true });
 jest.mock('@/pages/customer/CustomerHome', () => () => <p>Customer dashboard</p>, { virtual: true });
 jest.mock('@/pages/customer/ChargerPage', () => () => { mockChargingMount(); return <p>Charger page</p>; }, { virtual: true });
 jest.mock('@/pages/customer/LivePage', () => () => { mockChargingMount(); return <p>Live page</p>; }, { virtual: true });

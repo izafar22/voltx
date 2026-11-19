@@ -3,12 +3,13 @@ import { createRoot } from 'react-dom/client';
 import RepairNew from './RepairNew';
 const mockInvalidate = jest.fn();
 const mockNavigate = jest.fn(), mockPost = jest.fn(), mockPatch = jest.fn(), mockError = jest.fn();
-let mockChargers = [], mockRole = 'customer';
+let mockProfile = { addresses: [], revision: 0, pickup_id: null, delivery_id: null }, mockChargers = [], mockRole = 'customer';
 jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }), { virtual: true });
-jest.mock('@tanstack/react-query', () => ({ useQuery: () => ({ data: mockChargers }), useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }));
+jest.mock('@tanstack/react-query', () => ({ useQuery: ({ queryKey }) => ({ data: queryKey[0] === 'customer-profile' ? mockProfile : mockChargers }), useQueryClient: () => ({ invalidateQueries: mockInvalidate }) }));
 jest.mock('../../lib/api', () => ({ api: { post: (...args) => mockPost(...args), patch: (...args) => mockPatch(...args) } }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { role: mockRole } }) }));
 jest.mock('../../components/layout/CustomerShell', () => ({ CustomerShell: ({ children }) => <main>{children}</main> }));
+jest.mock('@/lib/utils', () => ({ cn: (...classes) => classes.filter(Boolean).join(' ') }), { virtual: true });
 jest.mock('sonner', () => ({ toast: { error: (...args) => mockError(...args), message: jest.fn() } }));
 jest.mock('framer-motion', () => ({ motion: { div: ({ children, initial, animate, ...props }) => <div {...props}>{children}</div> } }));
 jest.mock('../../components/ui/button', () => ({ Button: ({ children, variant, ...props }) => <button {...props}>{children}</button> }));
@@ -44,7 +45,7 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); container.remove(); });
 const render = () => act(() => root.render(<RepairNew />));
 test('readable single-page sections, labels and mobile stacking', () => {
-  render(); expect([...container.querySelectorAll('h2')].map(n => n.textContent)).toEqual(['1. Choose your charger', '2. Charger details', '3. Tell us what’s wrong', '4. Add photos (optional)', '5. Review and submit']);
+  render(); expect([...container.querySelectorAll('h2')].map(n => n.textContent)).toEqual(['1. Choose your charger', '2. Charger details', '3. Tell us what’s wrong', '4. Add photos (optional)', '5. Pickup and delivery addresses (optional)', '6. Review and submit']);
   expect(el('repair-new-page').className).toContain('max-w-4xl');
   expect(el('source-mine').parentElement.className).toContain('grid-cols-1');
   expect(container.querySelector('label[for="brand"]')).not.toBeNull();
@@ -73,7 +74,7 @@ test('registered charger selection preserves payload and details', async () => {
 });
 test('review separates description and successful submission preserves contract and navigation', async () => {
   render(); fill(); change('category-select', 'Not charging');
-  expect([...el('review-section').querySelectorAll('dt')].map(n => n.textContent)).toEqual(['Charger', 'Problem', 'Description', 'Photos']);
+  expect([...el('review-section').querySelectorAll('dt')].map(n => n.textContent)).toEqual(['Charger', 'Problem', 'Description', 'Photos', 'Pickup address', 'Delivery address']);
   expect(el('review-section').textContent).toContain('Terra AC');
   await act(async () => submit());
   expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'RETAIL', problem_description: 'Stops after a few seconds.', reported_category: 'Not charging', photos: [], whatsapp_opt_in: false, idempotency_key: 'creation-key', charger_info: { brand: 'ABB', model: 'Terra AC', charger_type: null, serial_number: null, power_rating: null, purchase_date: null } });
@@ -135,4 +136,13 @@ test('ambiguous submission retry retains the same idempotency key', async () => 
   await act(async () => submit());
   expect(mockPost.mock.calls[0][1].idempotency_key).toBe(mockPost.mock.calls[1][1].idempotency_key);
   expect(mockPost.mock.calls[0][1].idempotency_key).toBeTruthy();
+});
+test('late defaults cannot change an ambiguous retry payload or idempotency key', async () => {
+  mockProfile = undefined; render(); fill();
+  mockPost.mockRejectedValueOnce(new Error('response lost'));
+  await act(async () => submit());
+  const first = mockPost.mock.calls[0][1];
+  mockProfile = { addresses: [{ id:'late-address',label:'Home',line1:'Test' }], revision:1,pickup_id:'late-address',delivery_id:'late-address' };
+  render(); await act(async () => submit());
+  expect(mockPost.mock.calls[1][1]).toEqual(first);
 });

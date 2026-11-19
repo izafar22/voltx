@@ -16,9 +16,11 @@ export function SidebarLinks({ items, onNavigate, children }) {
   const { pathname } = useLocation();
   return (
     <nav aria-label="Customer navigation" className="flex flex-col gap-1 p-3">
-      {items.map(({ to, label, icon: Icon }) => {
+      {items.map(({ to, matchPath, label, icon: Icon }) => {
         const active =
           pathname === to ||
+          (matchPath &&
+            (pathname === matchPath || pathname.startsWith(`${matchPath}/`))) ||
           (to === "/repairs" && pathname.startsWith("/repairs/"));
         return (
           <Link

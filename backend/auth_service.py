@@ -31,10 +31,14 @@ def utcnow():
 
 
 def safe_user(user):
-    return {key: user.get(key, default) for key, default in {
+    profile = {key: user.get(key, default) for key, default in {
         "user_id": "", "name": "", "phone": "", "email": "", "role": "customer",
         "status": "active", "onboarding_completed": True,
     }.items()}
+    profile['google_linked'] = bool(user.get('auth_provider') == 'google' and user.get('auth_subject') and user.get('google_verified_email'))
+    profile['phone_verified'] = bool(user.get('phone') and user.get('phone_verified_at'))
+    profile['email'] = user.get('google_verified_email', '') if profile['google_linked'] else ''
+    return profile
 
 
 @dataclass(frozen=True)
@@ -170,7 +174,7 @@ class AuthService:
         except DuplicateKeyError:
             raise HTTPException(429, "Too many requests. Try again later.", headers={"Retry-After": str(seconds)}) from None
 
-    async def request_otp(self, phone: str, ip: str | None):
+    async def request_otp(self, phone: str, ip: str | None, binding=None):
         ip = ip or "unknown"
         phone = normalize_phone(phone)
 
@@ -236,6 +240,8 @@ class AuthService:
                 "attempts": 0,
                 "consumed": False,
                 "delivered": False,
+                "purpose": "link_phone" if binding else "login",
+                **(binding or {}),
             }
         )
 
@@ -269,13 +275,14 @@ class AuthService:
 
         return result
 
-    async def verify(self, cid, phone, code):
+    async def consume_challenge(self, cid, phone, code, binding=None):
         phone, now = normalize_phone(phone), self.clock()
-        challenge = await self.db.auth_challenges.find_one_and_update({"_id": cid, "phone": phone,
+        scope = {"_id": cid, "phone": phone, "purpose": "link_phone" if binding else {"$in": [None, "login"]}, **(binding or {})}
+        challenge = await self.db.auth_challenges.find_one_and_update({**scope,
             "consumed": False, "delivered": True, "expires_at": {"$gt": now}, "attempts": {"$lt": 5}},
             {"$inc": {"attempts": 1}}, return_document=ReturnDocument.BEFORE)
         if not challenge:
-            old = await self.db.auth_challenges.find_one({"_id": cid, "phone": phone})
+            old = await self.db.auth_challenges.find_one(scope)
             if old and old.get("attempts", 0) >= 5:
                 raise HTTPException(429, "Too many attempts. Request a new code.")
             raise HTTPException(400, "Code expired or already used. Request a new code.")
@@ -286,10 +293,16 @@ class AuthService:
         consumed = await self.db.auth_challenges.update_one({"_id": cid, "consumed": False, "expires_at": {"$gt": now}}, {"$set": {"consumed": True}})
         if not consumed.modified_count:
             raise HTTPException(400, "Code expired or already used. Request a new code.")
+        return challenge
+
+    async def verify(self, cid, phone, code):
+        await self.consume_challenge(cid, phone, code)
+        phone, now = normalize_phone(phone), self.clock()
         user = await self.db.users.find_one({"phone": phone})
         if user:
             self.ensure_active(user)
-            return user, None
+            await self.db.users.update_one({'user_id': user['user_id'], 'phone': phone}, {'$set': {'phone_verified_at': now.isoformat()}})
+            return {**user, 'phone_verified_at': now.isoformat()}, None
         rid = secrets.token_urlsafe(24)
         expires = now + timedelta(minutes=10)
         await self.db.auth_registrations.insert_one({"_id": rid, "phone": phone, "expires_at": expires})
@@ -314,8 +327,8 @@ class AuthService:
         name, email = name.strip(), email.strip()
         if not 2 <= len(name) <= 100 or any(ord(c) < 32 for c in name):
             raise HTTPException(422, "Enter your full name (2–100 characters).")
-        if email and (len(email) > 254 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email)):
-            raise HTTPException(422, "Enter a valid email address.")
+        if email:
+            raise HTTPException(422, "Connect Google from your profile to add a verified email.")
         grant = await self.db.auth_registrations.find_one({"_id": data["jti"], "phone": data["sub"], "expires_at": {"$gt": self.clock()}})
         if not grant:
             raise HTTPException(401, "Phone verification expired. Please sign in again.")
@@ -324,7 +337,7 @@ class AuthService:
         user_id = "user_" + self.digest("registration:" + data["jti"])[:24]
         now = self.clock().isoformat()
         document = {"user_id": user_id, "phone": data["sub"], "role": "customer", "name": name,
-            "email": email, "status": "active", "onboarding_completed": True, "created_at": now, "updated_at": now}
+            "email": "", "phone_verified_at": now, "status": "active", "onboarding_completed": True, "created_at": now, "updated_at": now}
         try:
             await self.db.users.update_one({"phone": data["sub"]}, {"$setOnInsert": document}, upsert=True)
         except DuplicateKeyError:
@@ -355,7 +368,9 @@ class AuthService:
         if not user:
             raise HTTPException(401, "Not authenticated")
         self.ensure_active(user)
-        if session.get("auth_epoch", 0) != user.get("auth_epoch", 0):
+        if (session.get("auth_epoch", 0) != user.get("auth_epoch", 0)
+                and not (session["_id"] == user.get("retained_session_id")
+                         and user.get("retained_session_epoch") == user.get("auth_epoch", 0))):
             raise HTTPException(401, "Session expired. Please sign in again.")
         return user
 
@@ -370,6 +385,49 @@ class AuthService:
             secure=self.settings.environment == "production", samesite="lax", path="/")
         response.headers["Cache-Control"] = "no-store"
         return {"authenticated": True, "registration_required": False, "user": safe_user(user)}
+
+    def session_id(self, request):
+        return self.decode(request.cookies.get('access_token', ''), 'session')['jti']
+
+    async def link_customer(self, request):
+        user = await self.authenticate(request)
+        if user.get('role') != 'customer':
+            raise HTTPException(403, 'Customer profile access is required.')
+        return user
+
+    def phone_binding(self, request, user):
+        return {'user_id': user['user_id'], 'session_id': self.session_id(request),
+                'original_phone': user.get('phone'), 'auth_epoch': user.get('auth_epoch', 0)}
+
+    async def request_phone_link(self, request, phone):
+        user = await self.link_customer(request)
+        await self.limit('link-phone:' + user['user_id'], 10, 3600)
+        return await self.request_otp(phone, request.client.host if request.client else None, self.phone_binding(request, user))
+
+    async def verify_phone_link(self, request, response, body):
+        user = await self.link_customer(request)
+        binding = self.phone_binding(request, user)
+        phone = normalize_phone(body.phone)
+        await self.consume_challenge(body.challenge_id, phone, body.otp, binding)
+        now = self.clock().isoformat()
+        replacing = bool(user.get('phone') and user['phone'] != phone)
+        changes = {'phone': phone, 'phone_verified_at': now, 'updated_at': now}
+        epoch = user.get('auth_epoch', 0)
+        if replacing:
+            changes['auth_epoch'] = epoch + 1
+            changes['retained_session_id'] = binding['session_id']
+            changes['retained_session_epoch'] = epoch + 1
+        try:
+            result = await self.db.users.update_one({'user_id': user['user_id'], 'phone': user.get('phone'),
+                'auth_epoch': {'$in': [None, 0]} if epoch == 0 else epoch, 'status': {'$in': [None, 'active']}}, {'$set': changes})
+        except DuplicateKeyError:
+            raise HTTPException(409, {'code': 'identity_conflict', 'message': 'This mobile number is already linked to another RushX account. Use a different number.'}) from None
+        if not result.matched_count:
+            raise HTTPException(409, {'code': 'identity_changed', 'message': 'Your account changed. Reload and try again.'})
+        # Phone, epoch and the sole retained session ID commit in the same user write.
+        # Authentication still requires that session's live, unexpired database record.
+        response.headers['Cache-Control'] = 'no-store'
+        return {'user': safe_user({**user, **changes})}
 
     async def revoke(self, request):
         token = request.cookies.get("access_token")
@@ -417,6 +475,27 @@ def auth_router(service):
             raise HTTPException(401, "Phone verification is required.")
         user = await service.register(authorization[7:], body.name, body.email)
         return await service.login_response(user, response, request)
+
+    @router.post('/link/google/start')
+    async def google_link(request: Request):
+        user = await service.link_customer(request)
+        response = await service.google.login(request, user)
+        # Return a destination for a top-level navigation, retaining the HttpOnly binding cookie.
+        destination = response.headers['location']
+        response.status_code = 200
+        from fastapi.responses import JSONResponse
+        result = JSONResponse({'url': destination})
+        result.raw_headers.extend((k, v) for k, v in response.raw_headers if k.lower() == b'set-cookie')
+        result.headers['Cache-Control'] = 'no-store'
+        return result
+
+    @router.post('/link/phone/request')
+    async def phone_link_request(body: PhoneRequest, request: Request):
+        return await service.request_phone_link(request, body.phone)
+
+    @router.post('/link/phone/verify')
+    async def phone_link_verify(body: VerifyRequest, request: Request, response: Response):
+        return await service.verify_phone_link(request, response, body)
 
     @router.get("/me")
     async def me(request: Request, response: Response):

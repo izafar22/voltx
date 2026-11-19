@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Wallet as WalletIcon, History, Wrench, Bell, LogOut, Menu, LayoutDashboard, Shield } from "lucide-react";
+import { Home, Wallet as WalletIcon, History, Wrench, Bell, LogOut, Menu, LayoutDashboard, Shield, UserRound } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { SidebarLinks } from "./SidebarLinks";
@@ -15,7 +15,7 @@ const nav = [
   { to: "/app", icon: Home, label: "Home" },
   { to: "/app/wallet", icon: WalletIcon, enabled: () => FEATURES.wallet, label: "Wallet" },
   { to: "/app/history", icon: History, enabled: () => FEATURES.charging, label: "History" },
-  { to: "/repairs", icon: Wrench, enabled: () => FEATURES.repair, label: "Repairs" },
+  { to: "/repairs/new", matchPath: "/repairs", icon: Wrench, enabled: () => FEATURES.repair, label: "Repairs" },
 ];
 
 export const CustomerShell = ({ children }) => {
@@ -32,7 +32,7 @@ export const CustomerShell = ({ children }) => {
   const unread = notifs.filter((n) => !n.read).length;
 
   const SideNav = () => (
-    <SidebarLinks items={nav.filter(n => !n.enabled || n.enabled())} onNavigate={() => setOpen(false)}>
+    <SidebarLinks items={[...nav.filter(n => !n.enabled || n.enabled()), ...(user?.role === "customer" ? [{ to: "/app/profile", icon: UserRound, label: "Profile" }] : [])]} onNavigate={() => setOpen(false)}>
       {(user?.role === "owner" || user?.role === "admin") && (
         <button onClick={() => navigate(user.role === "admin" ? "/admin" : "/owner")} data-testid="nav-console"
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-colors duration-200 mt-2">
