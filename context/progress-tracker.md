@@ -13,7 +13,7 @@ Deployment policy reviewed: 2026-11-18. Other work items retain their dated evid
 | DONE | Homepage workshop hero | PR #27 merged to `repair-mvp`; deployment not independently verified |
 | DONE | WhatsApp OTP integration code | PR #26 merged to `repair-mvp`; check production runtime separately |
 | IN_PROGRESS | WhatsApp lifecycle Utility templates | User configured eight production templates; screenshot showed six active and two in review on 2026-11-06. Recheck Meta status and exact template names/languages/parameters before integration |
-| PLANNED | WhatsApp lifecycle backend wiring and tests | Audit `backend/services/whatsapp_service.py`, `backend/templates/whatsapp_utility_catalog.json`, outbox/worker and event triggers; avoid duplicate implementations |
+| IN_PROGRESS | WhatsApp repair lifecycle updates specification | Source audit 2026-11-19 confirms existing outbox/worker, nine proposed templates, event wiring and extensive tests; the prior PLANNED wiring row understated existing code. Consent UI remains disabled; current Meta approvals, worker operation and real lifecycle delivery are unverified. Draft requirements and design audit in `specs/whatsapp-repair-lifecycle-updates/`; requirements choices/approval pending. No implementation or activation authorized. |
 | PLANNED | Release branching transition | Audit deployed SHA, `main`, `repair-mvp`, `development`, CI, Render, rollback; do not change deploy branch yet |
 | PLANNED | Parked feature inventory | Trace historical branches/commits and record dependencies, ownership, restoration strategy |
 | PARKED | Legacy non-repair MVP functionality | Preserve historic code; no automatic promotion into production |

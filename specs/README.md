@@ -14,6 +14,7 @@ Finalize requirements first, then review the design where needed, then prepare a
 
 | Spec | Requirements | Design | Tasks |
 |---|---|---|---|
+| WhatsApp repair lifecycle updates (draft) | [Requirements](whatsapp-repair-lifecycle-updates/requirements.md) | [Audit/design](whatsapp-repair-lifecycle-updates/design.md) | [Workflow gates](whatsapp-repair-lifecycle-updates/tasks.md) |
 | Customer profile | [Requirements](customer-profile/requirements.md) | [Design](customer-profile/design.md) | [Tasks](customer-profile/tasks.md) |
 
 Earlier specifications and operational references in `docs/` retain their existing locations until deliberately reorganized. New specs follow this structure.
