@@ -12,7 +12,7 @@ A customer who explicitly opts in receives WhatsApp messages at meaningful repai
 
 Reuse and complete the existing messaging implementation. Preserve working WhatsApp OTP, Google sign-in, customer profile, saved addresses, repair authorization and parked functionality. No new messaging platform, marketing messages, automatic incoming-message replies or general chat inbox.
 
-On 2026-11-19 the owner confirmed both scope decisions: include all nine messages, including PAYMENT_RECEIVED, and require explicit RushX team acceptance before shipping instructions. The owner clarified and confirmed that team acceptance permits sending the charger for inspection; it does not guarantee repairability or authorize priced repair work. The customer separately approves the published estimate before repair begins.
+On 2026-11-19 the owner initially selected nine messages and explicit RushX team acceptance before shipping instructions. On 2026-11-20 the owner revised the scope to eight customer messages: combine repair completion and verified balance/payment instructions, retaining WhatsApp estimate-approval confirmation and the separate payment-received acknowledgement. The eight-message scope below supersedes the earlier nine-message scope. The owner clarified and confirmed that team acceptance permits sending the charger for inspection; it does not guarantee repairability or authorize priced repair work. The customer separately approves the published estimate before repair begins.
 
 | Event | Message purpose | Required source facts / customer action |
 |---|---|---|
@@ -21,12 +21,20 @@ On 2026-11-19 the owner confirmed both scope decisions: include all nine message
 | RECEIVED_AT_VOLTX | Confirm actual receipt at RushX | Operator-recorded physical receipt; no claim that diagnosis is complete |
 | ESTIMATE_SENT | Tell the customer an estimate is ready | Persisted valid published estimate in INR; customer reviews and approves/declines in the account |
 | CUSTOMER_APPROVED | Acknowledge the customer's approval | Recorded approval of the published estimate; no claim that repair is already complete |
-| REPAIR_COMPLETED | Confirm recorded completion of repair work | Actual completion; distinguish remaining payment and return steps |
-| PAYMENT_PENDING | Explain the verified outstanding balance | Positive reconciled amount due; direct customer to account/support for instructions |
+| REPAIR_RESULT (combined completion + balance) | Confirm completed repair and the verified payment position in one update | Recorded completion plus a verified reconciled balance; request payment only for a positive balance, otherwise state that no payment is currently due |
 | PAYMENT_RECEIVED | Acknowledge a verified payment | Existing full-receipt verification event and verified amount/safe reference; never infer settlement from uploaded evidence alone |
 | SHIPPED_TO_CUSTOMER | Confirm actual return dispatch | Confirmed courier and tracking details; do not imply delivery or live courier tracking |
 
 The normal lifecycle includes exceptions. For version 1, customer-declined, not-repairable, cancelled, diagnosis-in-progress and delivered states remain visible through the existing account/support journey; this release does not add automatic messages for them. Make that limitation explicit in acceptance and customer wording. New exception templates or payment/refund/revised-estimate workflows need a separately reviewed scope change. Do not fabricate payment amounts or alter lifecycle transitions to bypass existing zero-balance limitations.
+
+## Combined completion and balance update
+
+- Send one completion/balance update per repair, only after repair work is recorded complete and the outstanding balance is verified. Recording completion alone does not notify; an unverified/unknown balance is not zero.
+- For a positive balance, show the actual INR amount and direct the customer to dashboard/support payment instructions. For a verified zero balance, omit payment instructions and state that no payment is currently due. Do not claim receipt of money unless a receipt is separately verified.
+- Support two separately verified template variants for this one customer milestone. A repair gets at most one provider-accepted completion/balance update, not both variants and not the two legacy standalone notices.
+- Keep internal REPAIR_COMPLETED and PAYMENT_PENDING business statuses where applicable; this change combines notifications, not lifecycle states. Preserve the existing guards and record the zero-balance onward-shipping limitation for a separate explicit business decision.
+- Repeated completion/status/balance saves cannot create additional completion messages. A balance that changes before dispatch makes the old snapshot ineligible; do not send stale payment instructions or silently replace its amount. Subsequent reminders or revised-balance notification flows are outside this release.
+- PAYMENT_RECEIVED remains a separate verified-payment acknowledgement. CUSTOMER_APPROVED remains a WhatsApp message. No scheduled reminders or repeat prompts are added.
 
 ## Customer consent and destination
 
@@ -72,7 +80,7 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 
 ## Acceptance criteria
 
-1. Selected milestones have verified event-to-template-to-parameter mappings and truthful source facts; the first release includes all nine selected messages and enforces the agreed team-acceptance policy.
+1. Selected milestones have verified event-to-template-to-parameter mappings and truthful source facts; the first release includes the eight agreed customer messages, with both combined-message variants verified and enforces the agreed team-acceptance policy.
 2. Explicit opt-in/opt-out, verified-number eligibility, withdrawal, phone replacement, account/role isolation and existing-repair behavior pass negative and race tests.
 3. New submission cannot send shipping instructions before team acceptance; duplicate/retried submissions create one intended event per actual milestone.
 4. Complete authorized staging journey proves committed business events reach the intended recipient, with real provider status receipts and accurate content. Capture redacted evidence for each selected milestone and explain unexercised receipt states.
@@ -87,5 +95,7 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 - 2026-11-19: owner agreed to prioritize WhatsApp repair lifecycle updates and authorized preparation of this spec.
 - 2026-11-19: owner explicitly approved all nine messages, including payment received, and team acceptance before shipping instructions.
 - 2026-11-20: owner requested finalization of requirements.md and specified the name WhatsApp lifecycle updates. Requirements finalized in `specs/whatsapp-lifecycle-updates/requirements.md`.
-- 2026-11-20: owner authorized detailed design work. Design proposal prepared in design.md; approval pending.
+- 2026-11-20: owner approved the design/UI, requiring preservation of the existing RushX logo, then authorized the eight-message amendment: combined completion/balance, estimate approval retained on WhatsApp, payment receipt separate. Detailed design updated to reflect that amendment; implementation task review remains next.
 - Implementation tasks: not finalized or approved; implementation is not authorized by requirements finalization.
+
+- 2026-11-20: owner said “lets proceed” after agreeing the eight-message list; authorized updating the spec and preparing the implementation task plan. This does not authorize live sends or production activation.
