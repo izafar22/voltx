@@ -156,3 +156,15 @@ test('identity-driven preference changes cannot create another request after an 
   await act(async () => submit());
   expect(mockPost.mock.calls[1][1]).toEqual(first);
 });
+
+test('401 while resolving a lost creation response preserves its payload and key', async () => {
+  render(); fill();
+  mockPost.mockRejectedValueOnce(new Error('response lost'));
+  await act(async () => submit());
+  const first = mockPost.mock.calls[0][1];
+  mockPost.mockRejectedValueOnce({ response: { status: 401 } });
+  await act(async () => submit());
+  change('description-input', 'Changed after authentication retry');
+  await act(async () => submit());
+  expect(mockPost.mock.calls[2][1]).toEqual(first);
+});

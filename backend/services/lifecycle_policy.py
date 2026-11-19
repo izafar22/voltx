@@ -80,7 +80,7 @@ class LifecyclePolicy:
             ]
         )
 
-    async def scope(self, heartbeat=False):
+    async def scope(self, heartbeat=False, fail_on_error=False):
         from .whatsapp_service import validate_settings, ConfigurationError
 
         s = self.settings
@@ -93,6 +93,8 @@ class LifecyclePolicy:
         try:
             scope = await self.db.whatsapp_control.find_one({"_id": self.scope_id()})
         except PyMongoError:
+            if fail_on_error:
+                raise
             return None
         if (
             not scope
@@ -208,9 +210,13 @@ class LifecyclePolicy:
             return "legacy_snapshot"
         if job.get("status") not in LOGICAL_LIFECYCLE_EVENTS:
             return "snapshot_invalid"
+        try:
+            scope = await self.scope(fail_on_error=True)
+        except PyMongoError:
+            return "activation_unavailable"
         if (
             job.get("activation_id") != s.activation_id
-            or not await self.scope()
+            or not scope
             or job.get("manifest_digest") != digest(s.templates)
         ):
             return "activation_mismatch"

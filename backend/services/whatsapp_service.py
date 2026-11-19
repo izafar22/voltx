@@ -394,10 +394,12 @@ def message_payload(job, settings):
                 or (settings.mode == 'test' and destination not in settings.test_recipients)):
             raise ConfigurationError()
         template = configured_template(key, settings)
+        body = {'name': template['name'], 'language': {'code': template['language']}}
+        if template['parameters']:
+            body['components'] = [{'type': 'body', 'parameters': [
+                {'type': 'text', 'text': values[p]} for p in template['parameters']]}]
         return {'messaging_product': 'whatsapp', 'to': destination, 'type': 'template',
-                'template': {'name': template['name'], 'language': {'code': template['language']},
-                             'components': [{'type': 'body', 'parameters': [{'type': 'text', 'text': values[p]} for p in params]}]},
-                'biz_opaque_callback_data': job['_id']}
+                'template': body, 'biz_opaque_callback_data': job['_id']}
 
     if (
         job.get("schema_version") != SCHEMA_VERSION
@@ -761,6 +763,13 @@ class WhatsAppService:
                 },
             )
 
+        async def defer_transient():
+            # No provider call has started in these paths; a durable intent is safe to clear.
+            await self.db.whatsapp_jobs.update_one(claim, {'$inc': {'attempts': -1},
+                '$unset': {'dispatch_started_at': ''}})
+            await finish({'state': 'pending', 'next_attempt_at': self.clock() + timedelta(seconds=2),
+                          'error_code': 'activation_unavailable'})
+
         if job.get("dispatch_started_at"):
             await finish({"state": "dead_letter", "error_code": "ambiguous_delivery"})
             return True
@@ -768,6 +777,9 @@ class WhatsAppService:
             from .lifecycle_policy import LifecyclePolicy, digest
             policy = LifecyclePolicy(self.db, self.settings, self.clock)
             reason = await policy.reject_reason(job)
+            if reason == 'activation_unavailable':
+                await defer_transient()
+                return True
             if reason:
                 await finish({'state': 'quarantined' if reason in ('legacy_snapshot', 'activation_mismatch') else 'suppressed', 'error_code': reason})
                 return True
@@ -788,6 +800,9 @@ class WhatsAppService:
                 'state': {'$in': ['pending', 'processing', 'retryable_failure']}})
             if earlier:
                 stale = await policy.reject_reason(earlier)
+                if stale == 'activation_unavailable':
+                    await defer_transient()
+                    return True
                 if stale and not earlier.get('dispatch_started_at'):
                     await self.db.whatsapp_jobs.update_one({'_id': earlier['_id'], 'state': earlier['state'],
                         'dispatch_started_at': None}, {'$set': {'state': 'suppressed', 'error_code': stale}})
@@ -842,6 +857,9 @@ class WhatsAppService:
             return True
         if self.settings.activation_id:
             reason = await policy.reject_reason(job)
+            if reason == 'activation_unavailable':
+                await defer_transient()
+                return True
             gate = await self.db.whatsapp_control.find_one({'_id': repair_lease, 'owner': lease, 'until': {'$gt': self.clock()}})
             owned = await self.db.whatsapp_jobs.find_one({**claim, 'lease_until': {'$gt': self.clock()}})
             if reason or not gate or not owned:
@@ -943,6 +961,8 @@ class WhatsAppService:
                         'activation_id': self.settings.activation_id}, {'$set': {'heartbeat_at': self.clock()}})
                 await self.reconcile()
                 await self.apply_receipts()
+                if stop is not None and stop.is_set():
+                    break
                 busy = await self.process_one()
                 await asyncio.sleep(0.1 if busy else 2)
             except asyncio.CancelledError:

@@ -96,7 +96,7 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 - 2026-11-19: owner explicitly approved all nine messages, including payment received, and team acceptance before shipping instructions.
 - 2026-11-20: owner requested finalization of requirements.md and specified the name WhatsApp lifecycle updates. Requirements finalized in `specs/whatsapp-lifecycle-updates/requirements.md`.
 - 2026-11-20: owner approved the design/UI, requiring preservation of the existing RushX logo, then authorized the eight-message amendment: combined completion/balance, estimate approval retained on WhatsApp, payment receipt separate. Detailed design updated to reflect that amendment; implementation task review remains next.
-- Implementation tasks: not finalized or approved; implementation is not authorized by requirements finalization.
+- Historical status at requirements finalization: implementation tasks were not yet finalized or approved. The subsequent task approval and offline implementation entry below supersede this status; merge and live-operation approvals remain separate.
 
 - 2026-11-20: owner said “lets proceed” after agreeing the eight-message list; authorized updating the spec and preparing the implementation task plan. This does not authorize live sends or production activation.
 

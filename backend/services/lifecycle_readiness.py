@@ -14,12 +14,20 @@ from .whatsapp_service import Settings, validate_settings
 
 INDEX_PLAN = {
     "whatsapp_jobs": [
-        [("state", 1), ("next_attempt_at", 1)],
-        [("state", 1), ("lease_until", 1)],
-        [("activation_id", 1), ("repair_id", 1), ("source_revision", 1), ("state", 1)],
+        ([("state", 1), ("next_attempt_at", 1)], {}),
+        ([("state", 1), ("lease_until", 1)], {}),
+        (
+            [
+                ("activation_id", 1),
+                ("repair_id", 1),
+                ("source_revision", 1),
+                ("state", 1),
+            ],
+            {},
+        ),
     ],
-    "whatsapp_receipts": [[("processed", 1), ("next_check_at", 1)]],
-    "repair_requests": [[("whatsapp_outbox._id", 1)]],
+    "whatsapp_receipts": [([("processed", 1), ("next_check_at", 1)], {})],
+    "repair_requests": [([("whatsapp_outbox._id", 1)], {"sparse": True})],
 }
 
 
@@ -27,9 +35,11 @@ async def missing_indexes(db):
     missing = []
     for collection, plans in INDEX_PLAN.items():
         info = await db[collection].index_information()
-        for keys in plans:
-            if not any(equivalent(index, keys, {}) for index in info.values()):
-                missing.append({"collection": collection, "keys": keys})
+        for keys, options in plans:
+            if not any(equivalent(index, keys, options) for index in info.values()):
+                missing.append(
+                    {"collection": collection, "keys": keys, "options": options}
+                )
     return missing
 
 

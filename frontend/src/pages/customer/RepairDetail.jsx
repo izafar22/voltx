@@ -42,6 +42,10 @@ const EstRow = ({ label, value }) => (
 
 export default function RepairDetail() {
   const { id } = useParams();
+  return <RepairDetailView key={id} id={id} />;
+}
+
+function RepairDetailView({ id }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [withdrawalMessage, setWithdrawalMessage] = useState("");

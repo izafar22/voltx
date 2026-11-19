@@ -52,7 +52,7 @@ import math
 import hashlib
 import json
 import base64
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 from decimal import Decimal
 import random
 from pymongo import ReturnDocument
@@ -762,6 +762,16 @@ def sanitize_repair(r, user):
     return r
 
 
+async def effective_repair_response(repair, user):
+    result = sanitize_repair(repair, user)
+    if result.get('whatsapp_updates', {}).get('state') == 'enabled':
+        settings = WhatsAppSettings.from_env()
+        if ((repair.get('whatsapp_consent') or {}).get('activation_id') != settings.activation_id
+                or not await LifecyclePolicy(db, settings).scope(heartbeat=True)):
+            result['whatsapp_updates']['state'] = 'unavailable'
+    return result
+
+
 @api_router.post("/repairs")
 async def create_repair(body: RepairCreate, user=Depends(get_current_user), request: Request = None):
     if user.get("role") not in ("customer", "owner", "admin") or not text_fact(user.get("user_id")):
@@ -782,7 +792,7 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user), requ
         if existing:
             if existing["creation_fingerprint"] != fingerprint:
                 raise HTTPException(409, "Idempotency key reused with different repair details")
-            return sanitize_repair(existing, user)
+            return await effective_repair_response(existing, user)
     snapshots = await ProfileService(auth_service, db=db).snapshots(user['user_id'], body.pickup_address_id, body.delivery_address_id)
     charger_id = None
     info = body.charger_info.model_dump() if body.charger_info else {}
@@ -791,12 +801,15 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user), requ
         if not c:
             raise HTTPException(status_code=404, detail="Charger not found")
         charger_id = c["charger_id"]  # retain relationship, do NOT duplicate the charger
-        info.setdefault("brand", c.get("name"))
-        info.setdefault("model", c.get("name"))
+        for key in ("brand", "model"):
+            if not text_fact(info.get(key)):
+                info[key] = c.get("name")
         info.setdefault("power_rating", f"{c.get('max_power_kw')} kW")
     else:
-        if not info.get("brand"):
+        if not text_fact(info.get("brand")):
             raise HTTPException(status_code=400, detail="Charger brand is required for an unregistered charger")
+    if not any(text_fact(info.get(key)) for key in ("brand", "model")):
+        raise HTTPException(400, "Charger description is required")
     if info.get("charger_type") and info["charger_type"] not in CHARGER_TYPES:
         raise HTTPException(status_code=400, detail=f"charger_type must be one of {sorted(CHARGER_TYPES)}")
     now = iso()
@@ -833,8 +846,8 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user), requ
         existing = await db.repair_requests.find_one({"creation_key": creation_key}) if creation_key else None
         if not existing or existing.get("creation_fingerprint") != fingerprint:
             raise HTTPException(409, "Conflicting repair submission") from None
-        return sanitize_repair(existing, user)
-    return sanitize_repair(r, user)
+        return await effective_repair_response(existing, user)
+    return await effective_repair_response(r, user)
 
 
 @api_router.get('/customer/whatsapp-capability')
@@ -869,12 +882,12 @@ async def list_repairs(scope: str = "mine", user=Depends(get_current_user), resp
         except (ValueError, TypeError, UnicodeError):
             raise HTTPException(400, "Invalid repair cursor") from None
         q = {"$and": [q, {"$or": [{"created_at": {"$lt": at}}, {"created_at": at, "id": {"$lt": rid}}]}]}
-    projection = {key: 0 for key in ("_id", "photos", "whatsapp_outbox", "whatsapp_consent", "payment_records", "payment_events", "payment_evidence", "payment_receipt", "creation_key", "creation_fingerprint")}
+    projection = {key: 0 for key in ("_id", "photos", "whatsapp_outbox", "payment_records", "payment_events", "payment_evidence", "payment_receipt", "creation_key", "creation_fingerprint")}
     docs = await db.repair_requests.find(q, projection).sort([("created_at", -1), ("id", -1)]).to_list(limit + 1)
     if len(docs) > limit and response is not None:
         last = docs[limit - 1]
         response.headers["X-Next-Cursor"] = base64.urlsafe_b64encode(json.dumps([last["created_at"], last["id"]]).encode()).decode()
-    return [sanitize_repair(d, user) for d in docs[:limit]]
+    return [await effective_repair_response(d, user) for d in docs[:limit]]
 
 
 @api_router.get("/repairs/{rid}")
@@ -884,12 +897,7 @@ async def get_repair(rid: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Repair request not found")
     if not await can_access_repair(user, r):
         raise HTTPException(status_code=403, detail="Not authorized for this repair request")
-    result = sanitize_repair(r, user)
-    if user.get('user_id') == r.get('user_id') and result.get('whatsapp_updates', {}).get('state') == 'enabled':
-        settings = WhatsAppSettings.from_env()
-        if ((r.get('whatsapp_consent') or {}).get('activation_id') != settings.activation_id
-                or not await LifecyclePolicy(db, settings).scope(heartbeat=True)):
-            result['whatsapp_updates']['state'] = 'unavailable'
+    result = await effective_repair_response(r, user)
     if user.get('role') == 'admin':
         result['intake_preview'] = instruction_preview(WhatsAppSettings.from_env())
     return result
@@ -1112,7 +1120,11 @@ async def submit_payment_reference(rid: str, body: PaymentEvidence, user=Depends
 @api_router.post("/repairs/{rid}/payment/verify")
 async def receive_repair_payment(rid: str, body: PaymentReceiptVerification, user=Depends(require("admin"))):
     repair = await db.repair_requests.find_one({"id": rid})
-    customer = await db.users.find_one({"user_id": repair["user_id"]}) if repair else None
+    try:
+        customer = await db.users.find_one({"user_id": repair["user_id"]}) if repair else None
+    except PyMongoError:
+        logger.error('receipt_notification_customer_lookup_failed')
+        customer = None
     return await payment_service().receive(rid, body.amount, body.method, body.reference,
                                           user["user_id"], body.idempotency_key,
                                           body.funds_received, customer)

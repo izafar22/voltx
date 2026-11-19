@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import inspect
+import logging
 from typing import Protocol
 from uuid import uuid4
 
@@ -191,7 +192,11 @@ class PaymentService:
             fields = {"payment_summary": summary, "updated_at": timestamp}
             pushes = {"payment_records": record}
             if self.balance_notification_factory and not repair.get('completion_notice'):
-                notification = await self.balance_notification_factory({**repair, 'payment_summary': summary})
+                try:
+                    notification = await self.balance_notification_factory({**repair, 'payment_summary': summary})
+                except Exception:
+                    logging.getLogger(__name__).error('balance_notification_construction_failed')
+                    notification = None
                 if notification:
                     fields['completion_notice'] = {'event_id': notification['_id'], 'at': timestamp,
                                                    'payment_record_id': record_id}
@@ -401,9 +406,13 @@ class PaymentService:
         }
         pushes = {"payment_events": event}
         if self.notification_factory:
-            notification = self.notification_factory(repair, event, customer)
-            if inspect.isawaitable(notification):
-                notification = await notification
+            try:
+                notification = self.notification_factory(repair, event, customer)
+                if inspect.isawaitable(notification):
+                    notification = await notification
+            except Exception:
+                logging.getLogger(__name__).error('receipt_notification_construction_failed')
+                notification = None
             if notification:
                 pushes["whatsapp_outbox"] = notification
         committed = await self.repository.commit(

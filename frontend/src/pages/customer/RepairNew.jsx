@@ -152,7 +152,7 @@ export default function RepairNew() {
       queryClient.invalidateQueries({ queryKey: ["repairs-mine"] });
       setResult({ id: data.id, number: data.repair_request_number, updates: data.whatsapp_updates });
     } catch (e) {
-      if (creationRetry.current) creationRetry.current.uncertain = !e.response || e.response.status >= 500;
+      if (creationRetry.current) creationRetry.current.uncertain = !e.response || e.response.status === 401 || e.response.status >= 500;
       const detail = e.response?.data?.detail;
       if (detail?.code === 'whatsapp_eligibility_changed') {
         setWhatsappConsent(null);
