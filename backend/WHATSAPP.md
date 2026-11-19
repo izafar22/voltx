@@ -1,5 +1,28 @@
 # RushX WhatsApp repair notifications
 
+## Lifecycle v3 implementation (not activated)
+
+The new runtime path uses the **eight-message** contract in
+[the lifecycle spec](../specs/whatsapp-lifecycle-updates/requirements.md) and
+[the active proposed catalog](templates/whatsapp_lifecycle_catalog.json).
+The two legacy standalone completion/payment-pending notices become one
+REPAIR_RESULT event with positive- and verified-zero-balance variants.
+Estimate approval and payment receipt remain separate. The nine-entry legacy
+catalog and historical transport tests below are retained as source/history,
+not the new active mapping or proof of production approval.
+
+Runtime enqueue/dispatch needs both WHATSAPP_ENABLED=true and
+WHATSAPP_LIFECYCLE_ENABLED=true, a nonempty WHATSAPP_LIFECYCLE_ACTIVATION_ID,
+valid active template mappings and a matching, unpaused control record.
+Old configuration alone cannot enable the legacy sender. OTP does not depend
+on these lifecycle gates. No live configuration, worker service or template
+was installed/activated by implementing this code.
+
+Read [the activation/recovery runbook](LIFECYCLE_OPERATIONS.md) before any
+configuration, index, service or provider operation. Commands there require
+their separately authorized scope; do not run them merely to try the feature.
+
+
 Issue #3 extends PR #2's embedded outbox, worker and signed webhook; it is not a
 second messaging implementation. Release target: **repair-mvp**. The integration
 is **off by default**. Production activation, template submission/approval, number

@@ -34,7 +34,9 @@ CATALOG = json.loads(
     ).read_text()
 )
 STATUS_TEXT = {status: template["body"] for status, template in CATALOG.items()}
-SCHEMA_VERSION = 2
+LIFECYCLE_CATALOG = json.loads((Path(__file__).resolve().parents[1] / 'templates' / 'whatsapp_lifecycle_catalog.json').read_text())
+LOGICAL_LIFECYCLE_EVENTS = (set(LIFECYCLE_CATALOG) - {'REPAIR_RESULT_DUE', 'REPAIR_RESULT_CLEAR'}) | {'REPAIR_RESULT'}
+SCHEMA_VERSION = 2  # Legacy transport fixtures/history; runtime-enabled jobs use lifecycle v3.
 RANK = {"sent": 1, "failed": 2, "delivered": 3, "read": 4}
 
 
@@ -72,6 +74,10 @@ class Settings:
     test_recipients: tuple = field(default=(), repr=False)
     max_attempts: int = 5
     payment_qr_url: str = ""
+    activation_id: str = ""
+    staging_recipients: tuple = field(default=(), repr=False)
+    staging_sender: str = field(default="", repr=False)
+    staging_enabled: bool = False
 
     @classmethod
     def from_env(cls):
@@ -82,7 +88,14 @@ class Settings:
             templates = {}
         return cls(
             payment_qr_url=public_payment_instructions()["qr_image_url"] or "",
-            enabled=os.getenv("WHATSAPP_ENABLED", "false").lower() == "true",
+            # Old configuration alone can never activate legacy lifecycle sending.
+            enabled=(os.getenv("WHATSAPP_ENABLED", "false").lower() == "true"
+                     and os.getenv("WHATSAPP_LIFECYCLE_ENABLED", "false").lower() == "true"
+                     and bool(os.getenv("WHATSAPP_LIFECYCLE_ACTIVATION_ID", ""))),
+            activation_id=os.getenv("WHATSAPP_LIFECYCLE_ACTIVATION_ID", ""),
+            staging_enabled=os.getenv("STAGING_LIFECYCLE_TEST_ENABLED", "false").lower() == "true",
+            staging_sender=os.getenv("STAGING_LIFECYCLE_PHONE_NUMBER_ID", ""),
+            staging_recipients=tuple(x.strip() for x in os.getenv("STAGING_LIFECYCLE_ALLOWED_PHONES", "").split(',') if x.strip()),
             access_token=os.getenv("WHATSAPP_ACCESS_TOKEN", ""),
             phone_number_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", ""),
             test_phone_number_id=os.getenv("WHATSAPP_TEST_PHONE_NUMBER_ID", ""),
@@ -122,6 +135,8 @@ def consent_record(opt_in, user, at):
 
 
 def event_for(repair, status, event_id, settings, customer=None, payment_event=None):
+    if settings.activation_id:
+        return lifecycle_event(repair, status, event_id, settings, customer, payment_event)
     consent = repair.get("whatsapp_consent", {})
     if (
         not settings.enabled
@@ -181,6 +196,59 @@ def event_for(repair, status, event_id, settings, customer=None, payment_event=N
     return event
 
 
+def lifecycle_event(repair, status, event_id, settings, customer=None, payment_event=None):
+    from .lifecycle_policy import digest, preference
+    from .payment_service import verified_balance_summary
+    if status not in LOGICAL_LIFECYCLE_EVENTS:
+        return None
+    customer = customer or {}
+    consent = repair.get('whatsapp_consent') or {}
+    if (not settings.enabled or preference(repair, customer)['state'] != 'enabled'
+            or consent.get('activation_id') != settings.activation_id):
+        return None
+    key = status
+    values = {'customer_name': customer.get('name', ''), 'repair_number': repair['repair_request_number']}
+    facts = None
+    if status == 'REPAIR_RESULT':
+        due = verified_balance_summary(repair)['amount_due']
+        key = 'REPAIR_RESULT_DUE' if float(due) > 0 else 'REPAIR_RESULT_CLEAR'
+        if key == 'REPAIR_RESULT_DUE':
+            values['amount_due'] = due
+        facts = repair.get('payment_summary')
+    elif status == 'REQUESTED':
+        info = repair.get('charger_info') or {}
+        values['charger_description'] = ' '.join(str(info[k]).strip() for k in ('brand', 'model') if info.get(k))
+    elif status == 'AWAITING_SHIPMENT':
+        facts = repair.get('intake_acceptance')
+        if not facts:
+            return None
+        values['dispatch_address'] = facts['address']
+    elif status in ('ESTIMATE_SENT', 'CUSTOMER_APPROVED'):
+        facts = {k: v for k, v in (repair.get('estimate') or {}).items() if k not in ('status', 'approved_at', 'declined_at')}
+        if status == 'ESTIMATE_SENT':
+            values['estimate_total'] = estimate_total(repair)
+    elif status == 'SHIPPED_TO_CUSTOMER':
+        facts = repair.get('return_shipment')
+        values.update(shipment_details(repair))
+    elif status == 'PAYMENT_RECEIVED':
+        if not payment_event or payment_event.get('type') != 'PaymentReceived':
+            return None
+        values.update({k: payment_event[k] for k in ('verified_amount', 'safe_reference')})
+    if key not in LIFECYCLE_CATALOG:
+        return None
+    at = now()
+    return {'_id': f"{repair['id']}:{status if status in ('REQUESTED', 'REPAIR_RESULT') else event_id}",
+            'repair_id': repair['id'], 'user_id': repair['user_id'], 'event_id': event_id, 'status': status,
+            'schema_version': 3, 'template_key': key, 'values': values,
+            'delivery_scope': {'mode': settings.mode, 'phone_number_id': settings.phone_number_id},
+            'activation_id': settings.activation_id, 'manifest_digest': digest(settings.templates),
+            'destination': consent['destination'], 'consent_at': consent['at'],
+            'consent_revision': consent['revision'], 'phone_generation': consent['phone_generation'],
+            'occurred_at': at, 'expires_at': at + timedelta(hours=24),
+            'source_revision': (repair.get('revision') or 0) + (0 if status == 'REQUESTED' else 1), 'fact_digest': digest(facts),
+            'receipt_id': (payment_event or {}).get('payment_id') if status == 'PAYMENT_RECEIVED' else None}
+
+
 def payment_received_notification(repair, event, settings, customer=None):
     return event_for(
         repair,
@@ -204,8 +272,9 @@ def configured_template(status, settings):
     template = (
         settings.templates.get(status) if isinstance(settings.templates, dict) else None
     )
+    catalog = LIFECYCLE_CATALOG if settings.activation_id else CATALOG
     catalog_status = "PAYMENT_PENDING" if status == "PAYMENT_PENDING_QR" else status
-    if not isinstance(template, dict) or catalog_status not in CATALOG:
+    if not isinstance(template, dict) or catalog_status not in catalog:
         raise ConfigurationError()
     name = template.get("name")
     if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9_]{1,512}", name):
@@ -219,7 +288,7 @@ def configured_template(status, settings):
         raise ConfigurationError()
     if not sandbox and (
         name == "hello_world"
-        or template.get("parameters") != CATALOG[catalog_status]["parameters"]
+        or template.get("parameters") != catalog[catalog_status]["parameters"]
         or template.get("approval_status") != "approved"
         or template.get("category") != "UTILITY"
     ):
@@ -248,7 +317,31 @@ def validate_settings(settings):
         or not re.fullmatch(r"[0-9]+", settings.test_phone_number_id)
     ):
         raise ConfigurationError()
-    if settings.mode == "test":
+    if settings.activation_id:
+        if not text_fact(settings.dispatch_address, 1024):
+            raise ConfigurationError()
+        environment = os.getenv('APP_ENV', 'production')
+        if ((settings.mode == 'production' and environment != 'production')
+                or (settings.mode == 'test' and environment not in ('test', 'development'))):
+            raise ConfigurationError()
+        try:
+            uuid.UUID(settings.activation_id)
+        except (ValueError, TypeError):
+            raise ConfigurationError() from None
+        for key in LIFECYCLE_CATALOG:
+            configured_template(key, settings)
+    if settings.mode == "staging":
+        if os.getenv('APP_ENV') != 'staging':
+            raise ConfigurationError()
+        if (not settings.activation_id or not settings.staging_enabled or settings.production_approved
+                or settings.phone_number_id != settings.staging_sender or not settings.staging_recipients):
+            raise ConfigurationError()
+        try:
+            from ..staging_safety import validate_staging_environment
+        except ImportError:
+            from staging_safety import validate_staging_environment
+        validate_staging_environment()
+    elif settings.mode == "test":
         if (
             settings.phone_number_id != settings.test_phone_number_id
             or not settings.test_recipients
@@ -266,7 +359,7 @@ def validate_settings(settings):
         ):
             raise ConfigurationError()
         for status in CATALOG:
-            if status != "PAYMENT_RECEIVED":
+            if not settings.activation_id and status != "PAYMENT_RECEIVED":
                 configured_template(status, settings)
     else:
         raise ConfigurationError()
@@ -274,6 +367,38 @@ def validate_settings(settings):
 
 def message_payload(job, settings):
     validate_settings(settings)
+    if settings.activation_id:
+        from .lifecycle_policy import digest
+        if (job.get('schema_version') != 3 or job.get('activation_id') != settings.activation_id
+                or job.get('manifest_digest') != digest(settings.templates)
+                or job.get('delivery_scope') != {'mode': settings.mode, 'phone_number_id': settings.phone_number_id}):
+            raise SnapshotError()
+        if job.get('status') not in LOGICAL_LIFECYCLE_EVENTS:
+            raise SnapshotError()
+        key = job.get('template_key', job.get('status'))
+        expected = key if job.get('status') == 'REPAIR_RESULT' and key in ('REPAIR_RESULT_DUE', 'REPAIR_RESULT_CLEAR') else job.get('status')
+        if key != expected or key not in LIFECYCLE_CATALOG:
+            raise SnapshotError()
+        values = job.get('values', {})
+        params = LIFECYCLE_CATALOG[key]['parameters']
+        if set(values) != set(params) or any(not text_fact(v, 1024) for v in values.values()):
+            raise SnapshotError()
+        for name in ('amount_due', 'estimate_total', 'verified_amount'):
+            if name in values and (not re.fullmatch(r'[0-9]{1,8}\.[0-9]{2}', values[name])
+                    or (name != 'estimate_total' and float(values[name]) <= 0)):
+                raise SnapshotError()
+        destination = job.get('destination', '')
+        if not E164.fullmatch(destination):
+            raise SnapshotError()
+        if ((settings.mode == 'staging' and destination not in settings.staging_recipients)
+                or (settings.mode == 'test' and destination not in settings.test_recipients)):
+            raise ConfigurationError()
+        template = configured_template(key, settings)
+        return {'messaging_product': 'whatsapp', 'to': destination, 'type': 'template',
+                'template': {'name': template['name'], 'language': {'code': template['language']},
+                             'components': [{'type': 'body', 'parameters': [{'type': 'text', 'text': values[p]} for p in params]}]},
+                'biz_opaque_callback_data': job['_id']}
+
     if (
         job.get("schema_version") != SCHEMA_VERSION
         or job.get("status") not in CATALOG
@@ -351,12 +476,15 @@ class WhatsAppService:
             [("processed", 1), ("next_check_at", 1)]
         )
 
-    async def reconcile(self):
+    async def reconcile(self, repair_id=None):
         # Embedded events and the business mutation are a single Mongo document write.
         # Remove ONLY after idempotent upsert; crashes on either side are recoverable.
+        query = {"whatsapp_outbox._id": {"$exists": True}}
+        if repair_id is not None:
+            query['id'] = repair_id
         async for repair in self.db.repair_requests.find(
-            {"whatsapp_outbox._id": {"$exists": True}}, {"id": 1, "whatsapp_outbox": 1}
-        ).limit(200):
+            query, {"id": 1, "whatsapp_outbox": 1}
+        ).limit(1 if repair_id is not None else 200):
             for event in repair["whatsapp_outbox"]:
                 try:
                     await self.db.whatsapp_jobs.update_one(
@@ -441,6 +569,8 @@ class WhatsAppService:
             "read",
             "failed",
             "dead_letter",
+            "suppressed",
+            "quarantined",
         )
         counts = {
             state: await self.db.whatsapp_jobs.count_documents({"state": state})
@@ -477,7 +607,14 @@ class WhatsAppService:
         configuration = await self.db.whatsapp_jobs.count_documents(
             {"state": "dead_letter", "error_code": "configuration_invalid"}
         )
+        readiness = {}
+        if self.settings.activation_id:
+            from .lifecycle_policy import LifecyclePolicy
+            policy = LifecyclePolicy(self.db, self.settings, self.clock)
+            readiness = {'activation_active': bool(await policy.scope()),
+                         'worker_healthy': bool(await policy.scope(heartbeat=True))}
         return {
+            **readiness,
             "counts": counts,
             "oldest_pending_seconds": lag,
             "expired_leases": expired,
@@ -518,6 +655,10 @@ class WhatsAppService:
         }
         if not job:
             raise HTTPException(404, "Notification job not found")
+        if self.settings.activation_id:
+            from .lifecycle_policy import LifecyclePolicy
+            if await LifecyclePolicy(self.db, self.settings, self.clock).reject_reason(job):
+                raise HTTPException(409, 'Notification is not eligible for replay')
         if (
             job["state"] != "dead_letter"
             or job.get("error_code") not in allowed
@@ -570,6 +711,10 @@ class WhatsAppService:
     async def process_one(self):
         if not self.settings.enabled:
             return False
+        if self.settings.activation_id:
+            from .lifecycle_policy import LifecyclePolicy
+            if not await LifecyclePolicy(self.db, self.settings, self.clock).scope():
+                return False
         at, lease = self.clock(), uuid.uuid4().hex
         sender = hashlib.sha256(
             f"{self.settings.mode}:{self.settings.phone_number_id}".encode()
@@ -603,7 +748,11 @@ class WhatsAppService:
             return False
         claim = {"_id": job["_id"], "lease": lease, "state": "processing"}
 
+        repair_lease = None
+
         async def finish(values):
+            if repair_lease:
+                await self.db.whatsapp_control.delete_one({'_id': repair_lease, 'owner': lease})
             await self.db.whatsapp_jobs.update_one(
                 claim,
                 {
@@ -615,6 +764,37 @@ class WhatsAppService:
         if job.get("dispatch_started_at"):
             await finish({"state": "dead_letter", "error_code": "ambiguous_delivery"})
             return True
+        if self.settings.activation_id:
+            from .lifecycle_policy import LifecyclePolicy, digest
+            policy = LifecyclePolicy(self.db, self.settings, self.clock)
+            reason = await policy.reject_reason(job)
+            if reason:
+                await finish({'state': 'quarantined' if reason in ('legacy_snapshot', 'activation_mismatch') else 'suppressed', 'error_code': reason})
+                return True
+            repair_lease = 'repair_dispatch:' + digest([self.settings.activation_id, job['repair_id']])
+            try:
+                await self.db.whatsapp_control.update_one(
+                    {'_id': repair_lease, '$or': [{'until': {'$lte': at}}, {'until': {'$exists': False}}]},
+                    {'$set': {'owner': lease, 'until': at + timedelta(seconds=120)}}, upsert=True)
+            except DuplicateKeyError:
+                repair_lease = None
+                await self.db.whatsapp_jobs.update_one(claim, {'$inc': {'attempts': -1}})
+                await finish({'state': 'pending', 'next_attempt_at': at + timedelta(seconds=2)})
+                return False
+            # Reconcile first and defer while an earlier event is outstanding.
+            await self.reconcile(job['repair_id'])
+            earlier = await self.db.whatsapp_jobs.find_one({'repair_id': job['repair_id'],
+                'activation_id': self.settings.activation_id, 'source_revision': {'$lt': job['source_revision']},
+                'state': {'$in': ['pending', 'processing', 'retryable_failure']}})
+            if earlier:
+                stale = await policy.reject_reason(earlier)
+                if stale and not earlier.get('dispatch_started_at'):
+                    await self.db.whatsapp_jobs.update_one({'_id': earlier['_id'], 'state': earlier['state'],
+                        'dispatch_started_at': None}, {'$set': {'state': 'suppressed', 'error_code': stale}})
+                await self.db.whatsapp_jobs.update_one(claim, {'$inc': {'attempts': -1}})
+                await finish({'state': 'pending', 'next_attempt_at': at + timedelta(seconds=2)})
+                return True
+
         if job["attempts"] > self.settings.max_attempts:
             await finish({"state": "dead_letter", "error_code": "attempts_exhausted"})
             return True
@@ -625,7 +805,7 @@ class WhatsAppService:
         if (
             consent.get("opted_in") is not True
             or consent.get("at") != job.get("consent_at")
-            or consent.get("source") != "repair_submission_v1"
+            or consent.get("source") != ("repair_submission_v2" if self.settings.activation_id else "repair_submission_v1")
             or consent.get("destination") != job["destination"]
             or not isinstance(job.get("destination"), str)
             or not E164.fullmatch(job["destination"])
@@ -657,7 +837,16 @@ class WhatsAppService:
             claim, {"$set": {"dispatch_started_at": self.clock()}}
         )
         if not marked.modified_count:
+            if repair_lease:
+                await self.db.whatsapp_control.delete_one({'_id': repair_lease, 'owner': lease})
             return True
+        if self.settings.activation_id:
+            reason = await policy.reject_reason(job)
+            gate = await self.db.whatsapp_control.find_one({'_id': repair_lease, 'owner': lease, 'until': {'$gt': self.clock()}})
+            owned = await self.db.whatsapp_jobs.find_one({**claim, 'lease_until': {'$gt': self.clock()}})
+            if reason or not gate or not owned:
+                await finish({'state': 'suppressed', 'error_code': reason or 'lease_lost'})
+                return True
         try:
             response = await self.http.post(
                 f"https://graph.facebook.com/{self.settings.api_version}/{self.settings.phone_number_id}/messages",
@@ -735,10 +924,23 @@ class WhatsAppService:
         )
         return True
 
-    async def run(self):
-        await self.initialize()
-        while True:
+    async def run(self, stop=None):
+        if self.settings.activation_id:
+            from .lifecycle_policy import LifecyclePolicy, digest
+            policy = LifecyclePolicy(self.db, self.settings, self.clock)
+            if not await policy.scope():
+                raise RuntimeError('Lifecycle activation is not ready')
+            # No live index writes as an implicit effect of starting the worker.
+            from .lifecycle_readiness import missing_indexes
+            if await missing_indexes(self.db):
+                raise RuntimeError('Review lifecycle queue indexes before starting worker')
+        else:
+            await self.initialize()
+        while stop is None or not stop.is_set():
             try:
+                if self.settings.activation_id:
+                    await self.db.whatsapp_control.update_one({'_id': policy.scope_id(),
+                        'activation_id': self.settings.activation_id}, {'$set': {'heartbeat_at': self.clock()}})
                 await self.reconcile()
                 await self.apply_receipts()
                 busy = await self.process_one()

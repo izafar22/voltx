@@ -28,6 +28,10 @@ from services.whatsapp_service import (
     webhook_router,
 )
 from test_whatsapp import SETTINGS, USER, ADMIN, PHONE, fixture, receipt_payload, run
+from services.lifecycle_policy import instruction_preview
+
+def status_body(status, **extra):
+    return {"status": status, **extra, **({"acceptance": {"confirmed": True, "preview_digest": instruction_preview(SETTINGS)["digest"]}} if status == "AWAITING_SHIPMENT" else {})}
 
 PATH = [
     "AWAITING_SHIPMENT",
@@ -142,7 +146,7 @@ def test_eight_events_end_to_end_payloads_and_no_draft_notifications(opt_in):
                 ] == before
                 response = await browser.patch(
                     f"/api/repairs/{rid}/status",
-                    json={"status": status, "note": "private staff note"},
+                    json=status_body(status, note="private staff note"),
                 )
                 assert response.status_code == 200, response.text
                 assert "whatsapp_outbox" not in response.json()
@@ -297,7 +301,7 @@ def test_draft_edits_publish_freeze_and_payment_authority():
                 await setup_facts(browser, rid, status)
                 assert (
                     await browser.patch(
-                        f"/api/repairs/{rid}/status", json={"status": status}
+                        f"/api/repairs/{rid}/status", json=status_body(status)
                     )
                 ).status_code == 200
             assert (
@@ -313,7 +317,7 @@ def test_draft_edits_publish_freeze_and_payment_authority():
             for status in ["REPAIRING", "REPAIR_COMPLETED"]:
                 assert (
                     await browser.patch(
-                        f"/api/repairs/{rid}/status", json={"status": status}
+                        f"/api/repairs/{rid}/status", json=status_body(status)
                     )
                 ).status_code == 200
             await setup_facts(browser, rid, "PAYMENT_PENDING")
@@ -427,9 +431,10 @@ def test_withdrawal_is_authorized_idempotent_and_stops_pending_jobs():
             assert (await db.whatsapp_jobs.find_one({}))[
                 "error_code"
             ] == "consent_invalid"
+            actor[0] = ADMIN
             assert (
                 await browser.patch(
-                    f"/api/repairs/{rid}/status", json={"status": "AWAITING_SHIPMENT"}
+                    f"/api/repairs/{rid}/status", json=status_body("AWAITING_SHIPMENT")
                 )
             ).status_code == 200
             assert (await db.repair_requests.find_one({"id": rid}))[
@@ -677,7 +682,7 @@ def test_alternate_branches_preserved_and_nonselected_statuses_silent(branch):
             for status in PATH[:4]:
                 assert (
                     await browser.patch(
-                        f"/api/repairs/{rid}/status", json={"status": status}
+                        f"/api/repairs/{rid}/status", json=status_body(status)
                     )
                 ).status_code == 200
             if branch == "CUSTOMER_DECLINED":
@@ -727,29 +732,16 @@ def test_missing_personalization_never_sends(value):
     run(scenario)
 
 
-def test_missing_dispatch_address_blocks_notice_without_blocking_repair():
+def test_missing_dispatch_address_blocks_acceptance_without_losing_request():
     async def scenario():
-        async with api_context(replace(SETTINGS, dispatch_address="")) as (
-            db,
-            browser,
-            actor,
-        ):
+        async with api_context(replace(SETTINGS, dispatch_address="")) as (db, browser, actor):
             rid = await create(browser)
-            assert (
-                await browser.patch(
-                    f"/api/repairs/{rid}/status", json={"status": "AWAITING_SHIPMENT"}
-                )
-            ).status_code == 200
-            svc = WhatsAppService(db, SETTINGS)
-            await svc.reconcile()
-            await db.whatsapp_jobs.update_one(
-                {"status": "REQUESTED"}, {"$set": {"state": "sent"}}
-            )
-            await svc.process_one()
-            assert (await db.whatsapp_jobs.find_one({"status": "AWAITING_SHIPMENT"}))[
-                "error_code"
-            ] == "snapshot_invalid"
-
+            actor[0] = ADMIN
+            response = await browser.patch(f"/api/repairs/{rid}/status", json=status_body("AWAITING_SHIPMENT"))
+            assert response.status_code == 409
+            repair = await db.repair_requests.find_one({'id': rid})
+            assert repair['status'] == 'REQUESTED'
+            assert not repair.get('intake_acceptance')
     run(scenario)
 
 
@@ -771,11 +763,12 @@ def test_catalog_consistency_and_unknown_approvals():
 
 def test_disabled_feature_records_consent_but_no_events():
     async def scenario():
-        async with api_context(replace(SETTINGS, enabled=False)) as (db, browser, _):
+        async with api_context(replace(SETTINGS, enabled=False)) as (db, browser, actor):
             rid = await create(browser)
+            actor[0] = ADMIN
             assert (
                 await browser.patch(
-                    f"/api/repairs/{rid}/status", json={"status": "AWAITING_SHIPMENT"}
+                    f"/api/repairs/{rid}/status", json=status_body("AWAITING_SHIPMENT")
                 )
             ).status_code == 200
             repair = await db.repair_requests.find_one({"id": rid})

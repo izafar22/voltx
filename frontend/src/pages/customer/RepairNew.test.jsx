@@ -78,7 +78,8 @@ test('review separates description and successful submission preserves contract 
   expect(el('review-section').textContent).toContain('Terra AC');
   await act(async () => submit());
   expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'RETAIL', problem_description: 'Stops after a few seconds.', reported_category: 'Not charging', photos: [], whatsapp_opt_in: false, idempotency_key: 'creation-key', charger_info: { brand: 'ABB', model: 'Terra AC', charger_type: null, serial_number: null, power_rating: null, purchase_date: null } });
-  expect(mockPatch).toHaveBeenCalledWith('/repairs/r1/status', { status: 'AWAITING_SHIPMENT' });
+  expect(mockPatch).not.toHaveBeenCalled();
+  expect(el('repair-confirmation').textContent).toContain('Please do not ship your charger yet');
   expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ['repairs-mine'] });
   expect(el('repair-confirmation')).not.toBeNull(); expect(el('repair-number').textContent).toContain('REP-001'); expect(container.querySelectorAll('ol li')).toHaveLength(5);
   click('view-repair-btn'); expect(mockNavigate).toHaveBeenLastCalledWith('/repairs/r1'); click('back-dashboard-btn'); expect(mockNavigate).toHaveBeenLastCalledWith('/app');
@@ -108,16 +109,15 @@ test('photos retain data URLs, can be removed and reject unsupported/oversized f
   click('remove-photo-0'); expect(el('photo-0')).toBeNull(); expect(el('review-section').textContent).toContain('0 attached');
 });
 
-test('WhatsApp coming soon is disabled and repair submission always opts out', async () => {
+test('WhatsApp capability unavailable keeps consent disabled and submits without updates', async () => {
   render(); fill();
   const checkbox = el('whatsapp-opt-in');
   expect(checkbox.checked).toBe(false);
   expect(checkbox.disabled).toBe(true);
   const label = container.querySelector('label[for="whatsapp-opt-in"]');
   expect(label).not.toBeNull();
-  expect(label.textContent).toContain('WhatsApp repair updates — Coming soon');
-  expect(checkbox.parentElement.className).toContain('grid');
-  expect(checkbox.parentElement.className).toContain('grid-cols-[20px_minmax(0,1fr)]');
+  expect(label.textContent).toContain('Send me WhatsApp updates about this repair');
+  expect(checkbox.parentElement.className).toContain('items-start');
   expect(label.className).toContain('min-w-0');
   expect(checkbox.className).toContain('self-start');
   expect(checkbox.className).not.toContain('mt-1');
@@ -144,5 +144,15 @@ test('late defaults cannot change an ambiguous retry payload or idempotency key'
   const first = mockPost.mock.calls[0][1];
   mockProfile = { addresses: [{ id:'late-address',label:'Home',line1:'Test' }], revision:1,pickup_id:'late-address',delivery_id:'late-address' };
   render(); await act(async () => submit());
+  expect(mockPost.mock.calls[1][1]).toEqual(first);
+});
+
+test('identity-driven preference changes cannot create another request after an uncertain response', async () => {
+  render(); fill();
+  mockPost.mockRejectedValueOnce(new Error('response lost'));
+  await act(async () => submit());
+  const first = mockPost.mock.calls[0][1];
+  change('description-input', 'New details entered while checking the original request');
+  await act(async () => submit());
   expect(mockPost.mock.calls[1][1]).toEqual(first);
 });
