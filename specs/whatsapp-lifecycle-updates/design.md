@@ -1,6 +1,6 @@
-# WhatsApp repair lifecycle updates — audit and design review
+# WhatsApp lifecycle updates — audit and design review
 
-Status: AUDIT / DESIGN INPUT, not an approved design. Requirements must be finalized before choosing detailed contracts or implementation tasks. Audit date: 2026-11-19; source baseline repair-mvp 5206722. No runtime/Meta configuration was changed or live delivery tested.
+Status: AUDIT / DESIGN INPUT, not an approved design. Requirements were finalized on 2026-11-20. Detailed contracts and implementation tasks remain to be designed and reviewed. Audit date: 2026-11-19; source baseline repair-mvp 5206722. No runtime/Meta configuration was changed or live delivery tested.
 
 ## Existing implementation to reuse
 
@@ -40,16 +40,16 @@ Status: AUDIT / DESIGN INPUT, not an approved design. Requirements must be final
 
 All local entries use en_US and proposed Utility category. Exact live name, locale, category, full body, components/parameter order and current status must be verified with authorized access before sends; no template edit/submission is authorized.
 
-## Decisions for requirements review
+## Requirements decisions and design inputs
 
 | Decision | Recommendation | Status |
 |---|---|---|
 | Initial milestone set | Existing eight plus PAYMENT_RECEIVED, subject to its exact template approval | Owner confirmed 2026-11-19 |
 | Shipping instructions | Only after explicit RushX team acceptance; remove automatic transition and enforce API permission | Owner confirmed 2026-11-19 |
-| Old repairs and old jobs | No retroactive opt-in/backfill; audit and quarantine pre-activation backlog | Proposed; review with requirements |
-| Verified phone changes | Pause affected repair notifications; never silently redirect; account remains usable | Proposed; detailed race/reconsent design pending |
-| Exceptions and extra messages | Existing account/support handling in v1; new templates need separate approval | Proposed; review with requirements |
-| Dashboard links | Use existing copy referring to the account; add links only if approved template supports them | Proposed; template audit pending |
+| Old repairs and old jobs | No retroactive opt-in/backfill; audit and quarantine pre-activation backlog | Included in final requirements; detailed design pending |
+| Verified phone changes | Pause affected repair notifications; never silently redirect; account remains usable | Included in final requirements; detailed race/reconsent design pending |
+| Exceptions and extra messages | Existing account/support handling in v1; new templates need separate approval | Included in final requirements; detailed design pending |
+| Dashboard links | Use existing copy referring to the account; add links only if approved template supports them | Final requirements preserve current template contract; live audit pending |
 
 ## Design topics after requirements approval
 

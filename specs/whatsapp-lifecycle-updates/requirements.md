@@ -1,18 +1,18 @@
-# WhatsApp repair lifecycle updates — requirements
+# WhatsApp lifecycle updates — requirements
 
-Status: DRAFT FOR OWNER REVIEW. Prepared 2026-11-19 against `repair-mvp` commit `5206722af8a939d903946f0bdef5dfea51104bf1`.
+Status: FINAL REQUIREMENTS. Finalized with owner authorization on 2026-11-20; source audit prepared 2026-11-19 against `repair-mvp` commit `5206722af8a939d903946f0bdef5dfea51104bf1`.
 
-The owner authorized specification work on 2026-11-19, following the customer-profile release. Requirements, design and implementation tasks have not yet been approved. This spec does not authorize implementation, merges, template changes, environment changes, live messages or production activation.
+The owner authorized specification work on 2026-11-19 and requested the final requirements document on 2026-11-20 under the name WhatsApp lifecycle updates. This document records the agreed requirements. Detailed design and implementation tasks require subsequent review before implementation. Finalizing requirements does not authorize merges, template changes, environment changes, live messages or production activation.
 
 ## Customer outcome
 
 A customer who explicitly opts in receives WhatsApp messages at meaningful repair milestones, with accurate facts and clear next actions. The RushX account remains the place to review repair progress, estimates and shipment details when a message is delayed or unavailable. Describe this as milestone updates, not continuous or live tracking.
 
-## Proposed first-release scope
+## First-release scope
 
 Reuse and complete the existing messaging implementation. Preserve working WhatsApp OTP, Google sign-in, customer profile, saved addresses, repair authorization and parked functionality. No new messaging platform, marketing messages, automatic incoming-message replies or general chat inbox.
 
-On 2026-11-19 the owner confirmed both scope decisions: include all nine messages, including PAYMENT_RECEIVED, and require explicit RushX team acceptance before shipping instructions. These decisions are approved; the rest of this requirements draft still awaits review.
+On 2026-11-19 the owner confirmed both scope decisions: include all nine messages, including PAYMENT_RECEIVED, and require explicit RushX team acceptance before shipping instructions. The owner clarified and confirmed that team acceptance permits sending the charger for inspection; it does not guarantee repairability or authorize priced repair work. The customer separately approves the published estimate before repair begins.
 
 | Event | Message purpose | Required source facts / customer action |
 |---|---|---|
@@ -26,7 +26,7 @@ On 2026-11-19 the owner confirmed both scope decisions: include all nine message
 | PAYMENT_RECEIVED | Acknowledge a verified payment | Existing full-receipt verification event and verified amount/safe reference; never infer settlement from uploaded evidence alone |
 | SHIPPED_TO_CUSTOMER | Confirm actual return dispatch | Confirmed courier and tracking details; do not imply delivery or live courier tracking |
 
-The normal lifecycle includes exceptions. For version 1, customer-declined, not-repairable, cancelled, diagnosis-in-progress and delivered states remain visible through the existing account/support journey; this draft does not add automatic messages for them. Make that limitation explicit in acceptance and customer wording. New exception templates or payment/refund/revised-estimate workflows need a separately reviewed scope change. Do not fabricate payment amounts or alter lifecycle transitions to bypass existing zero-balance limitations.
+The normal lifecycle includes exceptions. For version 1, customer-declined, not-repairable, cancelled, diagnosis-in-progress and delivered states remain visible through the existing account/support journey; this release does not add automatic messages for them. Make that limitation explicit in acceptance and customer wording. New exception templates or payment/refund/revised-estimate workflows need a separately reviewed scope change. Do not fabricate payment amounts or alter lifecycle transitions to bypass existing zero-balance limitations.
 
 ## Customer consent and destination
 
@@ -35,7 +35,7 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 - Use only the authenticated customer's verified account number. Google-only customers may link and verify a mobile through the existing profile flow, without losing their repair draft. No arbitrary recipient input or administrator redirection.
 - Record consent version, source, time, destination and withdrawal. Preserve enough history to audit why a queued message was or was not eligible without placing personal data in logs.
 - Withdrawal blocks subsequent queued/retried sends when checked before dispatch; it cannot recall a request already sent to Meta. Keep account access and repair status updates available.
-- After phone replacement, do not continue sending to the old destination or automatically transfer repair consent to the new number. Recheck account ownership/verification and consent before dispatch. Proposed version 1 pauses updates for affected repairs; re-enabling requires a later explicit consent flow, not an automatic resend. UI must explain how to follow progress meanwhile. Final race semantics are a design-review item.
+- After phone replacement, do not continue sending to the old destination or automatically transfer repair consent to the new number. Recheck account ownership/verification and consent before dispatch. Version 1 pauses updates for affected repairs; re-enabling requires a later explicit consent flow, not an automatic resend. UI must explain how to follow progress meanwhile. Final race semantics are a design-review item.
 - Existing repairs are not silently opted in. Activation does not reconstruct or broadcast old milestones. Historical unsent jobs/outbox items require a reviewed cutoff/quarantine plan; starting a worker must not drain an unreviewed backlog.
 
 ## Truthful events and useful messages
@@ -72,9 +72,9 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 
 ## Acceptance criteria
 
-1. Selected milestones have verified event-to-template-to-parameter mappings and truthful source facts; owner confirms first-release scope and team-acceptance policy.
+1. Selected milestones have verified event-to-template-to-parameter mappings and truthful source facts; the first release includes all nine selected messages and enforces the agreed team-acceptance policy.
 2. Explicit opt-in/opt-out, verified-number eligibility, withdrawal, phone replacement, account/role isolation and existing-repair behavior pass negative and race tests.
-3. New submission cannot send shipping instructions before team acceptance duplicate/retried submissions create one intended event per actual milestone.
+3. New submission cannot send shipping instructions before team acceptance; duplicate/retried submissions create one intended event per actual milestone.
 4. Complete authorized staging journey proves committed business events reach the intended recipient, with real provider status receipts and accurate content. Capture redacted evidence for each selected milestone and explain unexercised receipt states.
 5. Opted-out, withdrawn, wrong-recipient, stale-action and invalid-fact cases do not send. Failure, retry, crash, receipt ordering and uncertain-delivery cases preserve the existing reliability/security guarantees.
 6. Staging remains fail-closed without its dedicated test gate and allowlist, from both API and worker; test jobs cannot be promoted into production.
@@ -86,6 +86,6 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 
 - 2026-11-19: owner agreed to prioritize WhatsApp repair lifecycle updates and authorized preparation of this spec.
 - 2026-11-19: owner explicitly approved all nine messages, including payment received, and team acceptance before shipping instructions.
-- Full requirements: pending owner review; the two recorded scope decisions do not authorize implementation.
+- 2026-11-20: owner requested finalization of requirements.md and specified the name WhatsApp lifecycle updates. Requirements finalized in `specs/whatsapp-lifecycle-updates/requirements.md`.
 - Design: audit only; not approved.
-- Implementation tasks: not finalized or approved; no implementation authorized by this draft.
+- Implementation tasks: not finalized or approved; implementation is not authorized by requirements finalization.
