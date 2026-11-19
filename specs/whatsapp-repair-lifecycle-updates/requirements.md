@@ -12,18 +12,18 @@ A customer who explicitly opts in receives WhatsApp messages at meaningful repai
 
 Reuse and complete the existing messaging implementation. Preserve working WhatsApp OTP, Google sign-in, customer profile, saved addresses, repair authorization and parked functionality. No new messaging platform, marketing messages, automatic incoming-message replies or general chat inbox.
 
-Two scope choices await the owner: whether to include the existing payment-received acknowledgement alongside the eight repair messages, and whether shipping instructions require explicit team acceptance. The recommended draft below includes both. See Decisions in design.md; do not infer approval from this draft.
+On 2026-11-19 the owner confirmed both scope decisions: include all nine messages, including PAYMENT_RECEIVED, and require explicit RushX team acceptance before shipping instructions. These decisions are approved; the rest of this requirements draft still awaits review.
 
 | Event | Message purpose | Required source facts / customer action |
 |---|---|---|
 | REQUESTED | Confirm receipt of the enquiry, not technical acceptance | Persisted request number, customer name and charger description; explain that next steps follow review |
-| AWAITING_SHIPMENT | Supply inbound shipping instructions after acceptance (proposed) | Explicit team acceptance and an approved dispatch address; customer packages/sends only after instructions |
+| AWAITING_SHIPMENT | Supply inbound shipping instructions after team acceptance | Explicit team acceptance and an approved dispatch address; customer packages/sends only after instructions |
 | RECEIVED_AT_VOLTX | Confirm actual receipt at RushX | Operator-recorded physical receipt; no claim that diagnosis is complete |
 | ESTIMATE_SENT | Tell the customer an estimate is ready | Persisted valid published estimate in INR; customer reviews and approves/declines in the account |
 | CUSTOMER_APPROVED | Acknowledge the customer's approval | Recorded approval of the published estimate; no claim that repair is already complete |
 | REPAIR_COMPLETED | Confirm recorded completion of repair work | Actual completion; distinguish remaining payment and return steps |
 | PAYMENT_PENDING | Explain the verified outstanding balance | Positive reconciled amount due; direct customer to account/support for instructions |
-| PAYMENT_RECEIVED | Acknowledge a verified payment (scope decision pending) | Existing full-receipt verification event and verified amount/safe reference; never infer settlement from uploaded evidence alone |
+| PAYMENT_RECEIVED | Acknowledge a verified payment | Existing full-receipt verification event and verified amount/safe reference; never infer settlement from uploaded evidence alone |
 | SHIPPED_TO_CUSTOMER | Confirm actual return dispatch | Confirmed courier and tracking details; do not imply delivery or live courier tracking |
 
 The normal lifecycle includes exceptions. For version 1, customer-declined, not-repairable, cancelled, diagnosis-in-progress and delivered states remain visible through the existing account/support journey; this draft does not add automatic messages for them. Make that limitation explicit in acceptance and customer wording. New exception templates or payment/refund/revised-estimate workflows need a separately reviewed scope change. Do not fabricate payment amounts or alter lifecycle transitions to bypass existing zero-balance limitations.
@@ -43,7 +43,7 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 - Messages follow committed business events; draft estimates, unsaved shipment details and repeated requests do not notify.
 - Request creation and each transition preserve durable event identity and idempotency. Payment acknowledgement uses its own verified receipt event and does not change repair status.
 - Never imply technical acceptance, collection, repair success, payment receipt or dispatch before the corresponding verified event.
-- The current form advances new repairs straight to AWAITING_SHIPMENT. The proposed acceptance-first policy must remove that automatic action and enforce the new boundary in the API as well as UI. This is an explicit proposed business change requiring approval.
+- The current form advances new repairs straight to AWAITING_SHIPMENT. The owner-approved acceptance-first policy requires removing that automatic action and enforcing the new boundary in the API as well as UI. The exact technical design and implementation remain subject to later review.
 - Delayed action prompts must not instruct customers to act on obsolete estimates, shipping instructions, withdrawn consent or paid balances. Define per-event freshness and ordering rules during design; revalidate authoritative facts at dispatch without rewriting historical snapshots.
 - No invented greeting, facility address, diagnosis, price, delivery date, warranty or support commitment. Missing required facts prevent the message, while a messaging failure must not erase a successful repair update.
 - Use exact, verified Meta template names, language, category, body and positional/header/button parameters. Existing catalog entries are proposals, not evidence of current approval. Confirm all selected templates in the correct account before activation. Do not edit in-review templates or submit replacements without authorization.
@@ -74,7 +74,7 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 
 1. Selected milestones have verified event-to-template-to-parameter mappings and truthful source facts; owner confirms first-release scope and team-acceptance policy.
 2. Explicit opt-in/opt-out, verified-number eligibility, withdrawal, phone replacement, account/role isolation and existing-repair behavior pass negative and race tests.
-3. New submission cannot send shipping instructions before team acceptance if the proposed policy is approved; duplicate/retried submissions create one intended event per actual milestone.
+3. New submission cannot send shipping instructions before team acceptance duplicate/retried submissions create one intended event per actual milestone.
 4. Complete authorized staging journey proves committed business events reach the intended recipient, with real provider status receipts and accurate content. Capture redacted evidence for each selected milestone and explain unexercised receipt states.
 5. Opted-out, withdrawn, wrong-recipient, stale-action and invalid-fact cases do not send. Failure, retry, crash, receipt ordering and uncertain-delivery cases preserve the existing reliability/security guarantees.
 6. Staging remains fail-closed without its dedicated test gate and allowlist, from both API and worker; test jobs cannot be promoted into production.
@@ -85,6 +85,7 @@ The normal lifecycle includes exceptions. For version 1, customer-declined, not-
 ## Approval record
 
 - 2026-11-19: owner agreed to prioritize WhatsApp repair lifecycle updates and authorized preparation of this spec.
-- Requirements: pending owner review, including the two scope decisions above.
+- 2026-11-19: owner explicitly approved all nine messages, including payment received, and team acceptance before shipping instructions.
+- Full requirements: pending owner review; the two recorded scope decisions do not authorize implementation.
 - Design: audit only; not approved.
 - Implementation tasks: not finalized or approved; no implementation authorized by this draft.

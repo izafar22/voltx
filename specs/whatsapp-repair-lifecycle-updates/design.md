@@ -17,7 +17,7 @@ Status: AUDIT / DESIGN INPUT, not an approved design. Requirements must be final
 ## Source-grounded gaps and risks
 
 1. Progress context described lifecycle wiring/tests as merely planned, but implementation and tests already exist. Work should complete/harden/integrate/verify that implementation rather than create a second outbox.
-2. Activation is not just enabling a checkbox: shipping instructions could currently be enqueued immediately after submission. Technical-acceptance timing and actor permissions need an approved business decision.
+2. Activation is not just enabling a checkbox: shipping instructions could currently be enqueued immediately after submission. The owner approved team acceptance before shipping instructions on 2026-11-19; detailed actor/transition contracts still require design review.
 3. consent_record validates number syntax, not current phone verification; dispatch rechecks the repair's consent snapshot, not its current account number. Customer-profile phone replacement therefore requires explicit notification consent/race handling.
 4. Existing retry logic can deliver older events after later ones. PAYMENT_PENDING rechecks its balance; equivalent freshness policy for other actionable events needs review.
 5. Enabling a worker can reconcile existing embedded events/jobs. A reviewed activation boundary and old-job handling must prevent unintended historical sends.
@@ -44,8 +44,8 @@ All local entries use en_US and proposed Utility category. Exact live name, loca
 
 | Decision | Recommendation | Status |
 |---|---|---|
-| Initial milestone set | Existing eight plus PAYMENT_RECEIVED, subject to its exact template approval | Asked owner; pending |
-| Shipping instructions | Only after explicit RushX team acceptance; remove automatic transition and enforce API permission | Asked owner; pending |
+| Initial milestone set | Existing eight plus PAYMENT_RECEIVED, subject to its exact template approval | Owner confirmed 2026-11-19 |
+| Shipping instructions | Only after explicit RushX team acceptance; remove automatic transition and enforce API permission | Owner confirmed 2026-11-19 |
 | Old repairs and old jobs | No retroactive opt-in/backfill; audit and quarantine pre-activation backlog | Proposed; review with requirements |
 | Verified phone changes | Pause affected repair notifications; never silently redirect; account remains usable | Proposed; detailed race/reconsent design pending |
 | Exceptions and extra messages | Existing account/support handling in v1; new templates need separate approval | Proposed; review with requirements |

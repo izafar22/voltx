@@ -5,7 +5,7 @@ Status: implementation task plan NOT YET PREPARED. This file tracks specificatio
 | Gate | Status | Evidence / next action |
 |---|---|---|
 | Audit existing implementation, catalog, tests and integration points | DONE (source review only) | design.md records findings; no tests or live sends executed |
-| Draft customer requirements and first-release choices | IN_PROGRESS | requirements.md prepared; owner responses and review pending |
+| Draft customer requirements and first-release choices | IN_PROGRESS | requirements.md prepared; owner confirmed all nine messages and acceptance-before-shipping on 2026-11-19; full requirements review pending |
 | Finalize and approve requirements | PENDING | Record owner decisions and approval date |
 | Prepare and review detailed UX/technical design | PENDING | Follow finalized requirements and verify external assumptions read-only |
 | Prepare and review implementation tasks | PENDING | Specify dependencies, regression coverage and acceptance for each task after design |
