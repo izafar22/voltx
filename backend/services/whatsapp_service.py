@@ -215,10 +215,6 @@ def lifecycle_event(repair, status, event_id, settings, customer=None, payment_e
         if key == 'REPAIR_RESULT_DUE':
             values['amount_due'] = due
         facts = repair.get('payment_summary')
-    elif status == 'REQUESTED':
-        info = repair.get('charger_info') or {}
-        description = ' '.join(str(info[k]).strip() for k in ('brand', 'model') if text_fact(info.get(k)))
-        values['charger_description'] = description or ('Registered charger' if repair.get('charger_id') else '')
     elif status == 'AWAITING_SHIPMENT':
         facts = repair.get('intake_acceptance')
         if not facts:
@@ -285,7 +281,8 @@ def configured_template(status, settings):
         and name == "hello_world"
         and template.get("parameters") == []
     )
-    if template.get("language") != "en_US":
+    expected_language = "en_US" if sandbox else catalog[catalog_status]["language"]
+    if template.get("language") != expected_language:
         raise ConfigurationError()
     if not sandbox and (
         name == "hello_world"
@@ -315,7 +312,7 @@ def validate_settings(settings):
         or not re.fullmatch(r"v[0-9]+\.[0-9]+", settings.api_version)
         or not settings.app_secret
         or not settings.verify_token
-        or not re.fullmatch(r"[0-9]+", settings.test_phone_number_id)
+        or (settings.mode != "staging" and not re.fullmatch(r"[0-9]+", settings.test_phone_number_id))
     ):
         raise ConfigurationError()
     if settings.activation_id:
@@ -1093,6 +1090,20 @@ def webhook_router(db_provider, settings_provider=Settings.from_env):
                             f"{mid}:{status['status']}:{timestamp}".encode()
                         ).hexdigest()
                         callback = status.get("biz_opaque_callback_data")
+                        if os.getenv("APP_ENV") == "staging" or settings.mode == "staging":
+                            # Shared senders also emit OTP/other-environment receipts. Never
+                            # persist those in staging; retain genuine late/early stage receipts.
+                            correlation = ({"_id": callback} if isinstance(callback, str) and len(callback) < 200
+                                           else {"message_id": mid})
+                            known = await db_provider().whatsapp_jobs.find_one({**correlation,
+                                "schema_version": 3, "delivery_scope.mode": "staging",
+                                "delivery_scope.phone_number_id": settings.phone_number_id})
+                            if (not known or known.get("message_id") not in (None, mid)
+                                    or (not known.get("message_id") and not known.get("dispatch_started_at"))):
+                                continue
+                            recipient = status.get("recipient_id")
+                            if recipient is not None and str(recipient).lstrip("+") != str(known.get("destination", "")).lstrip("+"):
+                                continue
                         if len(receipts) >= 100:
                             raise HTTPException(413, "Too many webhook statuses")
                         receipts.append(
