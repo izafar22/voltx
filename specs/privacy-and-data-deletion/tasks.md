@@ -35,6 +35,8 @@ Validation recorded 2026-11-20: the clean-branch public browser suite passed 108
 
 Review regression recorded 2026-11-20: after normalizing trailing-slash routes, 33 focused frontend tests, 35 backend route/SEO tests, the optimized build and 16 policy-page browser checks passed.
 
+CI stability regression recorded 2026-11-20: duplicate hosted runs exposed a pre-existing race in the lifecycle admin browser test, which could inspect the mobile menu before the authenticated shell rendered and then wait for a hidden desktop link. The test now selects desktop or mobile navigation deterministically from the configured viewport, matching the established customer-profile test pattern. All 32 lifecycle browser cases passed locally without changing application behavior or assertions.
+
 ## P5 — Staging and Meta prerequisite
 
 - [ ] Open a dedicated PR describing tests, risks and context-documentation changes; keep it separate from WhatsApp runtime PR #75.
