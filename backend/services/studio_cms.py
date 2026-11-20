@@ -170,7 +170,8 @@ def url_of(entry: dict) -> str:
 
 
 def is_spa_route(path: str) -> bool:
-    return path in SPA_EXACT or path.startswith(SPA_PREFIXES)
+    normalized = path.rstrip("/") or "/"
+    return normalized in SPA_EXACT or normalized.startswith(SPA_PREFIXES)
 
 
 # ---------------------------------------------------------------- HTML
