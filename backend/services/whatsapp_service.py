@@ -217,7 +217,8 @@ def lifecycle_event(repair, status, event_id, settings, customer=None, payment_e
         facts = repair.get('payment_summary')
     elif status == 'REQUESTED':
         info = repair.get('charger_info') or {}
-        values['charger_description'] = ' '.join(str(info[k]).strip() for k in ('brand', 'model') if info.get(k))
+        description = ' '.join(str(info[k]).strip() for k in ('brand', 'model') if text_fact(info.get(k)))
+        values['charger_description'] = description or ('Registered charger' if repair.get('charger_id') else '')
     elif status == 'AWAITING_SHIPMENT':
         facts = repair.get('intake_acceptance')
         if not facts:
@@ -478,7 +479,45 @@ class WhatsAppService:
             [("processed", 1), ("next_check_at", 1)]
         )
 
+    async def recover_notification_intents(self, repair_id=None):
+        from .lifecycle_policy import LifecyclePolicy
+        policy = LifecyclePolicy(self.db, self.settings, self.clock)
+        query = {'whatsapp_notification_intents._id': {'$exists': True}}
+        if repair_id is not None:
+            query['id'] = repair_id
+        async for repair in self.db.repair_requests.find(query, {'id': 1, 'whatsapp_notification_intents': 1}).limit(1 if repair_id else 200):
+            for intent in repair['whatsapp_notification_intents']:
+                expires = intent['expires_at']
+                if expires.tzinfo is None:
+                    expires = expires.replace(tzinfo=timezone.utc)
+                if expires <= self.clock():
+                    # Preserve a terminal deduplication record; never refresh the event deadline.
+                    await self.db.whatsapp_jobs.update_one({'_id': intent['_id']}, {'$setOnInsert': {
+                        '_id': intent['_id'], 'repair_id': repair['id'], 'status': intent['status'],
+                        'state': 'suppressed', 'error_code': 'event_expired', 'attempts': 0,
+                        'source_revision': intent['source_revision'], 'expires_at': expires}}, upsert=True)
+                    await self.db.repair_requests.update_one({'id': repair['id']},
+                        {'$pull': {'whatsapp_notification_intents': {'_id': intent['_id']}}})
+                    continue
+                try:
+                    event = await policy.event(intent['repair'], intent['status'], intent['event_id'],
+                        payment_event=intent.get('payment_event'))
+                except Exception:
+                    logging.getLogger(__name__).error('notification_intent_recovery_deferred')
+                    continue
+                if event is None:
+                    continue
+                event.update(occurred_at=intent['occurred_at'], expires_at=expires,
+                             source_revision=intent['source_revision'])
+                # One aggregate CAS-like move: competing recoverers cannot append twice.
+                await self.db.repair_requests.update_one(
+                    {'id': repair['id'], 'whatsapp_notification_intents._id': intent['_id']},
+                    {'$push': {'whatsapp_outbox': event},
+                     '$pull': {'whatsapp_notification_intents': {'_id': intent['_id']}}})
+
     async def reconcile(self, repair_id=None):
+        if self.settings.activation_id:
+            await self.recover_notification_intents(repair_id)
         # Embedded events and the business mutation are a single Mongo document write.
         # Remove ONLY after idempotent upsert; crashes on either side are recoverable.
         query = {"whatsapp_outbox._id": {"$exists": True}}
@@ -795,6 +834,12 @@ class WhatsAppService:
                 return False
             # Reconcile first and defer while an earlier event is outstanding.
             await self.reconcile(job['repair_id'])
+            pending_intent = await self.db.repair_requests.find_one({'id': job['repair_id'],
+                'whatsapp_notification_intents': {'$elemMatch': {'source_revision': {'$lt': job['source_revision']}}}})
+            if pending_intent:
+                await self.db.whatsapp_jobs.update_one(claim, {'$inc': {'attempts': -1}})
+                await finish({'state': 'pending', 'next_attempt_at': at + timedelta(seconds=2)})
+                return True
             earlier = await self.db.whatsapp_jobs.find_one({'repair_id': job['repair_id'],
                 'activation_id': self.settings.activation_id, 'source_revision': {'$lt': job['source_revision']},
                 'state': {'$in': ['pending', 'processing', 'retryable_failure']}})

@@ -253,3 +253,11 @@ All local entries use en_US and proposed Utility category. Exact live name, loca
 - 2026-11-20: owner subsequently approved the design, then confirmed eight WhatsApp messages by combining completion with verified balance while retaining estimate approval. The updated design and task plan reflect this; implementation-task authorization remains separate.
 
 The audit table above intentionally preserves the existing catalog evidence. The new target is eight customer messages: seven unchanged contracts and the two mutually exclusive REPAIR_RESULT variants in section 5. Do not read the historical standalone rows as the proposed send plan.
+
+## Review implementation clarifications (2026-11-20)
+
+Consent v2 includes its originating scope digest (environment/mode/sender/database), checked during enqueue, dispatch and response derivation. A matching activation UUID under a different sender scope does not renew consent. Retired IDs remain rejected within their original control history.
+
+Payment commits do not depend on successful notification construction. If a notification factory cannot build the snapshot, eligible bound consent yields an embedded immutable notification intent in the same payment CAS. For completion, that write also reserves completion_notice. Intent fields freeze payment facts, original consent, source revision, event identity/time and 24-hour expiry; they do not copy the full customer/repair aggregate. Worker reconciliation materializes it once, then ordinary current-consent/identity/freshness/ordering checks apply. Repeated payment operations do not reconstruct or extend deadlines. Expired intents retain terminal deduplication evidence. No intents are generated from historical payments or legacy unbound consent, and recovery never opts an existing repair into a new sender scope. Repair API projections redact intent data.
+
+Unnamed registered chargers retain the existing public reporting contract; the request acknowledgement uses a neutral description if no usable registered brand/model/name exists. Unregistered requests still require a nonblank brand.

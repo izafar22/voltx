@@ -728,6 +728,7 @@ def sanitize_repair(r, user):
     r = dict(r)
     r.pop("_id", None)
     r.pop("whatsapp_outbox", None)
+    r.pop("whatsapp_notification_intents", None)
     notification_preference = preference(r, user)
     r.pop("whatsapp_consent", None)
     r.pop("completion_notice", None)
@@ -766,7 +767,8 @@ async def effective_repair_response(repair, user):
     result = sanitize_repair(repair, user)
     if result.get('whatsapp_updates', {}).get('state') == 'enabled':
         settings = WhatsAppSettings.from_env()
-        if ((repair.get('whatsapp_consent') or {}).get('activation_id') != settings.activation_id
+        if ((repair.get('whatsapp_consent') or {}).get('scope_id') != LifecyclePolicy(db, settings).scope_id()
+                or (repair.get('whatsapp_consent') or {}).get('activation_id') != settings.activation_id
                 or not await LifecyclePolicy(db, settings).scope(heartbeat=True)):
             result['whatsapp_updates']['state'] = 'unavailable'
     return result
@@ -808,8 +810,6 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user), requ
     else:
         if not text_fact(info.get("brand")):
             raise HTTPException(status_code=400, detail="Charger brand is required for an unregistered charger")
-    if not any(text_fact(info.get(key)) for key in ("brand", "model")):
-        raise HTTPException(400, "Charger description is required")
     if info.get("charger_type") and info["charger_type"] not in CHARGER_TYPES:
         raise HTTPException(status_code=400, detail=f"charger_type must be one of {sorted(CHARGER_TYPES)}")
     now = iso()
@@ -882,7 +882,7 @@ async def list_repairs(scope: str = "mine", user=Depends(get_current_user), resp
         except (ValueError, TypeError, UnicodeError):
             raise HTTPException(400, "Invalid repair cursor") from None
         q = {"$and": [q, {"$or": [{"created_at": {"$lt": at}}, {"created_at": at, "id": {"$lt": rid}}]}]}
-    projection = {key: 0 for key in ("_id", "photos", "whatsapp_outbox", "payment_records", "payment_events", "payment_evidence", "payment_receipt", "creation_key", "creation_fingerprint")}
+    projection = {key: 0 for key in ("_id", "photos", "whatsapp_outbox", "whatsapp_notification_intents", "payment_records", "payment_events", "payment_evidence", "payment_receipt", "creation_key", "creation_fingerprint")}
     docs = await db.repair_requests.find(q, projection).sort([("created_at", -1), ("id", -1)]).to_list(limit + 1)
     if len(docs) > limit and response is not None:
         last = docs[limit - 1]
