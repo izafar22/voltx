@@ -85,11 +85,15 @@ for (const theme of ['light', 'dark']) {
     expect(data.errors).toEqual([]);
   });
 
-  test(`lifecycle admin confirms intake instructions ${theme}`, async ({ page }) => {
+  test(`lifecycle admin confirms intake instructions ${theme}`, async ({ page }, info) => {
     const data = await fixture(page, theme, 'admin');
     await page.goto('/admin');
-    if (await page.getByTestId('menu-btn').isVisible()) await page.getByTestId('menu-btn').click();
-    await page.locator('[data-testid="side-repairs"]:visible').click();
+    if (info.project.name === '1280') {
+      await page.getByTestId('side-repairs').click();
+    } else {
+      await page.getByTestId('menu-btn').click();
+      await page.getByTestId('mobile-drawer').getByTestId('side-repairs').click();
+    }
     await page.getByTestId('repair-row-lifecycle-test').click();
     await page.getByTestId('status-action-AWAITING_SHIPMENT').click();
     const panel = page.locator('section[aria-label="Accept for inspection"]');

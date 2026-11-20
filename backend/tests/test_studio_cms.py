@@ -241,6 +241,12 @@ def test_every_app_route_is_known_to_the_catch_all():
         concrete = re.sub(r":[^/]+", "x", path)
         assert is_spa_route(concrete), f"{path} from App.js is not in SPA_EXACT/SPA_PREFIXES"
     assert "/login" in SPA_EXACT
+    assert is_spa_route("/privacy-policy/")
+    assert is_spa_route("/data-deletion/")
+    assert is_spa_route("/Privacy-Policy/")
+    assert is_spa_route("/privacy%2Dpolicy/")
+    assert is_spa_route("/Data-Deletion/")
+    assert is_spa_route("/data%2Ddeletion/")
 
 
 def test_origin_guard_lets_studio_call_the_update_route_and_nothing_else(tmp_path):

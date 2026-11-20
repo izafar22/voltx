@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 const AxeBuilder = require("@axe-core/playwright").default;
 const path = require("path");
-const pages = ["/", "/services", "/about", "/how-it-works", "/faq"];
+const pages = ["/", "/services", "/about", "/how-it-works", "/faq", "/privacy-policy", "/data-deletion"];
 test.beforeEach(async ({ page }) => {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -37,6 +37,8 @@ for (const pathname of pages)
     await expect(
       page.getByRole("link", { name: "Book a Repair", exact: true }).first(),
     ).toHaveAttribute("href", "/repairs/new");
+    await expect(page.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy-policy");
+    await expect(page.getByRole("link", { name: "Data-deletion Instructions" })).toHaveAttribute("href", "/data-deletion");
     if (Number(info.project.name) < 901) {
       await page.getByRole("button", { name: "Open menu" }).click();
       await expect(
@@ -69,6 +71,11 @@ for (const pathname of pages)
       await page.keyboard.press("Enter");
       await expect(page.locator("details").first()).toHaveAttribute("open", "");
     }
+    if (pathname === "/privacy-policy" || pathname === "/data-deletion") {
+      await expect(page.locator('a[href="mailto:rushx779@gmail.com"]')).toBeVisible();
+      await page.reload();
+      await expect(page.locator("h1")).toHaveCount(1);
+    }
     const dir = path.join(
       __dirname,
       "test-results",
@@ -84,6 +91,27 @@ for (const pathname of pages)
       fullPage: true,
     });
     expect(errors).toEqual([]);
+  });
+for (const pathname of ["/privacy-policy", "/data-deletion"])
+  test(`${pathname} remains readable and accessible in dark theme`, async ({ page }, info) => {
+    await page.goto(pathname);
+    await page.getByRole("button", { name: "Switch to dark theme" }).click();
+    await expect(page.locator("html")).toHaveCSS("color-scheme", "dark");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include(".rx-public")
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+          .analyze()
+      ).violations.map((violation) => violation.id),
+    ).toEqual([]);
+    const dir = path.join(__dirname, "test-results", "screenshots", info.project.name);
+    fs.mkdirSync(dir, { recursive: true });
+    await page.screenshot({
+      path: path.join(dir, `${pathname.slice(1)}-dark.png`),
+      fullPage: true,
+    });
   });
 test("service cards link to matching details and primary CTA retains destination", async ({
   page,
