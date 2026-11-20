@@ -54,7 +54,8 @@ const meta = {
   ],
 };
 export default function PublicPage() {
-  const { pathname, hash } = useLocation();
+  const { pathname: locationPathname, hash } = useLocation();
+  const pathname = locationPathname === "/" ? "/" : locationPathname.replace(/\/+$/, "");
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const main = useRef(null);

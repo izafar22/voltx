@@ -87,6 +87,14 @@ test.each([
   expect(container.querySelector('a[href="/privacy-policy"]')).not.toBeNull();
   expect(container.querySelector('a[href="/data-deletion"]')).not.toBeNull();
 });
+test.each([
+  ['/privacy-policy/', 'Privacy Policy', 'https://evchargerrepair.in/privacy-policy'],
+  ['/data-deletion/', 'Data-deletion Instructions', 'https://evchargerrepair.in/data-deletion'],
+])('policy trailing-slash route %s renders canonical content', async (path, heading, canonical) => {
+  mockUser = null; await mount(path);
+  expect(container.querySelector('h1').textContent).toBe(heading);
+  expect(document.querySelector('link[rel="canonical"]').href).toBe(canonical);
+});
 test('repair destination is retained at the existing login boundary', async () => {
   mockUser = null; await mount('/repairs/new');
   expect(sessionStorage.getItem('rushx.repair-destination')).toBe('/repairs/new');
