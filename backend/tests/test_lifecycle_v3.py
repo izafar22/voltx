@@ -81,6 +81,7 @@ async def fixture(db, settings=ACTIVE, status="REQUESTED"):
             "version": 2,
             "revision": 0,
             "source": "repair_submission_v2",
+            "scope_id": policy.scope_id(),
             "destination": USER["phone"],
             "phone_generation": 0,
             "activation_id": settings.activation_id,
@@ -1076,15 +1077,17 @@ def test_creation_retry_list_and_detail_share_outage_state_without_losing_consen
 @pytest.mark.parametrize(
     "charger_info", [{"brand": None, "model": None}, {"brand": "  ", "model": ""}]
 )
+@pytest.mark.parametrize("registered_name", ["Registered test charger", None])
 def test_registered_charger_fills_blank_description_and_unregistered_whitespace_rejected(
     charger_info,
+    registered_name,
 ):
     from test_customer_profile import run as profile_run, sign_in
 
     async def scenario(auth, db, browser, clock):
         await sign_in(auth, db, browser, uid=USER["user_id"], phone=USER["phone"])
         await db.chargers.insert_one(
-            {"charger_id": "synthetic-charger", "name": "Registered test charger"}
+            {"charger_id": "synthetic-charger", "name": registered_name}
         )
         response = await browser.post(
             "/api/repairs",
@@ -1095,7 +1098,7 @@ def test_registered_charger_fills_blank_description_and_unregistered_whitespace_
             },
         )
         assert response.status_code == 200, response.text
-        assert response.json()["charger_info"]["brand"] == "Registered test charger"
+        assert response.json()["charger_info"]["brand"] == registered_name
         response = await browser.post(
             "/api/repairs",
             json={
@@ -1140,6 +1143,8 @@ def test_notification_failures_do_not_abort_balance_or_receipt_and_log_no_detail
             stored["payment_receipt"] and stored["payment_summary"]["state"] == "PAID"
         )
         assert not stored["whatsapp_outbox"]
+        assert len(stored["whatsapp_notification_intents"]) == 2
+        assert stored["completion_notice"]
 
     run(scenario)
     assert "balance_notification_construction_failed" in caplog.text
@@ -1161,5 +1166,142 @@ def test_actual_control_read_error_is_transient_only_for_dispatch():
         )
         assert await policy.scope() is None
         assert await policy.reject_reason(job) == "activation_unavailable"
+
+    run(scenario)
+
+
+def test_requested_notification_for_nameless_registered_charger_has_neutral_description():
+    async def scenario(db):
+        policy, repair = await fixture(db)
+        repair.update(
+            charger_id="registered-id", charger_info={"brand": None, "model": "   "}
+        )
+        job = await policy.event(repair, "REQUESTED", "initial")
+        assert job["values"]["charger_description"] == "Registered charger"
+        payload = message_payload(job, ACTIVE)
+        assert (
+            payload["template"]["components"][0]["parameters"][-1]["text"]
+            == "Registered charger"
+        )
+
+    run(scenario)
+
+
+def test_sender_change_cannot_reuse_an_old_activation_to_revive_consent():
+    async def scenario(db):
+        policy, repair = await fixture(db)
+        old_job = await policy.event(repair, "REQUESTED", "initial")
+        moved = replace(ACTIVE, phone_number_id="999999", test_phone_number_id="999999")
+        other = LifecyclePolicy(db, moved)
+        assert other.scope_id() != policy.scope_id()
+        scope = await db.whatsapp_control.find_one({"_id": policy.scope_id()})
+        scope["_id"] = other.scope_id()
+        await db.whatsapp_control.insert_one(scope)
+        assert await other.scope()
+        assert await other.event(repair, "REQUESTED", "after-move") is None
+        assert await other.reject_reason(old_job) == "phone_changed"
+
+    run(scenario)
+
+
+@pytest.mark.parametrize("receipt", [False, True])
+@pytest.mark.parametrize("real", [False, True])
+def test_durable_payment_notification_intent_recovers_once_with_original_deadline(
+    receipt, real
+):
+    from pymongo.errors import AutoReconnect
+
+    async def scenario(db):
+        policy, repair = await fixture(db, status="REPAIR_COMPLETED")
+
+        async def broken(*args):
+            raise AutoReconnect("synthetic")
+
+        service = PaymentService(
+            MongoPaymentRepository(db.repair_requests, db.payment_references),
+            ManualPaymentProcessor(),
+            notification_factory=broken,
+            balance_notification_factory=None if receipt else broken,
+        )
+        await service.verify_balance(
+            "repair", "100.00", "test reconciliation", "admin", "balance"
+        )
+        if receipt:
+            await db.repair_requests.update_one(
+                {"id": "repair"}, {"$set": {"status": "PAYMENT_PENDING"}}
+            )
+            await service.receive(
+                "repair", "100.00", "cash", None, "admin", "receipt", True, VERIFIED
+            )
+            await service.receive(
+                "repair", "100.00", "cash", None, "admin", "receipt", True, VERIFIED
+            )
+        else:
+            await service.verify_balance(
+                "repair", "100.00", "test reconciliation", "admin", "balance"
+            )
+        stored = await db.repair_requests.find_one({"id": "repair"})
+        assert len(stored["whatsapp_notification_intents"]) == 1
+        intent = stored["whatsapp_notification_intents"][0]
+        calls = []
+
+        async def transport(request):
+            calls.append(request)
+            return httpx.Response(200, json={"messages": [{"id": "synthetic-intent"}]})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as http:
+            worker = WhatsAppService(db, ACTIVE, http)
+            await asyncio.gather(worker.reconcile(), worker.reconcile())
+            assert await db.whatsapp_jobs.count_documents({}) == 1
+            job = await db.whatsapp_jobs.find_one({})
+            assert job["expires_at"] == intent["expires_at"]
+            assert job["occurred_at"] == intent["occurred_at"]
+            assert job["source_revision"] == intent["source_revision"]
+            assert await worker.process_one()
+            await worker.reconcile()
+            assert not await worker.process_one()
+        assert len(calls) == 1
+        assert not (await db.repair_requests.find_one({"id": "repair"}))[
+            "whatsapp_notification_intents"
+        ]
+
+    run(scenario, real=real)
+
+
+@pytest.mark.parametrize("expired", [False, True])
+def test_recovered_intent_still_respects_expiry_and_withdrawal(expired):
+    async def scenario(db):
+        await fixture(db, status="REPAIR_COMPLETED")
+
+        async def broken(*args):
+            raise RuntimeError("synthetic")
+
+        service = PaymentService(
+            MongoPaymentRepository(db.repair_requests, db.payment_references),
+            ManualPaymentProcessor(),
+            balance_notification_factory=broken,
+        )
+        await service.verify_balance(
+            "repair", "100.00", "test reconciliation", "admin", "balance"
+        )
+        at = datetime.now(timezone.utc)
+        if expired:
+            at += timedelta(hours=25)
+        else:
+            await db.repair_requests.update_one(
+                {"id": "repair"}, {"$set": {"whatsapp_consent.opted_in": False}}
+            )
+        worker = WhatsAppService(db, ACTIVE, clock=lambda: at)
+        await worker.reconcile()
+        if not expired:
+            assert await worker.process_one()
+        job = await db.whatsapp_jobs.find_one({})
+        assert job["state"] == "suppressed"
+        assert job["error_code"] == (
+            "event_expired" if expired else "consent_withdrawn"
+        )
+        assert (await db.repair_requests.find_one({"id": "repair"}))[
+            "completion_notice"
+        ]
 
     run(scenario)

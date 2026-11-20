@@ -184,6 +184,7 @@ class LifecyclePolicy:
             "version": 2,
             "revision": 0,
             "source": CONSENT_SOURCE,
+            "scope_id": self.scope_id(),
             "at": self.clock().isoformat(),
             "destination": user["phone"],
             "phone_generation": user.get("phone_generation", 0),
@@ -195,7 +196,10 @@ class LifecyclePolicy:
     async def event(self, repair, status, event_id, customer=None, payment_event=None):
         from .whatsapp_service import event_for
 
-        if not await self.scope():
+        if (
+            not await self.scope()
+            or (repair.get("whatsapp_consent") or {}).get("scope_id") != self.scope_id()
+        ):
             return None
         user = customer or await self.db.users.find_one({"user_id": repair["user_id"]})
         if not user or preference(repair, user)["state"] != "enabled":
@@ -244,6 +248,7 @@ class LifecyclePolicy:
             preference(repair, user)["state"] != "enabled"
             or consent.get("destination") != job.get("destination")
             or consent.get("activation_id") != job.get("activation_id")
+            or consent.get("scope_id") != self.scope_id()
             or user.get("phone_generation", 0) != job.get("phone_generation")
         ):
             return "phone_changed"

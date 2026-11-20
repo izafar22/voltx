@@ -1,7 +1,8 @@
 """Payment application boundary. Reconciliation records are not charge receipts."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from copy import deepcopy
 from hashlib import sha256
 import json
 import inspect
@@ -13,6 +14,22 @@ from fastapi import HTTPException
 
 from .repair_facts import money, text_fact
 from .payment_repository import PaymentRepository
+
+
+def notification_intent(repair, status, event_id, at, payment_event=None):
+    consent = repair.get('whatsapp_consent') or {}
+    if not (consent.get('opted_in') is True and consent.get('version') == 2
+            and consent.get('activation_id') and consent.get('scope_id')):
+        return None
+    occurred = datetime.fromisoformat(at)
+    return {'_id': f"{repair['id']}:{'REPAIR_RESULT' if status == 'REPAIR_RESULT' else event_id}",
+            'status': status, 'event_id': event_id, 'occurred_at': occurred,
+            'expires_at': occurred + timedelta(hours=24),
+            'source_revision': (repair.get('revision') or 0) + 1,
+            'repair': deepcopy({k: repair.get(k) for k in (
+                'id', 'user_id', 'repair_request_number', 'revision', 'status',
+                'whatsapp_consent', 'payment_summary')}),
+            'payment_event': deepcopy(payment_event)}
 
 
 @dataclass(frozen=True)
@@ -201,6 +218,13 @@ class PaymentService:
                     fields['completion_notice'] = {'event_id': notification['_id'], 'at': timestamp,
                                                    'payment_record_id': record_id}
                     pushes['whatsapp_outbox'] = notification
+                else:
+                    intent = notification_intent({**repair, 'payment_summary': summary},
+                        'REPAIR_RESULT', 'result', timestamp)
+                    if intent:
+                        fields['completion_notice'] = {'event_id': intent['_id'], 'at': timestamp,
+                                                       'payment_record_id': record_id}
+                        pushes['whatsapp_notification_intents'] = intent
             committed = await self.repository.commit(repair, fields, pushes)
             if committed:
                 return {"ok": True}
@@ -415,6 +439,11 @@ class PaymentService:
                 notification = None
             if notification:
                 pushes["whatsapp_outbox"] = notification
+            else:
+                intent = notification_intent(repair, 'PAYMENT_RECEIVED', event['id'],
+                    receipt['verified_at'], event)
+                if intent:
+                    pushes['whatsapp_notification_intents'] = intent
         committed = await self.repository.commit(
             repair,
             {
