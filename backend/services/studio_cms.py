@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 import httpx
 from fastapi import APIRouter, Request
@@ -170,7 +170,7 @@ def url_of(entry: dict) -> str:
 
 
 def is_spa_route(path: str) -> bool:
-    normalized = path.rstrip("/") or "/"
+    normalized = unquote(path).rstrip("/").lower() or "/"
     return normalized in SPA_EXACT or normalized.startswith(SPA_PREFIXES)
 
 

@@ -9,7 +9,7 @@ Status: IMPLEMENTED LOCALLY, validation complete 2026-11-20. Requirements, copy,
 - [x] Render both pages through `PublicPage` and add their links to the active public footer.
 - [x] Add scoped responsive policy-page styles using the existing public tokens and focus treatment.
 
-Validation recorded 2026-11-20: focused `App.test.jsx` passed 33 tests. Both routes render without a session, use one `h1`, expose the approved email, remain linked from the footer and normalize trailing-slash requests to their canonical metadata/content path.
+Validation recorded 2026-11-20: focused `App.test.jsx` passed 37 tests. Both routes render without a session, use one `h1`, expose the approved email, remain linked from the footer and normalize trailing-slash, case-variant and encoded-hyphen requests to their canonical metadata/content path.
 
 ## P2 — Remove unused browser tracking
 
@@ -23,7 +23,7 @@ Validation recorded 2026-11-20: `npm run build` compiled successfully; source an
 - [x] Add both policy paths to `SPA_EXACT` and `SITEMAP_STATIC`.
 - [x] Extend route-contract and sitemap tests with both public URLs.
 
-Validation recorded 2026-11-20: `test_studio_cms.py` and `test_seo_files.py` passed 35 tests with the loopback test environment. Direct routes, including trailing-slash variants, are recognized and the sitemap contains both policy URLs without exposing authenticated routes.
+Validation recorded 2026-11-20: `test_studio_cms.py` and `test_seo_files.py` passed 35 tests with the loopback test environment. Direct routes, including trailing-slash, case-variant and encoded-hyphen forms, are recognized and the sitemap contains both policy URLs without exposing authenticated routes.
 
 ## P4 — Browser acceptance
 
@@ -34,6 +34,8 @@ Validation recorded 2026-11-20: `test_studio_cms.py` and `test_seo_files.py` pas
 Validation recorded 2026-11-20: the clean-branch public browser suite passed 108 tests across all four widths, including dark-theme policy checks with axe WCAG 2 A/AA/2.1 AA rules. Generated screenshots were inspected at 320 and 1280 pixels. The optimized frontend build compiled successfully; source/build tracking scans and `git diff --check` passed.
 
 Review regression recorded 2026-11-20: after normalizing trailing-slash routes, 33 focused frontend tests, 35 backend route/SEO tests, the optimized build and 16 policy-page browser checks passed.
+
+Second review regression recorded 2026-11-20: safe decoding and lowercase normalization now align metadata/content selection and backend direct routing with React Router's case-insensitive decoded matching. The expanded 37-test frontend suite, 35 backend route/SEO tests and optimized build passed.
 
 CI stability regression recorded 2026-11-20: duplicate hosted runs exposed a pre-existing race in the lifecycle admin browser test, which could inspect the mobile menu before the authenticated shell rendered and then wait for a hidden desktop link. The test now selects desktop or mobile navigation deterministically from the configured viewport, matching the established customer-profile test pattern. All 32 lifecycle browser cases passed locally without changing application behavior or assertions.
 

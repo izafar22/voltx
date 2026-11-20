@@ -90,6 +90,10 @@ test.each([
 test.each([
   ['/privacy-policy/', 'Privacy Policy', 'https://evchargerrepair.in/privacy-policy'],
   ['/data-deletion/', 'Data-deletion Instructions', 'https://evchargerrepair.in/data-deletion'],
+  ['/Privacy-Policy/', 'Privacy Policy', 'https://evchargerrepair.in/privacy-policy'],
+  ['/privacy%2Dpolicy/', 'Privacy Policy', 'https://evchargerrepair.in/privacy-policy'],
+  ['/Data-Deletion/', 'Data-deletion Instructions', 'https://evchargerrepair.in/data-deletion'],
+  ['/data%2Ddeletion/', 'Data-deletion Instructions', 'https://evchargerrepair.in/data-deletion'],
 ])('policy trailing-slash route %s renders canonical content', async (path, heading, canonical) => {
   mockUser = null; await mount(path);
   expect(container.querySelector('h1').textContent).toBe(heading);
