@@ -28,7 +28,7 @@ function App() {
           <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
-              {["/", "/services", "/about", "/how-it-works", "/faq"].map(path => <Route key={path} path={path} element={<PublicPage />} />)}
+              {["/", "/services", "/about", "/how-it-works", "/faq", "/privacy-policy", "/data-deletion"].map(path => <Route key={path} path={path} element={<PublicPage />} />)}
 
               <Route path="/app" element={<ProtectedRoute roles={["customer", "admin", "owner"]}><CustomerHome /></ProtectedRoute>} />
               <Route path="/app/profile" element={<ProtectedRoute roles={["customer"]}><CustomerProfile /></ProtectedRoute>} />

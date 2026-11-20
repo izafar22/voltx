@@ -15,6 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 import { homeFor } from "../../components/ProtectedRoute";
 import { FAQ } from "../../components/patterns/RepairPatterns";
 import { faqs } from "./content";
+import { DataDeletion, PrivacyPolicy } from "./PolicyPages";
 import "./PublicPage.css";
 const nav = [
   ["/services", "Services"],
@@ -43,9 +44,27 @@ const meta = {
     "Repair questions, answered",
     "Learn about RushX repair eligibility, coverage, courier enquiries, quotations and service terms before requesting an assessment.",
   ],
+  "/privacy-policy": [
+    "Privacy Policy",
+    "Learn how RushX handles information used for accounts, charger repairs, service updates and support requests.",
+  ],
+  "/data-deletion": [
+    "Data-deletion Instructions",
+    "Learn how to ask RushX to review or delete information associated with your account or charger repair.",
+  ],
+};
+const normalizePublicPath = (value) => {
+  let decoded = value;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    // Leave malformed encodings unchanged so the router can handle the URL.
+  }
+  return (decoded.replace(/\/+$/, "") || "/").toLowerCase();
 };
 export default function PublicPage() {
-  const { pathname, hash } = useLocation();
+  const { pathname: locationPathname, hash } = useLocation();
+  const pathname = normalizePublicPath(locationPathname);
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const main = useRef(null);
@@ -173,6 +192,8 @@ export default function PublicPage() {
             </section>
           </div>
         )}
+        {pathname === "/privacy-policy" && <PrivacyPolicy />}
+        {pathname === "/data-deletion" && <DataDeletion />}
       </main>
       <WhatsAppChatLink />
       <footer className="rx-footer">
@@ -215,6 +236,8 @@ export default function PublicPage() {
               <Link to="/repairs/new">Book a Repair</Link>
               <a href="/compare">Compare</a>
               <Link to="/repairs">Track a repair</Link>
+              <Link to="/privacy-policy">Privacy Policy</Link>
+              <Link to="/data-deletion">Data-deletion Instructions</Link>
             </nav>
           </div>
           <div className="rx-footer-bottom">

@@ -6,7 +6,7 @@ from test_studio_cms import POST, SECRET, make, run
 
 ROOT = Path(__file__).parents[2]
 ROBOTS = (ROOT / "frontend/public/robots.txt").read_text()
-PUBLIC = ("/", "/services", "/how-it-works", "/about", "/faq")
+PUBLIC = ("/", "/services", "/how-it-works", "/about", "/faq", "/privacy-policy", "/data-deletion")
 
 
 def blocked(path: str) -> bool:
@@ -107,6 +107,8 @@ def test_sitemap_is_valid_and_never_lists_signed_in_routes(tmp_path):
     assert t.startswith('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
     locs = re.findall(r"<loc>https://evchargerrepair\.in([^<]*)</loc>", t)
     assert len(locs) == len(set(locs))
+    assert "/privacy-policy" in locs
+    assert "/data-deletion" in locs
     assert not any(blocked(p) for p in locs)
 
 
