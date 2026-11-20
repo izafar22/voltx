@@ -1305,3 +1305,64 @@ def test_recovered_intent_still_respects_expiry_and_withdrawal(expired):
         ]
 
     run(scenario)
+
+
+@pytest.mark.parametrize("real", [False, True])
+def test_recovery_cursor_passes_two_hundred_deferred_repairs_and_wraps(real):
+    from services.payment_service import notification_intent
+
+    async def scenario(db):
+        policy, repair = await fixture(db, status="REPAIR_COMPLETED")
+        snapshot = {
+            **repair,
+            "payment_summary": {
+                "amount_due": 100,
+                "currency": "INR",
+                "balance_state": "BALANCE_VERIFIED",
+                "verified_at": "test",
+                "verified_by": "admin",
+            },
+        }
+        at = datetime.now(timezone.utc).isoformat()
+        blocked = notification_intent(snapshot, "REPAIR_RESULT", "result", at)
+        blocked["repair"]["whatsapp_consent"]["scope_id"] = "retired-sender"
+        await db.repair_requests.insert_many(
+            [
+                {
+                    "id": f"blocked-{i}",
+                    "whatsapp_notification_intents": [deepcopy(blocked)],
+                }
+                for i in range(201)
+            ]
+        )
+        eligible = notification_intent(
+            {**snapshot, "id": "later-repair"}, "REPAIR_RESULT", "result", at
+        )
+        await db.repair_requests.insert_one(
+            {"id": "later-repair", "whatsapp_notification_intents": [eligible]}
+        )
+        worker = WhatsAppService(db, ACTIVE)
+        await worker.recover_notification_intents()
+        assert not (await db.repair_requests.find_one({"id": "later-repair"})).get(
+            "whatsapp_outbox"
+        )
+        await worker.recover_notification_intents()
+        later = await db.repair_requests.find_one({"id": "later-repair"})
+        assert (
+            len(later["whatsapp_outbox"]) == 1
+            and not later["whatsapp_notification_intents"]
+        )
+        assert (
+            await db.repair_requests.count_documents(
+                {"whatsapp_notification_intents._id": {"$exists": True}}
+            )
+            == 201
+        )
+        # A targeted ordering check does not disturb the rotating global cursor.
+        cursor = worker._intent_cursor
+        await worker.recover_notification_intents("blocked-0")
+        assert worker._intent_cursor == cursor
+        await worker.recover_notification_intents()
+        assert worker._intent_cursor != cursor  # Wrapped to revisit deferred work.
+
+    run(scenario, real=real)

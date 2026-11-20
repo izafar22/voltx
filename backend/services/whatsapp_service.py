@@ -468,6 +468,7 @@ def message_payload(job, settings):
 class WhatsAppService:
     def __init__(self, db, settings, http=None, clock=now):
         self.db, self.settings, self.http, self.clock = db, settings, http, clock
+        self._intent_cursor = None
 
     async def initialize(self):
         await self.db.whatsapp_jobs.create_index([("state", 1), ("next_attempt_at", 1)])
@@ -485,7 +486,17 @@ class WhatsAppService:
         query = {'whatsapp_notification_intents._id': {'$exists': True}}
         if repair_id is not None:
             query['id'] = repair_id
-        async for repair in self.db.repair_requests.find(query, {'id': 1, 'whatsapp_notification_intents': 1}).limit(1 if repair_id else 200):
+        elif self._intent_cursor is not None:
+            query['_id'] = {'$gt': self._intent_cursor}
+        projection = {'id': 1, 'whatsapp_notification_intents': 1}
+        repairs = await self.db.repair_requests.find(query, projection).sort('_id', 1).limit(1 if repair_id else 200).to_list(1 if repair_id else 200)
+        if repair_id is None and not repairs and self._intent_cursor is not None:
+            self._intent_cursor = None
+            query.pop('_id', None)
+            repairs = await self.db.repair_requests.find(query, projection).sort('_id', 1).limit(200).to_list(200)
+        if repair_id is None and repairs:
+            self._intent_cursor = repairs[-1]['_id']
+        for repair in repairs:
             for intent in repair['whatsapp_notification_intents']:
                 expires = intent['expires_at']
                 if expires.tzinfo is None:
