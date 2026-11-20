@@ -69,12 +69,23 @@ test('signed-out admin route requires login', async () => {
   mockUser = null; await mount('/admin'); expect(window.location.pathname).toBe('/login'); expect(container.textContent).not.toContain('Admin console');
 });
 
-test.each(['/', '/services', '/about', '/how-it-works', '/faq'])('public page %s renders without a session', async path => {
+test.each(['/', '/services', '/about', '/how-it-works', '/faq', '/privacy-policy', '/data-deletion'])('public page %s renders without a session', async path => {
   mockUser = null; await mount(path); expect(window.location.pathname).toBe(path);
   expect(container.querySelector('h1')).not.toBeNull();
   expect(container.textContent).toContain('Independent, multi-brand service');
   expect(document.querySelector('link[rel="canonical"]').href).toBe('https://evchargerrepair.in' + path);
   expect(container.querySelector('a[href="/repairs/new"]')).not.toBeNull();
+});
+test.each([
+  ['/privacy-policy', 'Privacy Policy'],
+  ['/data-deletion', 'Data-deletion Instructions'],
+])('policy page %s exposes approved contact and footer links', async (path, heading) => {
+  mockUser = null; await mount(path);
+  expect(container.querySelectorAll('h1')).toHaveLength(1);
+  expect(container.querySelector('h1').textContent).toBe(heading);
+  expect(container.querySelector('a[href="mailto:rushx779@gmail.com"]')).not.toBeNull();
+  expect(container.querySelector('a[href="/privacy-policy"]')).not.toBeNull();
+  expect(container.querySelector('a[href="/data-deletion"]')).not.toBeNull();
 });
 test('repair destination is retained at the existing login boundary', async () => {
   mockUser = null; await mount('/repairs/new');

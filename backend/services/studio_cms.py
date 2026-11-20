@@ -54,10 +54,12 @@ LLMS_BUDGET = 10.0        # llms.txt waits this long for Studio in total, then a
 # The React app's own routes (frontend/src/App.js). They keep answering 200 with index.html.
 # tests/test_studio_cms.py fails when App.js gains a route that is not covered here.
 SPA_EXACT = frozenset({"/", "/login", "/services", "/about", "/how-it-works", "/faq",
+                       "/privacy-policy", "/data-deletion",
                        "/app", "/repairs", "/owner", "/admin"})
 SPA_PREFIXES = ("/app/", "/repairs/")
 # Public pages of the React app listed in the sitemap.
-SITEMAP_STATIC = ("/", "/services", "/how-it-works", "/about", "/faq")
+SITEMAP_STATIC = ("/", "/services", "/how-it-works", "/about", "/faq",
+                  "/privacy-policy", "/data-deletion")
 
 
 @dataclass
