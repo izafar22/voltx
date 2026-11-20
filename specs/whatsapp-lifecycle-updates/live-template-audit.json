@@ -1,0 +1,136 @@
+{
+  "verified_date": "2026-11-20",
+  "source": "Read-only Meta Graph API v27.0 audit",
+  "templates": [
+    {
+      "name": "rushx_awaiting_shipment",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}},\n\nYour RushX repair request {{2}} is ready for the next step.\n\nPlease send your EV charger to:\n{{3}}\n\nInclude your repair request number with the package. Please pack the charger securely and share the courier tracking details after dispatch.\n\nDo not ship the charger until you receive confirmation from our team."
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_return_shipped",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}},\n\nYour EV charger for RushX repair request {{2}} has been dispatched for return.\n\nCourier: {{3}}\nTracking number: {{4}}\n\nPlease use the courier's official tracking service to monitor delivery.\n\nThank you for choosing RushX."
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_repair_completed",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}},\n\nThe approved repair work for your RushX request {{2}} has been completed.\n\nOur team will coordinate the next steps for return or collection of your EV charger.\n\nThank you for choosing RushX."
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_payment_pending",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}},\n\nA payment of INR {{3}} is pending for your RushX repair request {{2}}.\n\nPlease review your payment details and complete the payment using the official instructions provided by RushX.\n\nIf you have already paid, please disregard this message or contact our support team with your payment reference."
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_estimate_approved",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}},\n\nYour approval of the repair estimate for RushX request {{2}} has been recorded.\n\nOur team will proceed with the approved work, subject to technical feasibility and parts availability.\n\nWe will notify you when there is a further update."
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_estimate_ready",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}},\n\nThe repair estimate for your RushX request {{2}} is ready.\n\nEstimated repair cost: INR {{3}}\n\nPlease review the estimate and confirm whether you would like us to proceed.\n\nRepair work will begin only after your approval, subject to technical feasibility."
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_charger_received",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}},\n\nWe have received your EV charger for RushX repair request {{2}}.\n\nOur technical team will assess the reported issue and share the findings and repair estimate when available.\n\nWe will keep you updated on the progress."
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_repair_requested",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "en",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}},\n\nYour charger repair request {{2}} has been registered successfully.\n\nOur team will review the details and update you on the next steps.\n\nThank you for choosing RushX."
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    }
+  ],
+  "selected_sender_belongs_to_account": true,
+  "subscribed_app_count": 0
+}

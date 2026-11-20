@@ -12,8 +12,8 @@ The eight customer messages are request received, accepted-for-inspection/inboun
 | Requirements | DONE | PR #72 merged; owner approved eight-message amendment on 2026-11-20 |
 | Design and UI direction | APPROVED | Owner approved the UI with canonical RushX logo, then design and amended message set; detailed combined-event design recorded |
 | Implementation task plan | APPROVED | Owner instructed proceeding with the task plan on 2026-11-20 |
-| Runtime implementation / code review / CI | IN_PROGRESS | feature/whatsapp-lifecycle-updates from repair-mvp 20ff7ca; no live activation |
-| Merge / authorized staging sends | NOT AUTHORIZED YET | Separate merge, environment and explicit recipient/test-window approvals |
+| Runtime implementation / code review / CI | DONE (#74) | Merged b978723 and staging release 492 verified; live contract compatibility follow-up in progress |
+| Merge / authorized staging sends | MERGED; STAGING TEST APPROVED | #74 merged with owner approval. Owner approved staging setup and one recipient for a 60-minute window after readiness; window not started and no sends |
 | Production promotion / deployment / activation | NOT AUTHORIZED YET | Approved release version, promotion PR into new release branch, final-SHA CI/artifact approval and operator verification |
 
 ## Dependencies
@@ -30,8 +30,8 @@ The eight customer messages are request received, accepted-for-inspection/inboun
 | WL-08 | Worker supervision, readiness, monitoring and recovery runbooks | WL-06, WL-07 | DONE (offline) |
 | WL-09 | Consent, verification, team acceptance and repair-detail UI | WL-02, WL-03, WL-04 | DONE (offline) |
 | WL-10 | Integrated regression / concurrency / UI verification | WL-05 through WL-09 | DONE (offline) |
-| WL-11 | Code review, CI and merge evidence | WL-10 | PLANNED |
-| WL-12 | Live template audit and authorized staging acceptance | WL-08, WL-11, explicit operational approvals | PLANNED |
+| WL-11 | Code review, CI and merge evidence | WL-10 | DONE (#74, staging verified) |
+| WL-12 | Live template audit and authorized staging acceptance | WL-08, WL-11, explicit operational approvals | IN_PROGRESS (see staging-acceptance.md) |
 | WL-13 | Selected production release, verification and activation | WL-12, explicit release/activation approvals | PLANNED |
 
 ## WL-01 — Message and snapshot contracts
