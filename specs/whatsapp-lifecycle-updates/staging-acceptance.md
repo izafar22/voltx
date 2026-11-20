@@ -23,19 +23,19 @@ Read-only audit on 2026-11-20 confirmed the approved receiving address is now va
 
 The running API initially lacked META_APP_SECRET, WHATSAPP_VERIFY_TOKEN, WHATSAPP_TEST_PHONE_NUMBER_ID and the lifecycle template manifest. The verification token is prepared in the protected file; the genuine app secret and lifecycle manifest require account audit. The compatibility patch removes the unrelated test-number prerequisite from dedicated staging mode. The WABA ID was not present in staging configuration. The selected sender is already used by staging OTP; review sender/app webhook sharing before any change that could affect existing delivery. Preserve OTP credentials and production callback behavior.
 
-Owner completed Meta sign-in/two-factor approval. Read-only UI/API audits verified the selected sender belongs to the intended account. Eight existing Utility templates and the separate OTP template are approved in locale en; the request acknowledgement has two body parameters. No app is subscribed to the account webhook. Five existing Utility templates can be reused; a clearer inspection-accepted template, both combined-result variants and payment receipt were explicitly approved by the owner for submission and are PENDING Meta review. Existing approved templates and OTP were not edited. See live-template-audit.json and meta-template-submission.json.
+Owner completed Meta sign-in/two-factor approval. Read-only UI/API audits verified the selected sender belongs to the intended account. Eight existing Utility templates and the separate OTP template are approved in locale en; the request acknowledgement has two body parameters. No app is subscribed to the account webhook. Five existing Utility templates can be reused; a clearer inspection-accepted template, both combined-result variants and payment receipt were explicitly approved by the owner for submission and were initially PENDING and have now been verified APPROVED/UTILITY/en. Existing approved templates and OTP were not edited. See live-template-audit.json and meta-template-submission.json.
 
 | Logical variant | Proposed template | Locale | Live approval / full components |
 |---|---|---|---|
 | REQUESTED | rushx_repair_requested | en | APPROVED (audited) |
-| AWAITING_SHIPMENT | rushx_awaiting_shipment_v1 | en | PENDING (submitted) |
+| AWAITING_SHIPMENT | rushx_awaiting_shipment_v1 | en | APPROVED (new submission, audited) |
 | RECEIVED_AT_VOLTX | rushx_charger_received | en | APPROVED (audited) |
 | ESTIMATE_SENT | rushx_estimate_ready | en | APPROVED (audited) |
 | CUSTOMER_APPROVED | rushx_estimate_approved | en | APPROVED (audited) |
 | SHIPPED_TO_CUSTOMER | rushx_return_shipped | en | APPROVED (audited) |
-| PAYMENT_RECEIVED | rushx_payment_received_v1 | en | PENDING (submitted) |
-| REPAIR_RESULT_DUE | rushx_repair_completed_balance_v1 | en | PENDING (submitted) |
-| REPAIR_RESULT_CLEAR | rushx_repair_completed_no_balance_v1 | en | PENDING (submitted) |
+| PAYMENT_RECEIVED | rushx_payment_received_v1 | en | APPROVED (new submission, audited) |
+| REPAIR_RESULT_DUE | rushx_repair_completed_balance_v1 | en | APPROVED (new submission, audited) |
+| REPAIR_RESULT_CLEAR | rushx_repair_completed_no_balance_v1 | en | APPROVED (new submission, audited) |
 
 ## Acceptance sequence after readiness
 
@@ -55,3 +55,5 @@ A compatibility patch is under verification: active v3 templates use the audited
 App-level audit: the RushX API app is unpublished, its existing default callback points to the earlier Render backend, and the messages field is subscribed at app level. The selected WABA has no subscribed app. Meta displays a warning that unpublished apps receive dashboard test webhooks only, so real delivery receipts require publication readiness review. The default callback was not changed. Staging receipt ingestion is hardened to persist only receipts correlated to dispatched/accepted staging jobs for the selected sender; unrelated OTP/other-environment receipts are acknowledged without storage. The genuine app secret must be entered privately by the operator. No app publication, callback override or new app subscription has been performed.
 
 Private credential follow-up: the operator reported the genuine app secret configured in the protected staging file, and a read-only presence check confirms it. The approved test recipient already has an active verified customer account and is on the staging OTP allowlist. The API has not yet been restarted with the new lifecycle configuration, all send gates remain off and the test window remains unstarted. Meta Publish is explicitly disabled pending a public privacy-policy URL; privacy/deletion page requirements are being prepared separately.
+
+Approval re-audit on 2026-11-20 verified all nine active variants APPROVED/UTILITY/en with exact body/placeholder contracts (active-template-approval.json). The originally missing four templates are no longer a provider-approval blocker. Meta app publication remains blocked on its missing public privacy-policy URL; the owner confirmed no existing privacy/deletion pages and requested preparing them first. No publication or lifecycle sends have occurred.
