@@ -1,6 +1,6 @@
 # Proposed Meta Utility templates
 
-Status: owner explicitly approved all four submissions on 2026-11-20. Meta accepted all four for review; initial status PENDING, category UTILITY. No lifecycle messages sent. No existing approved template or OTP configuration will be edited. All four use locale `en`, Utility category and the static footer `evchargerrepair.in`. Examples in the JSON are synthetic.
+Status: owner explicitly approved all four submissions on 2026-11-20. Meta initially accepted all four as PENDING/UTILITY, then a subsequent API re-audit verified all four APPROVED/UTILITY in locale en. See active-template-approval.json. No lifecycle messages sent. No existing approved template or OTP configuration will be edited. All four use locale `en`, Utility category and the static footer `evchargerrepair.in`. Examples in the JSON are synthetic.
 
 ## rushx_awaiting_shipment_v1
 

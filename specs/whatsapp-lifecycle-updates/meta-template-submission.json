@@ -1,5 +1,5 @@
 {
-  "status": "OWNER_APPROVED_AND_SUBMITTED_2026_11_20",
+  "status": "OWNER_SUBMISSION_AND_META_APPROVAL_VERIFIED_2026_11_20",
   "templates": [
     {
       "name": "rushx_awaiting_shipment_v1",
@@ -127,5 +127,6 @@
       "status": "PENDING",
       "category": "UTILITY"
     }
-  ]
+  ],
+  "approval_evidence": "active-template-approval.json"
 }
