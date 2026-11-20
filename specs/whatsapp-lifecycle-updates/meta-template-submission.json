@@ -1,0 +1,131 @@
+{
+  "status": "OWNER_APPROVED_AND_SUBMITTED_2026_11_20",
+  "templates": [
+    {
+      "name": "rushx_awaiting_shipment_v1",
+      "language": "en",
+      "category": "UTILITY",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}},\n\nYour RushX repair request {{2}} has been accepted for inspection.\n\nPlease pack your EV charger securely and send it to:\n{{3}}\n\nInclude your repair request number with the package and share the courier tracking details after dispatch.\n\nAcceptance is for inspection only. We will share a repair estimate for your approval before paid repair work begins.",
+          "example": {
+            "body_text": [
+              [
+                "Sample Customer",
+                "TEST-10421",
+                "Example Service Centre, Unit 12, Example Industrial Estate"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_repair_completed_balance_v1",
+      "language": "en",
+      "category": "UTILITY",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}}, repair work for {{2}} is complete. The outstanding balance is INR {{3}}. Please check your RushX dashboard or contact support for payment instructions. We will share return-shipment details once dispatch is confirmed.",
+          "example": {
+            "body_text": [
+              [
+                "Sample Customer",
+                "TEST-10421",
+                "2750.00"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_repair_completed_no_balance_v1",
+      "language": "en",
+      "category": "UTILITY",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}}, repair work for {{2}} is complete. No payment is currently due. We will share return-shipment details once dispatch is confirmed.",
+          "example": {
+            "body_text": [
+              [
+                "Sample Customer",
+                "TEST-10421"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    },
+    {
+      "name": "rushx_payment_received_v1",
+      "language": "en",
+      "category": "UTILITY",
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Hello {{1}}, RushX has verified payment for repair {{2}}. Amount received: INR {{3}}. Reference: {{4}}. Thank you.",
+          "example": {
+            "body_text": [
+              [
+                "Sample Customer",
+                "TEST-10421",
+                "2750.00",
+                "REF-TEST-001"
+              ]
+            ]
+          }
+        },
+        {
+          "type": "FOOTER",
+          "text": "evchargerrepair.in"
+        }
+      ]
+    }
+  ],
+  "submission_results": [
+    {
+      "name": "rushx_awaiting_shipment_v1",
+      "operation": "submitted",
+      "id": "3042519226095577",
+      "status": "PENDING",
+      "category": "UTILITY"
+    },
+    {
+      "name": "rushx_repair_completed_balance_v1",
+      "operation": "submitted",
+      "id": "1123129380623369",
+      "status": "PENDING",
+      "category": "UTILITY"
+    },
+    {
+      "name": "rushx_repair_completed_no_balance_v1",
+      "operation": "submitted",
+      "id": "1833125361311168",
+      "status": "PENDING",
+      "category": "UTILITY"
+    },
+    {
+      "name": "rushx_payment_received_v1",
+      "operation": "submitted",
+      "id": "2408264653252934",
+      "status": "PENDING",
+      "category": "UTILITY"
+    }
+  ]
+}

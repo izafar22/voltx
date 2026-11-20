@@ -44,3 +44,9 @@ Notification construction failures in payment flows are logged with fixed reason
 Repair consent also binds the sender/environment/database scope. Reusing an activation UUID in a different sender scope cannot authorize existing consent. Registered chargers without a stored name remain reportable; acknowledgement copy uses a neutral registered-charger description rather than inventing a brand.
 
 Intent recovery scans bounded batches in _id order with a rotating worker cursor; after the end it wraps and revisits deferred work. Targeted repair-ordering recovery leaves the global cursor unchanged. This prevents a batch of old-scope intents from blocking later eligible repairs, without deleting intents during an outage.
+
+## Live contract readiness (audited 2026-11-20)
+
+Active v3 configuration pins the audited en locale and two-parameter request acknowledgement; legacy transport fixtures retain their original en_US contract. Reuse only the five exact compatible audited templates. The four new approved-for-submission templates still need actual Meta approval. Staging uses its explicitly bound sender/allowlist and does not require a separate Meta test-number ID; test/production modes retain that guard.
+
+For a shared sender, the staging webhook persists only receipts matching known staging jobs with a send intent or accepted provider ID, matching sender and any supplied recipient. It still accepts genuine early or late receipts while sending is paused. Unrelated OTP/other-environment notifications are not persisted in staging. Inspect existing app callback/subscriptions and publication state before changing routing; preserve the older global callback unless a separately reviewed change authorizes replacement. A staging-specific WABA callback override and app publication each require their concrete account/routing readiness review.

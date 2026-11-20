@@ -28,6 +28,7 @@ from services.payment_service import PaymentService, ManualPaymentProcessor
 from services.whatsapp_service import (
     Settings,
     SnapshotError,
+    ConfigurationError,
     WhatsAppService,
     LIFECYCLE_CATALOG,
     message_payload,
@@ -699,8 +700,10 @@ def test_control_changes_require_confirmation_and_paused_verified_scope():
     run(scenario)
 
 
+@pytest.mark.parametrize("test_sender_id", [ACTIVE.test_phone_number_id, ""])
 def test_staging_window_expiry_fails_closed_with_matching_sender_and_allowlist(
     monkeypatch,
+    test_sender_id,
 ):
     monkeypatch.setenv("APP_ENV", "staging")
     monkeypatch.setenv(
@@ -716,6 +719,7 @@ def test_staging_window_expiry_fails_closed_with_matching_sender_and_allowlist(
     staged = replace(
         ACTIVE,
         mode="staging",
+        test_phone_number_id=test_sender_id,
         production_approved=False,
         staging_enabled=True,
         staging_sender=ACTIVE.phone_number_id,
@@ -967,7 +971,7 @@ def test_test_template_with_no_parameters_omits_components_but_validates_snapsho
         policy, repair = await fixture(db, settings)
         job = await policy.event(repair, "REQUESTED", "initial")
         assert "components" not in message_payload(job, settings)["template"]
-        job["values"]["charger_description"] = ""
+        job["values"]["customer_name"] = ""
         with pytest.raises(SnapshotError):
             message_payload(job, settings)
 
@@ -1170,19 +1174,18 @@ def test_actual_control_read_error_is_transient_only_for_dispatch():
     run(scenario)
 
 
-def test_requested_notification_for_nameless_registered_charger_has_neutral_description():
+def test_requested_notification_matches_live_two_parameter_contract_for_registered_charger():
     async def scenario(db):
         policy, repair = await fixture(db)
         repair.update(
             charger_id="registered-id", charger_info={"brand": None, "model": "   "}
         )
         job = await policy.event(repair, "REQUESTED", "initial")
-        assert job["values"]["charger_description"] == "Registered charger"
+        assert set(job["values"]) == {"customer_name", "repair_number"}
         payload = message_payload(job, ACTIVE)
-        assert (
-            payload["template"]["components"][0]["parameters"][-1]["text"]
-            == "Registered charger"
-        )
+        assert payload["template"]["name"] == "rushx_repair_requested"
+        assert payload["template"]["language"]["code"] == "en"
+        assert len(payload["template"]["components"][0]["parameters"]) == 2
 
     run(scenario)
 
@@ -1366,3 +1369,159 @@ def test_recovery_cursor_passes_two_hundred_deferred_repairs_and_wraps(real):
         assert worker._intent_cursor != cursor  # Wrapped to revisit deferred work.
 
     run(scenario, real=real)
+
+
+def test_active_templates_require_the_exact_audited_locale_and_keep_legacy_locale():
+    changed = deepcopy(TEMPLATES)
+    changed["REQUESTED"]["language"] = "en_US"
+    with pytest.raises(ConfigurationError):
+        validate_settings(replace(ACTIVE, templates=changed))
+    validate_settings(ACTIVE)
+    validate_settings(SETTINGS)
+
+
+def test_non_staging_modes_still_require_independent_meta_test_sender(monkeypatch):
+    with pytest.raises(ConfigurationError):
+        validate_settings(replace(ACTIVE, test_phone_number_id=""))
+    monkeypatch.setenv("APP_ENV", "production")
+    with pytest.raises(ConfigurationError):
+        validate_settings(
+            replace(
+                ACTIVE,
+                mode="production",
+                production_approved=True,
+                test_phone_number_id="",
+            )
+        )
+
+
+def test_staging_webhook_keeps_only_known_dispatched_stage_receipts_even_when_paused():
+    import hashlib
+    import hmac
+    from fastapi import FastAPI
+    from services.whatsapp_service import webhook_router
+
+    async def scenario(db):
+        settings = replace(ACTIVE, mode="staging", enabled=False, staging_enabled=False)
+        await db.whatsapp_jobs.insert_many(
+            [
+                {
+                    "_id": "stage-job",
+                    "schema_version": 3,
+                    "destination": USER["phone"],
+                    "delivery_scope": {
+                        "mode": "staging",
+                        "phone_number_id": settings.phone_number_id,
+                    },
+                    "dispatch_started_at": datetime.now(timezone.utc),
+                },
+                {
+                    "_id": "other-environment",
+                    "schema_version": 3,
+                    "destination": USER["phone"],
+                    "delivery_scope": {
+                        "mode": "production",
+                        "phone_number_id": settings.phone_number_id,
+                    },
+                    "dispatch_started_at": datetime.now(timezone.utc),
+                },
+            ]
+        )
+        statuses = [
+            {"id": "otp-message", "biz_opaque_callback_data": "unknown-job"},
+            {
+                "id": "production-message",
+                "biz_opaque_callback_data": "other-environment",
+            },
+            {
+                "id": "wrong-recipient",
+                "biz_opaque_callback_data": "stage-job",
+                "recipient_id": "919999999999",
+            },
+            {
+                "id": "early-stage-message",
+                "biz_opaque_callback_data": "stage-job",
+                "recipient_id": USER["phone"].lstrip("+"),
+            },
+        ]
+        payload = {
+            "object": "whatsapp_business_account",
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "value": {
+                                "metadata": {
+                                    "phone_number_id": settings.phone_number_id
+                                },
+                                "statuses": [
+                                    {
+                                        **s,
+                                        "status": "delivered",
+                                        "timestamp": "1795100000",
+                                    }
+                                    for s in statuses
+                                ],
+                            }
+                        }
+                    ]
+                }
+            ],
+        }
+        raw = json.dumps(payload).encode()
+        signature = (
+            "sha256="
+            + hmac.new(settings.app_secret.encode(), raw, hashlib.sha256).hexdigest()
+        )
+        app = FastAPI()
+        app.include_router(webhook_router(lambda: db, lambda: settings), prefix="/api")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="https://test"
+        ) as browser:
+            response = await browser.post(
+                "/api/webhooks/whatsapp",
+                content=raw,
+                headers={"X-Hub-Signature-256": signature},
+            )
+            assert response.status_code == 200, response.text
+        receipts = await db.whatsapp_receipts.find({}).to_list(10)
+        assert len(receipts) == 1 and receipts[0]["message_id"] == "early-stage-message"
+        assert "recipient_id" not in receipts[0]
+
+    run(scenario)
+
+
+def test_active_catalog_matches_audited_live_templates_and_approved_submission_contracts():
+    import re
+    from pathlib import Path
+
+    directory = (
+        Path(__file__).resolve().parents[2] / "specs" / "whatsapp-lifecycle-updates"
+    )
+    audit = json.loads((directory / "live-template-audit.json").read_text())
+    live = {t["name"]: t for t in audit["templates"]}
+    proposed = {
+        t["name"]: t
+        for t in json.loads((directory / "meta-template-submission.json").read_text())[
+            "templates"
+        ]
+    }
+    reused = 0
+    for item in LIFECYCLE_CATALOG.values():
+        external = live.get(item["name"]) or proposed[item["name"]]
+        if item["name"] in live:
+            assert external["status"] == "APPROVED"
+            reused += 1
+        assert item["language"] == external["language"] == "en"
+        assert external["category"] == "UTILITY"
+        body = next(c["text"] for c in external["components"] if c["type"] == "BODY")
+        assert item["body"] == body
+        assert {int(i) for i in re.findall(r"\{\{(\d+)\}\}", body)} == set(
+            range(1, len(item["parameters"]) + 1)
+        )
+        assert all(
+            "{{" not in c.get("text", "")
+            for c in external["components"]
+            if c["type"] != "BODY"
+        )
+    assert reused == 5 and len(proposed) == 4
