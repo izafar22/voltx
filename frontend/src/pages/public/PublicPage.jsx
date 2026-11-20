@@ -53,9 +53,18 @@ const meta = {
     "Learn how to ask RushX to review or delete information associated with your account or charger repair.",
   ],
 };
+const normalizePublicPath = (value) => {
+  let decoded = value;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    // Leave malformed encodings unchanged so the router can handle the URL.
+  }
+  return (decoded.replace(/\/+$/, "") || "/").toLowerCase();
+};
 export default function PublicPage() {
   const { pathname: locationPathname, hash } = useLocation();
-  const pathname = locationPathname === "/" ? "/" : locationPathname.replace(/\/+$/, "");
+  const pathname = normalizePublicPath(locationPathname);
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const main = useRef(null);
