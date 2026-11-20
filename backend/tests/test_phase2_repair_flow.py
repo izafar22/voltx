@@ -62,7 +62,7 @@ def cleanup(admin):
 
 # --- Repair creation flow used by /repairs/new (Other charger) ---
 class TestCustomerCreateFlow:
-    def test_create_other_charger_then_awaiting_shipment(self, cust):
+    def test_create_other_charger_waits_for_team_acceptance(self, cust):
         r = requests.post(f"{BASE}/repairs", headers=cust, json={
             "customer_type": "RETAIL",
             "problem_description": "TEST_Phase2 charger does not power on",
@@ -82,13 +82,12 @@ class TestCustomerCreateFlow:
 
         p = requests.patch(f"{BASE}/repairs/{d['id']}/status", headers=cust,
                            json={"status": "AWAITING_SHIPMENT"}, timeout=30)
-        assert p.status_code == 200, p.text
-        assert p.json()["status"] == "AWAITING_SHIPMENT"
+        assert p.status_code == 403, p.text
 
         g = requests.get(f"{BASE}/repairs/{d['id']}", headers=cust, timeout=30)
         assert g.status_code == 200
         got = g.json()
-        assert got["status"] == "AWAITING_SHIPMENT"
+        assert got["status"] == "REQUESTED"
         assert got["problem_description"] == "TEST_Phase2 charger does not power on"
         assert got["reported_category"] == "Not powering on"
         assert len(got["photos"]) == 1

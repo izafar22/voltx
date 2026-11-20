@@ -398,6 +398,9 @@ function RepairDetailPanel({ id, onBack, custById, chargerById }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmIntake, setConfirmIntake] = useState(false);
+  const [intakeAcknowledged, setIntakeAcknowledged] = useState(false);
+  const [intakePreview, setIntakePreview] = useState(null);
   const { data: r, isLoading, isError } = useQuery({
     queryKey: ["repair-admin", id],
     queryFn: async () => (await api.get(`/repairs/${id}`)).data,
@@ -412,12 +415,26 @@ function RepairDetailPanel({ id, onBack, custById, chargerById }) {
   const applyStatus = async (target) => {
     setBusy(`status-${target}`);
     try {
-      await api.patch(`/repairs/${id}/status`, { status: target });
+      await api.patch(`/repairs/${id}/status`, { status: target, ...(target === 'AWAITING_SHIPMENT' ? { acceptance: { confirmed: true, preview_digest: intakePreview?.digest } } : {}) });
+      setConfirmIntake(false); setIntakeAcknowledged(false);
       toast.success(`Request → ${REPAIR_STATUS_LABEL[target] || target}`);
       refresh();
     } catch (e) {
+      if (target === 'AWAITING_SHIPMENT' && e.response?.status === 409) {
+        setConfirmIntake(false); setIntakeAcknowledged(false); refresh();
+      }
       toast.error(e.response?.data?.detail || "Could not update status");
     } finally { setBusy(null); }
+  };
+
+  const beginStatus = (target) => {
+    if (target === 'AWAITING_SHIPMENT') {
+      setIntakePreview(r.intake_preview ? { ...r.intake_preview } : null);
+      setIntakeAcknowledged(false);
+      setConfirmIntake(true);
+    } else {
+      applyStatus(target);
+    }
   };
 
   if (isLoading) return <div className="py-16 text-center"><Loader2 className="h-6 w-6 animate-spin text-charging mx-auto" /></div>;
@@ -482,12 +499,19 @@ function RepairDetailPanel({ id, onBack, custById, chargerById }) {
               <Button key={s} size="sm" variant="outline" disabled={!!busy} onClick={() => setConfirmCancel(true)} data-testid={`status-action-${s}`}
                 className="rounded-lg text-destructive border-destructive/40 hover:bg-destructive/5"><XCircle className="h-4 w-4 mr-1" /> Cancel request</Button>
             ) : (
-              <Button key={s} size="sm" disabled={!!busy || (s === "ESTIMATE_SENT" && !r.estimate)} onClick={() => applyStatus(s)} data-testid={`status-action-${s}`}
+              <Button key={s} size="sm" disabled={!!busy || (s === "ESTIMATE_SENT" && !r.estimate)} onClick={() => beginStatus(s)} data-testid={`status-action-${s}`}
                 title={s === "ESTIMATE_SENT" && !r.estimate ? "Create an estimate first" : undefined} className="rounded-lg">
-                {busy === `status-${s}` && <Loader2 className="h-4 w-4 animate-spin mr-1" />}{REPAIR_STATUS_LABEL[s]}
+                {busy === `status-${s}` && <Loader2 className="h-4 w-4 animate-spin mr-1" />}{s === 'AWAITING_SHIPMENT' ? 'Accept for inspection' : REPAIR_STATUS_LABEL[s]}
               </Button>
             ))}
           </div>
+          {confirmIntake && <section className="space-y-3" aria-label="Accept for inspection">
+            <p className="font-medium">Review the intake instructions</p>
+            <p className="whitespace-pre-wrap text-sm">{intakePreview?.address || 'Configure the approved RushX intake address before accepting this repair.'}</p>
+            <p className="text-sm text-muted-foreground">This accepts the charger for inspection. It does not guarantee repairability or approve a repair price. The customer approves the estimate separately.</p>
+            <label className="flex items-start gap-3"><input type="checkbox" className="h-5 w-5" checked={intakeAcknowledged} onChange={e => setIntakeAcknowledged(e.target.checked)} />I have reviewed this request and confirm the intake instructions.</label>
+            <div className="flex flex-wrap gap-3"><Button disabled={!!busy || !intakeAcknowledged || !intakePreview} onClick={() => applyStatus('AWAITING_SHIPMENT')}>Accept and provide shipping instructions</Button><Button variant="outline" onClick={() => { setConfirmIntake(false); setIntakeAcknowledged(false); }}>Back</Button></div>
+          </section>}
           {r.status === "ESTIMATE_SENT" && (
             <p className="text-sm text-amber-600 flex items-center gap-2" data-testid="awaiting-customer-note">
               <Info className="h-4 w-4" /> Awaiting customer decision — they approve or decline from their repair page.

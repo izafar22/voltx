@@ -1,3 +1,4 @@
+from services.lifecycle_policy import instruction_preview
 from services.safety_indexes import initialize_safety_indexes
 """MongoDB semantics smoke test in a fresh disposable DB; Meta HTTP is mocked."""
 
@@ -93,7 +94,7 @@ def test_real_mongo_atomic_outbox_indexes_and_claims():
                             )
                         await server.update_repair_status(
                             repair["id"],
-                            server.RepairStatusUpdate(status=status),
+                            server.RepairStatusUpdate(status=status, **({'acceptance': {'confirmed': True, 'preview_digest': instruction_preview(SETTINGS)['digest']}} if status == 'AWAITING_SHIPMENT' else {})),
                             ADMIN,
                         )
                 await asyncio.gather(svc.reconcile(), svc.reconcile())

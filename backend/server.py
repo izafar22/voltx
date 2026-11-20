@@ -25,6 +25,11 @@ else:
 
 from dotenv import load_dotenv
 from pathlib import Path
+if __package__:
+    from .services.lifecycle_policy import LifecyclePolicy, instruction_preview, preference
+else:
+    from services.lifecycle_policy import LifecyclePolicy, instruction_preview, preference
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -47,7 +52,7 @@ import math
 import hashlib
 import json
 import base64
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 from decimal import Decimal
 import random
 from pymongo import ReturnDocument
@@ -593,7 +598,7 @@ REPAIR_TRANSITIONS = {
     "CANCELLED": [],
 }
 # Statuses a normal customer/owner may set themselves (others are Voltx/admin-only)
-CUSTOMER_SETTABLE = {"AWAITING_SHIPMENT", "IN_TRANSIT_TO_VOLTX", "CUSTOMER_APPROVED", "CUSTOMER_DECLINED", "CANCELLED"}
+CUSTOMER_SETTABLE = {"IN_TRANSIT_TO_VOLTX", "CUSTOMER_APPROVED", "CUSTOMER_DECLINED", "CANCELLED"}
 CHARGER_TYPES = {"AC", "DC", "PORTABLE", "OTHER"}
 INTERNAL_DIAGNOSIS_FIELDS = ("technician_notes", "internal_notes", "parts_required")
 
@@ -624,9 +629,16 @@ class RepairCreate(BaseModel):
     reported_category: Optional[str] = None
     photos: Optional[List[str]] = None
     whatsapp_opt_in: StrictBool = False
+    whatsapp_binding: Optional[str] = Field(None, max_length=4096)
+
+
+class IntakeConfirmation(BaseModel):
+    confirmed: StrictBool
+    preview_digest: str = Field(min_length=64, max_length=64)
 
 
 class RepairStatusUpdate(BaseModel):
+    acceptance: Optional[IntakeConfirmation] = None
     status: str
     note: Optional[str] = None
 
@@ -716,7 +728,15 @@ def sanitize_repair(r, user):
     r = dict(r)
     r.pop("_id", None)
     r.pop("whatsapp_outbox", None)
+    r.pop("whatsapp_notification_intents", None)
+    notification_preference = preference(r, user)
     r.pop("whatsapp_consent", None)
+    r.pop("completion_notice", None)
+    if r.get('intake_acceptance'):
+        r['intake_acceptance'] = {k: v for k, v in r['intake_acceptance'].items()
+                                  if k in ('address', 'at', 'digest')}
+    if user.get('user_id') == r.get('user_id'):
+        r['whatsapp_updates'] = notification_preference
     r.pop("revision", None)
     r.pop("creation_key", None)
     r.pop("creation_fingerprint", None)
@@ -743,11 +763,24 @@ def sanitize_repair(r, user):
     return r
 
 
+async def effective_repair_response(repair, user):
+    result = sanitize_repair(repair, user)
+    if result.get('whatsapp_updates', {}).get('state') == 'enabled':
+        settings = WhatsAppSettings.from_env()
+        if ((repair.get('whatsapp_consent') or {}).get('scope_id') != LifecyclePolicy(db, settings).scope_id()
+                or (repair.get('whatsapp_consent') or {}).get('activation_id') != settings.activation_id
+                or not await LifecyclePolicy(db, settings).scope(heartbeat=True)):
+            result['whatsapp_updates']['state'] = 'unavailable'
+    return result
+
+
 @api_router.post("/repairs")
-async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
+async def create_repair(body: RepairCreate, user=Depends(get_current_user), request: Request = None):
     if user.get("role") not in ("customer", "owner", "admin") or not text_fact(user.get("user_id")):
         raise HTTPException(403, "Unsupported repair actor")
     payload = body.model_dump(exclude={"idempotency_key"})
+    if payload.get('whatsapp_binding') is None:
+        payload.pop('whatsapp_binding', None)
     for key in ('pickup_address_id', 'delivery_address_id'):
         if payload[key] is None:
             payload.pop(key)
@@ -761,7 +794,7 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
         if existing:
             if existing["creation_fingerprint"] != fingerprint:
                 raise HTTPException(409, "Idempotency key reused with different repair details")
-            return sanitize_repair(existing, user)
+            return await effective_repair_response(existing, user)
     snapshots = await ProfileService(auth_service, db=db).snapshots(user['user_id'], body.pickup_address_id, body.delivery_address_id)
     charger_id = None
     info = body.charger_info.model_dump() if body.charger_info else {}
@@ -770,16 +803,26 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
         if not c:
             raise HTTPException(status_code=404, detail="Charger not found")
         charger_id = c["charger_id"]  # retain relationship, do NOT duplicate the charger
-        info.setdefault("brand", c.get("name"))
-        info.setdefault("model", c.get("name"))
+        for key in ("brand", "model"):
+            if not text_fact(info.get(key)):
+                info[key] = c.get("name")
         info.setdefault("power_rating", f"{c.get('max_power_kw')} kW")
     else:
-        if not info.get("brand"):
+        if not text_fact(info.get("brand")):
             raise HTTPException(status_code=400, detail="Charger brand is required for an unregistered charger")
     if info.get("charger_type") and info["charger_type"] not in CHARGER_TYPES:
         raise HTTPException(status_code=400, detail=f"charger_type must be one of {sorted(CHARGER_TYPES)}")
     now = iso()
-    consent = consent_record(body.whatsapp_opt_in, user, now)
+    settings = WhatsAppSettings.from_env()
+    policy = LifecyclePolicy(db, settings)
+    if settings.activation_id:
+        current_user = await db.users.find_one({'user_id': user['user_id']})
+        if not current_user:
+            raise HTTPException(401, 'Account unavailable')
+        consent = await policy.consent(body.whatsapp_opt_in, body.whatsapp_binding, current_user, auth_service, request)
+        user = current_user
+    else:
+        consent = consent_record(body.whatsapp_opt_in, user, now)
     event_id = nid("evt")
     r = {
         "id": nid("rep"), "repair_request_number": await next_repair_number(), "user_id": user["user_id"],
@@ -792,7 +835,8 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
     }
     r.update(snapshots)
     r["whatsapp_consent"] = consent
-    event = event_for(r, "REQUESTED", event_id, WhatsAppSettings.from_env(), customer=user)
+    event = (await policy.event(r, "REQUESTED", event_id, customer=user) if settings.activation_id else
+             event_for(r, "REQUESTED", event_id, settings, customer=user))
     r["whatsapp_outbox"] = [event] if event else []
     if creation_key:
         r.update(creation_key=creation_key, creation_fingerprint=fingerprint)
@@ -802,8 +846,16 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user)):
         existing = await db.repair_requests.find_one({"creation_key": creation_key}) if creation_key else None
         if not existing or existing.get("creation_fingerprint") != fingerprint:
             raise HTTPException(409, "Conflicting repair submission") from None
-        return sanitize_repair(existing, user)
-    return sanitize_repair(r, user)
+        return await effective_repair_response(existing, user)
+    return await effective_repair_response(r, user)
+
+
+@api_router.get('/customer/whatsapp-capability')
+async def whatsapp_capability(request: Request, response: Response, user=Depends(get_current_user)):
+    if user.get('role') not in ('customer', 'owner'):
+        raise HTTPException(403, 'Repair submitter access required')
+    response.headers['Cache-Control'] = 'no-store'
+    return await LifecyclePolicy(db, WhatsAppSettings.from_env()).capability(user, auth_service, request)
 
 
 @api_router.get("/repairs")
@@ -830,12 +882,12 @@ async def list_repairs(scope: str = "mine", user=Depends(get_current_user), resp
         except (ValueError, TypeError, UnicodeError):
             raise HTTPException(400, "Invalid repair cursor") from None
         q = {"$and": [q, {"$or": [{"created_at": {"$lt": at}}, {"created_at": at, "id": {"$lt": rid}}]}]}
-    projection = {key: 0 for key in ("_id", "photos", "whatsapp_outbox", "whatsapp_consent", "payment_records", "payment_events", "payment_evidence", "payment_receipt", "creation_key", "creation_fingerprint")}
+    projection = {key: 0 for key in ("_id", "photos", "whatsapp_outbox", "whatsapp_notification_intents", "payment_records", "payment_events", "payment_evidence", "payment_receipt", "creation_key", "creation_fingerprint")}
     docs = await db.repair_requests.find(q, projection).sort([("created_at", -1), ("id", -1)]).to_list(limit + 1)
     if len(docs) > limit and response is not None:
         last = docs[limit - 1]
         response.headers["X-Next-Cursor"] = base64.urlsafe_b64encode(json.dumps([last["created_at"], last["id"]]).encode()).decode()
-    return [sanitize_repair(d, user) for d in docs[:limit]]
+    return [await effective_repair_response(d, user) for d in docs[:limit]]
 
 
 @api_router.get("/repairs/{rid}")
@@ -845,7 +897,10 @@ async def get_repair(rid: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Repair request not found")
     if not await can_access_repair(user, r):
         raise HTTPException(status_code=403, detail="Not authorized for this repair request")
-    return sanitize_repair(r, user)
+    result = await effective_repair_response(r, user)
+    if user.get('role') == 'admin':
+        result['intake_preview'] = instruction_preview(WhatsAppSettings.from_env())
+    return result
 
 
 @api_router.patch("/repairs/{rid}/status")
@@ -859,6 +914,13 @@ async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(
     target = body.status
     if target not in REPAIR_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid status")
+    if target == 'AWAITING_SHIPMENT' and r.get('intake_acceptance'):
+        if user.get('role') != 'admin':
+            raise HTTPException(403, 'Only RushX may accept a charger for inspection')
+        if (r['status'] == target and body.acceptance and body.acceptance.confirmed
+                and body.acceptance.preview_digest == r['intake_acceptance']['digest']):
+            return sanitize_repair(r, user)
+        raise HTTPException(409, 'Intake acceptance has already been recorded')
     if target not in REPAIR_TRANSITIONS.get(r["status"], []):
         raise HTTPException(status_code=400, detail=f"Cannot transition from {r['status']} to {target}")
     if user["role"] != "admin" and target not in CUSTOMER_SETTABLE:
@@ -870,6 +932,13 @@ async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(
     validate_transition_facts(r, target)
     now = iso()
     upd = {"status": target, "updated_at": now}
+    if target == 'AWAITING_SHIPMENT':
+        preview = instruction_preview(WhatsAppSettings.from_env())
+        if not preview:
+            raise HTTPException(409, 'RushX intake instructions must be configured first')
+        if not body.acceptance or not body.acceptance.confirmed or body.acceptance.preview_digest != preview['digest']:
+            raise HTTPException(409, 'Review and confirm the current intake instructions')
+        upd['intake_acceptance'] = {**preview, 'at': now, 'by': user['user_id']}
     if target == "ESTIMATE_SENT" and r.get("estimate"):
         upd["estimate.status"] = "SENT"
         upd["estimate.published_at"] = now
@@ -884,8 +953,17 @@ async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(
     settings = WhatsAppSettings.from_env()
     customer = None
     if settings.enabled and r.get("whatsapp_consent", {}).get("opted_in"):
-        customer = await db.users.find_one({"user_id": r["user_id"]}, {"name": 1})
-    event = event_for(r, target, event_id, settings, customer=customer)
+        customer = await db.users.find_one({"user_id": r["user_id"]})
+    from copy import deepcopy
+    next_repair = deepcopy(r)
+    for path, value in upd.items():
+        keys = path.split('.')
+        destination = next_repair
+        for key in keys[:-1]:
+            destination = destination.setdefault(key, {})
+        destination[keys[-1]] = value
+    event = (await LifecyclePolicy(db, settings).event(next_repair, target, event_id, customer=customer)
+             if settings.activation_id else event_for(next_repair, target, event_id, settings, customer=customer))
     if event:
         pushes["whatsapp_outbox"] = event
     result = await db.repair_requests.update_one(repair_guard(r), {
@@ -984,8 +1062,11 @@ def payment_service():
     settings = WhatsAppSettings.from_env()
     return PaymentService(MongoPaymentRepository(db.repair_requests, db.payment_references),
                           ManualPaymentProcessor(),
-                          lambda repair, event, customer: payment_received_notification(
-                              repair, event, settings, customer))
+                          (lambda repair, event, customer: LifecyclePolicy(db, settings).event(
+                              repair, 'PAYMENT_RECEIVED', event['id'], customer, event)) if settings.activation_id else
+                          (lambda repair, event, customer: payment_received_notification(repair, event, settings, customer)),
+                          balance_notification_factory=(lambda repair: LifecyclePolicy(db, settings).event(
+                              repair, 'REPAIR_RESULT', 'result')) if settings.activation_id else None)
 
 
 class PaymentEvidence(BaseModel):
@@ -1039,7 +1120,11 @@ async def submit_payment_reference(rid: str, body: PaymentEvidence, user=Depends
 @api_router.post("/repairs/{rid}/payment/verify")
 async def receive_repair_payment(rid: str, body: PaymentReceiptVerification, user=Depends(require("admin"))):
     repair = await db.repair_requests.find_one({"id": rid})
-    customer = await db.users.find_one({"user_id": repair["user_id"]}, {"name": 1}) if repair else None
+    try:
+        customer = await db.users.find_one({"user_id": repair["user_id"]}) if repair else None
+    except PyMongoError:
+        logger.error('receipt_notification_customer_lookup_failed')
+        customer = None
     return await payment_service().receive(rid, body.amount, body.method, body.reference,
                                           user["user_id"], body.idempotency_key,
                                           body.funds_received, customer)
@@ -1063,7 +1148,7 @@ async def withdraw_whatsapp_consent(rid: str, user=Depends(get_current_user)):
         return {"ok": True}
     result = await db.repair_requests.update_one(repair_guard(r), {"$set": {
         "whatsapp_consent.opted_in": False, "whatsapp_consent.withdrawn_at": iso(),
-        "updated_at": iso()}, "$inc": {"revision": 1}})
+        "updated_at": iso()}, "$inc": {"revision": 1, "whatsapp_consent.revision": 1}})
     if not result.modified_count:
         raise HTTPException(409, "Repair changed; refresh and try again")
     return {"ok": True}

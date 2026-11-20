@@ -1,0 +1,27 @@
+# Review and install only with explicit environment/service/index authorization.
+# Replace RELEASE_SHA with the exact approved backend/worker revision.
+[Unit]
+Description=RushX repair lifecycle WhatsApp worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/rushx/releases/RELEASE_SHA/backend
+EnvironmentFile=/etc/rushx/backend.env
+ExecStartPre=/opt/rushx/releases/RELEASE_SHA/backend/.venv/bin/python -m services.lifecycle_readiness
+ExecStart=/opt/rushx/releases/RELEASE_SHA/backend/.venv/bin/python -m services.whatsapp_worker
+Restart=on-failure
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=40
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target

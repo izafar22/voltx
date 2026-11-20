@@ -421,6 +421,8 @@ class AuthService:
         replacing = bool(user.get('phone') and user['phone'] != phone)
         changes = {'phone': phone, 'phone_verified_at': now, 'updated_at': now}
         epoch = user.get('auth_epoch', 0)
+        if user.get('phone') != phone:
+            changes['phone_generation'] = user.get('phone_generation', 0) + 1
         if replacing:
             changes['auth_epoch'] = epoch + 1
             changes['retained_session_id'] = binding['session_id']

@@ -16,6 +16,7 @@ import { Textarea } from "../../components/ui/textarea";
 import { Label } from "../../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
+import { RepairWhatsAppConsent } from '../../components/RepairWhatsAppConsent';
 import { CustomerAddressChoice } from '../../components/CustomerAddressChoice';
 import { CustomerAddressEditor } from '../../components/CustomerAddressEditor';
 import { addressText, profileKey } from '../../lib/customerProfile';
@@ -43,6 +44,7 @@ export default function RepairNew() {
   const profile = profileQuery.data;
   const [addressSelection, setAddressSelection] = useState({});
   const [addingAddress, setAddingAddress] = useState(false);
+  const [whatsappConsent, setWhatsappConsent] = useState(null);
   const pickupId = addressSelection.pickup !== undefined ? addressSelection.pickup : profile?.pickup_id;
   const deliveryId = addressSelection.delivery !== undefined ? addressSelection.delivery : profile?.delivery_id;
   const [source, setSource] = useState("other");
@@ -116,12 +118,13 @@ export default function RepairNew() {
     submissionLock.current = true;
     setSubmitting(true);
     try {
-      const payload = {
+      let payload = {
         customer_type: user?.role === "owner" ? "STATION_OWNER" : "RETAIL",
         problem_description: description.trim(),
         reported_category: category || null,
         photos: photos.map((p) => p.data),
-        whatsapp_opt_in: false,
+        whatsapp_opt_in: !!whatsappConsent,
+        ...(whatsappConsent ? { whatsapp_binding: whatsappConsent.binding } : {}),
       };
       if (pickupId) payload.pickup_address_id = pickupId;
       if (deliveryId) payload.delivery_address_id = deliveryId;
@@ -136,19 +139,25 @@ export default function RepairNew() {
           purchase_date: info.purchase_date || null,
         };
       }
+      if (creationRetry.current?.uncertain && creationRetry.current.actorId === user?.user_id) {
+        payload = JSON.parse(JSON.stringify(creationRetry.current.payload));
+        toast.message('Checking your previous request before creating another one.');
+      }
       const fingerprint = JSON.stringify(payload);
-      if (creationRetry.current?.fingerprint !== fingerprint) {
-        creationRetry.current = { fingerprint, key: crypto.randomUUID() };
+      if (creationRetry.current?.fingerprint !== fingerprint || creationRetry.current?.actorId !== user?.user_id) {
+        creationRetry.current = { fingerprint, key: crypto.randomUUID(), payload: JSON.parse(fingerprint), actorId: user?.user_id };
       }
       payload.idempotency_key = creationRetry.current.key;
       const { data } = await api.post("/repairs", payload);
-      // Advance to AWAITING_SHIPMENT via validated Phase 1 transition (non-fatal if it fails)
-      try { await api.patch(`/repairs/${data.id}/status`, { status: "AWAITING_SHIPMENT" }); }
-      catch { toast.message("Repair request created. Shipment status will update shortly."); }
       queryClient.invalidateQueries({ queryKey: ["repairs-mine"] });
-      setResult({ id: data.id, number: data.repair_request_number });
+      setResult({ id: data.id, number: data.repair_request_number, updates: data.whatsapp_updates });
     } catch (e) {
+      if (creationRetry.current) creationRetry.current.uncertain = !e.response || e.response.status === 401 || e.response.status >= 500;
       const detail = e.response?.data?.detail;
+      if (detail?.code === 'whatsapp_eligibility_changed') {
+        setWhatsappConsent(null);
+        queryClient.invalidateQueries({ queryKey: ['repair-whatsapp-capability'] });
+      }
       toast.error(typeof detail === "string" ? detail : detail?.message || "Could not submit repair request. Please try again.");
     } finally {
       submissionLock.current = false;
@@ -162,7 +171,8 @@ export default function RepairNew() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="text-center">
           <CheckCircle2 className="mx-auto h-14 w-14 text-charging" aria-hidden="true" />
           <h1 className="mt-5 font-display text-3xl font-semibold tracking-tight">Repair Request Submitted</h1>
-          <p className="mt-3 text-base text-muted-foreground">We’ve received your request.</p>
+          <p className="mt-3 text-base text-muted-foreground">We’ve received your request. It is waiting for team review.</p>
+          <p className="mt-3 text-sm text-muted-foreground">{result.updates?.state === 'enabled' ? 'WhatsApp milestone updates are enabled for this repair.' : 'Follow repair progress in your RushX account.'}</p>
           <div className="mt-6 rounded-xl border border-border p-5">
             <p className="text-sm text-muted-foreground">Repair request number</p>
             <p className="mt-2 font-mono text-xl font-semibold break-words" data-testid="repair-number"><FileText className="inline h-5 w-5 mr-2" aria-hidden="true" />{result.number}</p>
@@ -172,7 +182,7 @@ export default function RepairNew() {
           <h2 className="text-xl font-semibold">What happens next</h2>
           <ol className="mt-4 list-decimal pl-6 space-y-4 text-base leading-relaxed">
             <li>We’ve received your request.</li>
-            <li>Send the charger to the RushX service center. <span className="text-muted-foreground">Our service team will provide shipping instructions.</span></li>
+            <li>Please do not ship your charger yet. Wait for RushX to accept it for inspection and provide shipping instructions.</li>
             <li>Include the repair request number with the package.</li>
             <li>We’ll update you once the charger is received.</li>
             <li>You’ll receive a repair estimate for approval before any paid work begins.</li>
@@ -293,13 +303,7 @@ export default function RepairNew() {
             <p className="font-semibold flex items-start gap-3"><ShieldCheck className="h-6 w-6 text-charging shrink-0" aria-hidden="true" />No payment is required to submit a repair request.</p>
             <p className="text-muted-foreground mt-3">After we receive and inspect your charger, we’ll share a repair estimate for your approval before work begins.</p>
           </div>
-          <div className="mt-6 grid w-full grid-cols-[20px_minmax(0,1fr)] items-start gap-3 text-base leading-relaxed text-muted-foreground">
-            <input id="whatsapp-opt-in" data-testid="whatsapp-opt-in" type="checkbox" checked={false} disabled
-              className="h-5 w-5 self-start" />
-            <label htmlFor="whatsapp-opt-in" className="min-w-0 break-normal">
-              WhatsApp repair updates — Coming soon. You can still track your repair in the app.
-            </label>
-          </div>
+          <RepairWhatsAppConsent value={whatsappConsent} onChange={setWhatsappConsent} disabled={submitting} />
           <Button type="submit" disabled={submitting} aria-busy={submitting} data-testid="submit-repair-btn" className="w-full h-[52px] mt-6 rounded-lg text-base">
             {submitting ? <><Loader2 className="h-5 w-5 animate-spin mr-2" aria-hidden="true" />Submitting request…</> : <>Submit repair request <ArrowRight className="h-5 w-5 ml-2" aria-hidden="true" /></>}
           </Button>

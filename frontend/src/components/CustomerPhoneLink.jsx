@@ -78,6 +78,7 @@ export function CustomerPhoneLink({ hasPhone, onSaved, onClose, onBeginSave }) {
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             execute(!!challenge);
           }}
         >

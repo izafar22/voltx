@@ -36,8 +36,19 @@ def validate_staging_environment(env=None):
             raise RuntimeError("Staging WhatsApp OTP credentials are missing or invalid")
     elif env.get("STAGING_OTP_ALLOWED_PHONES", "").strip():
         raise RuntimeError("Staging OTP allowlist requires WhatsApp provider")
-    if env.get("WHATSAPP_ENABLED", "false").lower() != "false" or env.get("WHATSAPP_PRODUCTION_APPROVED", "false").lower() != "false":
-        raise RuntimeError("Staging forbids outbound WhatsApp")
+    if env.get("WHATSAPP_PRODUCTION_APPROVED", "false").lower() != "false":
+        raise RuntimeError("Staging forbids production messaging approval")
+    if env.get("WHATSAPP_ENABLED", "false").lower() != "false":
+        recipients = [x.strip() for x in env.get('STAGING_LIFECYCLE_ALLOWED_PHONES', '').split(',')]
+        if (env.get('WHATSAPP_LIFECYCLE_ENABLED', 'false').lower() != 'true'
+                or env.get('STAGING_LIFECYCLE_TEST_ENABLED', 'false').lower() != 'true'
+                or env.get('WHATSAPP_MODE') != 'staging'
+                or not env.get('WHATSAPP_LIFECYCLE_ACTIVATION_ID', '').strip()
+                or not re.fullmatch(r'[0-9]+', env.get('STAGING_LIFECYCLE_PHONE_NUMBER_ID', ''))
+                or env.get('WHATSAPP_PHONE_NUMBER_ID') != env.get('STAGING_LIFECYCLE_PHONE_NUMBER_ID')
+                or not 1 <= len(recipients) <= 10 or len(recipients) != len(set(recipients))
+                or any(not re.fullmatch(r'\+91[6-9][0-9]{9}', p) for p in recipients)):
+            raise RuntimeError('Staging lifecycle messages require the isolated authorized test gate')
     if env.get("RUSHX_UPI_QR_REVIEWED", "false").lower() != "false":
         raise RuntimeError("Staging forbids approved merchant QR")
     if env.get("CMS_REVALIDATE_SECRET", ""):

@@ -265,6 +265,7 @@ def test_phone_replacement_retention_is_single_document_and_survives_session_sto
             assert response.status_code == 200
             user = await db.users.find_one({'user_id':'customer'})
             assert user['phone'] == '+91'+number and user['auth_epoch'] == offset+1
+            assert user['phone_generation'] == offset+1
             assert user['retained_session_id'] == sid
             assert (await browser.get('/api/auth/me')).status_code == 200
         await db.users.update_one({'user_id':'customer'}, {'$inc': {'auth_epoch':1}})

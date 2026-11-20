@@ -1,7 +1,7 @@
 const { defineConfig } = require("@playwright/test");
 module.exports = defineConfig({
   testDir: ".",
-  testMatch: ["public.spec.cjs", "customer-profile.spec.cjs"],
+  testMatch: ["public.spec.cjs", "customer-profile.spec.cjs", "lifecycle.spec.cjs"],
   workers: 2,
   use: { baseURL: "http://127.0.0.1:3100", browserName: "chromium" },
   projects: [320, 375, 768, 1280].map((width) => ({
