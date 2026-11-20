@@ -15,6 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 import { homeFor } from "../../components/ProtectedRoute";
 import { FAQ } from "../../components/patterns/RepairPatterns";
 import { faqs } from "./content";
+import { DataDeletion, PrivacyPolicy } from "./PolicyPages";
 import "./PublicPage.css";
 const nav = [
   ["/services", "Services"],
@@ -42,6 +43,14 @@ const meta = {
   "/faq": [
     "Repair questions, answered",
     "Learn about RushX repair eligibility, coverage, courier enquiries, quotations and service terms before requesting an assessment.",
+  ],
+  "/privacy-policy": [
+    "Privacy Policy",
+    "Learn how RushX handles information used for accounts, charger repairs, service updates and support requests.",
+  ],
+  "/data-deletion": [
+    "Data-deletion Instructions",
+    "Learn how to ask RushX to review or delete information associated with your account or charger repair.",
   ],
 };
 export default function PublicPage() {
@@ -173,6 +182,8 @@ export default function PublicPage() {
             </section>
           </div>
         )}
+        {pathname === "/privacy-policy" && <PrivacyPolicy />}
+        {pathname === "/data-deletion" && <DataDeletion />}
       </main>
       <WhatsAppChatLink />
       <footer className="rx-footer">
@@ -215,6 +226,8 @@ export default function PublicPage() {
               <Link to="/repairs/new">Book a Repair</Link>
               <a href="/compare">Compare</a>
               <Link to="/repairs">Track a repair</Link>
+              <Link to="/privacy-policy">Privacy Policy</Link>
+              <Link to="/data-deletion">Data-deletion Instructions</Link>
             </nav>
           </div>
           <div className="rx-footer-bottom">
