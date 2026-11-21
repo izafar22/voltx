@@ -16,12 +16,14 @@ from services.lifecycle_policy import LifecyclePolicy, digest, instruction_previ
 from services.whatsapp_service import (
     ACTION_CATALOG,
     ACTIVE_CATALOG,
+    ConfigurationError,
     SnapshotError,
     WhatsAppService,
     decode_estimate_action,
     estimate_action_token,
     lifecycle_event,
     message_payload,
+    validate_settings,
     webhook_router,
 )
 from test_lifecycle_v3 import ACTIVE, VERIFIED
@@ -33,6 +35,7 @@ TEMPLATES = {
     key: {
         "name": item["name"], "language": item["language"], "category": "UTILITY",
         "parameters": item["parameters"], "approval_status": "approved",
+        **({"buttons": item["buttons"]} if item.get("buttons") else {}),
         **({"header_format": item["header_format"]} if item.get("header_format") else {}),
     }
     for key, item in ACTIVE_CATALOG.items()
@@ -64,6 +67,8 @@ def repair(settings=SETTINGS):
 
 def test_actionable_payload_has_ordered_signed_buttons_and_tamper_rejected():
     job = lifecycle_event(repair(), "ESTIMATE_SENT", "evt-estimate", SETTINGS, VERIFIED)
+    assert "action_expires_at" not in job
+    job["action_expires_at"] = NOW + timedelta(hours=72)
     payload = message_payload(job, SETTINGS)
     assert job["template_key"] == "ESTIMATE_SENT_ACTIONABLE"
     buttons = [item for item in payload["template"]["components"] if item["type"] == "button"]
@@ -90,6 +95,32 @@ def test_payment_qr_is_exact_reviewed_header_and_feature_has_text_fallback():
     assert payload["template"]["components"][0]["parameters"][0]["image"]["link"] == qr_settings.payment_qr_url
     fallback = lifecycle_event(r, "REPAIR_RESULT", "evt-complete", SETTINGS, VERIFIED)
     assert fallback["template_key"] == "REPAIR_RESULT_DUE"
+    invalid_qr = replace(SETTINGS, payment_qr_enabled=True, payment_qr_url="")
+    invalid_fallback = lifecycle_event(r, "REPAIR_RESULT", "evt-complete", invalid_qr, VERIFIED)
+    assert invalid_fallback["template_key"] == "REPAIR_RESULT_DUE"
+
+
+@pytest.mark.parametrize("key,field,value", [
+    ("ESTIMATE_SENT_ACTIONABLE", "buttons", ["Decline estimate", "Approve estimate"]),
+    ("REPAIR_RESULT_DUE_QR", "header_format", "TEXT"),
+])
+def test_action_template_component_contracts_fail_closed(key, field, value):
+    templates = {name: dict(contract) for name, contract in SETTINGS.templates.items()}
+    templates[key][field] = value
+    changed = replace(SETTINGS, templates=templates,
+                      payment_qr_enabled=(key == "REPAIR_RESULT_DUE_QR"))
+    if key == "REPAIR_RESULT_DUE_QR":
+        # Invalid optional QR configuration does not break the base lifecycle.
+        validate_settings(changed)
+        r = repair(changed)
+        r.update(status="REPAIR_COMPLETED", payment_summary={
+            "amount_due": "500.00", "balance_state": "BALANCE_VERIFIED", "currency": "INR",
+            "verified_at": NOW.isoformat(), "verified_by": "admin",
+        })
+        assert lifecycle_event(r, "REPAIR_RESULT", "evt", changed, VERIFIED)["template_key"] == "REPAIR_RESULT_DUE"
+    else:
+        with pytest.raises(ConfigurationError):
+            validate_settings(changed)
 
 
 def test_signed_webhook_decision_is_sanitized_and_applied_once():
@@ -107,6 +138,7 @@ def test_signed_webhook_decision_is_sanitized_and_applied_once():
     r = repair()
     await db.repair_requests.insert_one(r)
     job = lifecycle_event(r, "ESTIMATE_SENT", "evt-estimate", SETTINGS, VERIFIED)
+    job["action_expires_at"] = NOW + timedelta(hours=72)
     job.update(state="sent", message_id="wamid.estimate", accepted_at=NOW,
                created_at=NOW, next_attempt_at=NOW, attempts=1)
     await db.whatsapp_jobs.insert_one(job)
@@ -122,6 +154,12 @@ def test_signed_webhook_decision_is_sanitized_and_applied_once():
     app = FastAPI()
     app.include_router(webhook_router(lambda: db, lambda: SETTINGS), prefix="/api")
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        tampered = raw.replace(b"wamid.reply", b"wamid.replx")
+        rejected = await client.post("/api/webhooks/whatsapp", content=tampered,
+                                     headers={"x-hub-signature-256": signature})
+        assert rejected.status_code == 401
+        assert await db.whatsapp_action_inbox.count_documents({}) == 0
+        assert (await db.repair_requests.find_one({"id": r["id"]}))["status"] == "ESTIMATE_SENT"
         for _ in range(2):
             response = await client.post("/api/webhooks/whatsapp", content=raw,
                                          headers={"x-hub-signature-256": signature})
@@ -139,5 +177,12 @@ def test_signed_webhook_decision_is_sanitized_and_applied_once():
     assert updated["revision"] == 5
     assert await service.apply_estimate_actions() is False
     assert await db.whatsapp_action_inbox.count_documents({"state": "applied"}) == 1
+    # Crash-recovery classification: a reclaimed inbox item whose action ID is
+    # already in the repair audit remains applied, never becomes stale/rejected.
+    await db.whatsapp_action_inbox.update_one({}, {"$set": {
+        "state": "pending", "next_attempt_at": NOW, "processed_at": None}})
+    assert await service.apply_estimate_actions() is True
+    assert await db.whatsapp_action_inbox.count_documents({"state": "applied"}) == 1
+    assert (await db.repair_requests.find_one({"id": r["id"]}))["revision"] == 5
   asyncio.run(scenario())
 
