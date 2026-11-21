@@ -294,7 +294,11 @@ def lifecycle_event(repair, status, event_id, settings, customer=None, payment_e
         values.update({k: payment_event[k] for k in ('verified_amount', 'safe_reference')})
     if (status == 'REPAIR_RESULT' and key == 'REPAIR_RESULT_DUE'
             and settings.payment_qr_enabled and valid_public_qr_url(settings.payment_qr_url)):
-        key = 'REPAIR_RESULT_DUE_QR'
+        try:
+            configured_template('REPAIR_RESULT_DUE_QR', settings)
+            key = 'REPAIR_RESULT_DUE_QR'
+        except ConfigurationError:
+            pass  # Optional QR configuration degrades to the required text template.
     if key not in ACTIVE_CATALOG:
         return None
     at = now()
@@ -308,8 +312,6 @@ def lifecycle_event(repair, status, event_id, settings, customer=None, payment_e
             'occurred_at': at, 'expires_at': at + timedelta(hours=24),
             'source_revision': (repair.get('revision') or 0) + (0 if status == 'REQUESTED' else 1), 'fact_digest': digest(facts),
             'receipt_id': (payment_event or {}).get('payment_id') if status == 'PAYMENT_RECEIVED' else None}
-    if key == 'ESTIMATE_SENT_ACTIONABLE':
-        event['action_expires_at'] = at + timedelta(hours=72)
     if key == 'REPAIR_RESULT_DUE_QR':
         event['qr_image_url'] = settings.payment_qr_url
     return event
@@ -360,6 +362,12 @@ def configured_template(status, settings):
         or template.get("category") != "UTILITY"
     ):
         raise ConfigurationError()
+    if status in ACTION_CATALOG and (
+        name != ACTION_CATALOG[status]['name']
+        or template.get('buttons') != ACTION_CATALOG[status].get('buttons')
+        or template.get('header_format') != ACTION_CATALOG[status].get('header_format')
+    ):
+        raise ConfigurationError()
     pending_template = settings.templates.get("PAYMENT_PENDING")
     pending_name = (
         pending_template.get("name") if isinstance(pending_template, dict) else None
@@ -402,10 +410,8 @@ def validate_settings(settings):
                 raise ConfigurationError()
             configured_template('ESTIMATE_SENT_ACTIONABLE', settings)
             configured_template('CUSTOMER_DECLINED', settings)
-        if settings.payment_qr_enabled:
-            if not valid_public_qr_url(settings.payment_qr_url):
-                raise ConfigurationError()
-            configured_template('REPAIR_RESULT_DUE_QR', settings)
+        # QR is optional. Invalid/unapproved QR configuration must not make the
+        # established text-only lifecycle unavailable.
     if settings.mode == "staging":
         if os.getenv('APP_ENV') != 'staging':
             raise ConfigurationError()
@@ -767,6 +773,14 @@ class WhatsAppService:
             return True
         repair = await self.db.repair_requests.find_one({'id': job['repair_id']})
         user = await self.db.users.find_one({'user_id': (repair or {}).get('user_id')})
+        existing_audit = ((repair or {}).get('estimate') or {}).get('decision_audit') or {}
+        expected_target = ('CUSTOMER_APPROVED' if action['decision'] == 'approve'
+                           else 'CUSTOMER_DECLINED')
+        if (existing_audit.get('channel') == 'whatsapp'
+                and existing_audit.get('action_id') == action['_id']
+                and (repair or {}).get('status') == expected_target):
+            await finish('applied', expected_target.lower())
+            return True
         if (not repair or not user or user.get('status', 'active') != 'active'
                 or preference(repair, user)['state'] != 'enabled'
                 or repair.get('status') != 'ESTIMATE_SENT'
@@ -775,7 +789,7 @@ class WhatsAppService:
                 or not job.get('fact_digest', '').startswith(action.get('fact_digest', ''))):
             await finish('rejected', 'decision_stale')
             return True
-        target = 'CUSTOMER_APPROVED' if action['decision'] == 'approve' else 'CUSTOMER_DECLINED'
+        target = expected_target
         event_id = 'evt_' + uuid.uuid4().hex
         decided_at = at.isoformat()
         audit = {'channel': 'whatsapp', 'decision': action['decision'], 'at': decided_at,
@@ -788,16 +802,24 @@ class WhatsAppService:
         next_repair['estimate']['approved_at' if target == 'CUSTOMER_APPROVED' else 'declined_at'] = decided_at
         next_repair['estimate']['decision_audit'] = audit
         event = await policy.event(next_repair, target, event_id, customer=user)
+        if event is None:
+            await finish('rejected', 'activation_unavailable')
+            return True
         pushes = {'status_history': {'event_id': event_id, 'status': target,
             'by': repair['user_id'], 'at': decided_at,
             'note': 'Recorded from authenticated WhatsApp estimate action'}}
-        if event:
-            pushes['whatsapp_outbox'] = event
+        pushes['whatsapp_outbox'] = event
         set_values = {'status': target, 'updated_at': decided_at,
                       'estimate.status': next_repair['estimate']['status'],
                       'estimate.decision_audit': audit}
         set_values['estimate.approved_at' if target == 'CUSTOMER_APPROVED'
                    else 'estimate.declined_at'] = decided_at
+        if not await policy.scope(heartbeat=True):
+            await finish('rejected', 'activation_unavailable')
+            return True
+        if expires <= self.clock():
+            await finish('rejected', 'action_expired')
+            return True
         result = await self.db.repair_requests.update_one(
             {'id': repair['id'], 'revision': repair.get('revision', 0),
              'status': 'ESTIMATE_SENT', 'estimate.status': 'SENT'},
@@ -1072,6 +1094,16 @@ class WhatsAppService:
         if job["attempts"] > self.settings.max_attempts:
             await finish({"state": "dead_letter", "error_code": "attempts_exhausted"})
             return True
+        if (job.get('template_key') == 'ESTIMATE_SENT_ACTIONABLE'
+                and not isinstance(job.get('action_expires_at'), datetime)):
+            deadline = self.clock() + timedelta(hours=72)
+            persisted = await self.db.whatsapp_jobs.update_one(
+                {**claim, 'action_expires_at': {'$exists': False}},
+                {'$set': {'action_expires_at': deadline}})
+            if not persisted.modified_count:
+                await finish({'state': 'pending', 'next_attempt_at': self.clock() + timedelta(seconds=2)})
+                return True
+            job['action_expires_at'] = deadline
         repair = await self.db.repair_requests.find_one(
             {"id": job["repair_id"]}, {"whatsapp_consent": 1, "payment_summary": 1}
         )
