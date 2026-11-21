@@ -756,9 +756,6 @@ class WhatsAppService:
             return True
         if expires.tzinfo is None:
             expires = expires.replace(tzinfo=timezone.utc)
-        if expires <= at:
-            await finish('rejected', 'action_expired')
-            return True
         job = await self.db.whatsapp_jobs.find_one({
             'message_id': action.get('source_message_id'),
             'status': 'ESTIMATE_SENT', 'template_key': 'ESTIMATE_SENT_ACTIONABLE',
@@ -778,8 +775,12 @@ class WhatsAppService:
                            else 'CUSTOMER_DECLINED')
         if (existing_audit.get('channel') == 'whatsapp'
                 and existing_audit.get('action_id') == action['_id']
-                and (repair or {}).get('status') == expected_target):
+                and existing_audit.get('decision') == action['decision']
+                and existing_audit.get('estimate_fingerprint') == job.get('fact_digest')):
             await finish('applied', expected_target.lower())
+            return True
+        if expires <= self.clock():
+            await finish('rejected', 'action_expired')
             return True
         if (not repair or not user or user.get('status', 'active') != 'active'
                 or preference(repair, user)['state'] != 'enabled'
@@ -790,6 +791,27 @@ class WhatsAppService:
             await finish('rejected', 'decision_stale')
             return True
         target = expected_target
+        identity_lease = uuid.uuid4().hex
+        generation = user.get('phone_generation', 0)
+        locked_user = await self.db.users.find_one_and_update(
+            {'user_id': user['user_id'], 'phone': user.get('phone'),
+             'phone_generation': ({'$in': [None, 0]} if generation == 0 else generation),
+             'status': {'$in': [None, 'active']},
+             '$or': [{'whatsapp_decision_lease.until': {'$lte': self.clock()}},
+                     {'whatsapp_decision_lease': {'$exists': False}}]},
+            {'$set': {'whatsapp_decision_lease': {
+                'owner': identity_lease, 'until': self.clock() + timedelta(seconds=120)}}},
+            return_document=ReturnDocument.AFTER)
+        if not locked_user:
+            await finish('rejected', 'phone_changed')
+            return True
+        user = locked_user
+
+        async def release_identity():
+            await self.db.users.update_one(
+                {'user_id': user['user_id'], 'whatsapp_decision_lease.owner': identity_lease},
+                {'$unset': {'whatsapp_decision_lease': ''}})
+
         event_id = 'evt_' + uuid.uuid4().hex
         decided_at = at.isoformat()
         audit = {'channel': 'whatsapp', 'decision': action['decision'], 'at': decided_at,
@@ -803,6 +825,7 @@ class WhatsAppService:
         next_repair['estimate']['decision_audit'] = audit
         event = await policy.event(next_repair, target, event_id, customer=user)
         if event is None:
+            await release_identity()
             await finish('rejected', 'activation_unavailable')
             return True
         pushes = {'status_history': {'event_id': event_id, 'status': target,
@@ -815,15 +838,28 @@ class WhatsAppService:
         set_values['estimate.approved_at' if target == 'CUSTOMER_APPROVED'
                    else 'estimate.declined_at'] = decided_at
         if not await policy.scope(heartbeat=True):
+            await release_identity()
             await finish('rejected', 'activation_unavailable')
             return True
         if expires <= self.clock():
+            await release_identity()
             await finish('rejected', 'action_expired')
+            return True
+        identity_fence = await self.db.users.update_one(
+            {'user_id': user['user_id'], 'phone': user.get('phone'),
+             'phone_generation': ({'$in': [None, 0]} if generation == 0 else generation),
+             'whatsapp_decision_lease.owner': identity_lease,
+             'whatsapp_decision_lease.until': {'$gt': self.clock()}},
+            {'$set': {'whatsapp_decision_lease.until': self.clock() + timedelta(seconds=120)}})
+        if not identity_fence.matched_count:
+            await release_identity()
+            await finish('rejected', 'phone_changed')
             return True
         result = await self.db.repair_requests.update_one(
             {'id': repair['id'], 'revision': repair.get('revision', 0),
              'status': 'ESTIMATE_SENT', 'estimate.status': 'SENT'},
             {'$set': set_values, '$push': pushes, '$inc': {'revision': 1}})
+        await release_identity()
         if not result.modified_count:
             await finish('rejected', 'decision_raced')
             return True

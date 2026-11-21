@@ -409,7 +409,8 @@ class AuthService:
         binding = self.phone_binding(request, user)
         phone = normalize_phone(body.phone)
         await self.consume_challenge(body.challenge_id, phone, body.otp, binding)
-        now = self.clock().isoformat()
+        changed_at = self.clock()
+        now = changed_at.isoformat()
         replacing = bool(user.get('phone') and user['phone'] != phone)
         changes = {'phone': phone, 'phone_verified_at': now, 'updated_at': now}
         epoch = user.get('auth_epoch', 0)
@@ -421,7 +422,9 @@ class AuthService:
             changes['retained_session_epoch'] = epoch + 1
         try:
             result = await self.db.users.update_one({'user_id': user['user_id'], 'phone': user.get('phone'),
-                'auth_epoch': {'$in': [None, 0]} if epoch == 0 else epoch, 'status': {'$in': [None, 'active']}}, {'$set': changes})
+                'auth_epoch': {'$in': [None, 0]} if epoch == 0 else epoch, 'status': {'$in': [None, 'active']},
+                '$or': [{'whatsapp_decision_lease.until': {'$lte': changed_at}},
+                        {'whatsapp_decision_lease': {'$exists': False}}]}, {'$set': changes})
         except DuplicateKeyError:
             raise HTTPException(409, {'code': 'identity_conflict', 'message': 'This mobile number is already linked to another RushX account. Use a different number.'}) from None
         if not result.matched_count:

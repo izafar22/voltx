@@ -123,6 +123,15 @@ def test_phone_link_session_policy_conflicts_and_purpose():
         assert (await browser.get('/api/auth/me')).status_code == 401
         browser.cookies.set('access_token', second)
         assert (await browser.post('/api/auth/link/phone/verify', json=proof)).status_code == 400
+        # A WhatsApp decision lease storage-fences concurrent phone replacement.
+        await db.users.update_one({'user_id': 'customer'}, {'$set': {
+            'whatsapp_decision_lease': {'owner': 'test-worker', 'until': clock[0] + timedelta(seconds=120)}}})
+        cid = (await browser.post('/api/auth/link/phone/request', json={'phone': '9876543214'})).json()['challenge_id']
+        blocked = await browser.post('/api/auth/link/phone/verify', json={
+            'phone': '9876543214', 'challenge_id': cid, 'otp': '123456'})
+        assert blocked.status_code == 409
+        assert (await db.users.find_one({'user_id': 'customer'}))['phone'] == '+919876543211'
+        await db.users.update_one({'user_id': 'customer'}, {'$unset': {'whatsapp_decision_lease': ''}})
         await db.users.insert_one({'user_id': 'other', 'phone': '+919876543212', 'role': 'customer'})
         cid = (await browser.post('/api/auth/link/phone/request', json={'phone': '9876543212'})).json()['challenge_id']
         assert (await browser.post('/api/auth/link/phone/verify', json={'phone': '9876543212', 'challenge_id': cid, 'otp': '123456'})).status_code == 409
