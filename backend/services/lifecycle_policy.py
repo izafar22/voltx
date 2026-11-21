@@ -11,7 +11,7 @@ import jwt
 from fastapi import HTTPException
 from pymongo.errors import PyMongoError
 
-from .repair_facts import text_fact
+from .repair_facts import estimate_facts, text_fact
 
 SCHEMA_VERSION = 3
 CONSENT_SOURCE = "repair_submission_v2"
@@ -260,6 +260,7 @@ class LifecyclePolicy:
             "RECEIVED_AT_VOLTX": {"RECEIVED_AT_VOLTX", "DIAGNOSING"},
             "ESTIMATE_SENT": {"ESTIMATE_SENT"},
             "CUSTOMER_APPROVED": {"CUSTOMER_APPROVED", "REPAIRING"},
+            "CUSTOMER_DECLINED": {"CUSTOMER_DECLINED", "READY_TO_SHIP"},
             "REPAIR_RESULT": {"REPAIR_COMPLETED", "PAYMENT_PENDING"},
             "SHIPPED_TO_CUSTOMER": {"SHIPPED_TO_CUSTOMER"},
         }
@@ -268,14 +269,8 @@ class LifecyclePolicy:
         if job["status"] == "AWAITING_SHIPMENT":
             if job.get("fact_digest") != digest(repair.get("intake_acceptance")):
                 return "business_facts_changed"
-        elif job["status"] in ("ESTIMATE_SENT", "CUSTOMER_APPROVED"):
-            if job.get("fact_digest") != digest(
-                {
-                    k: v
-                    for k, v in (repair.get("estimate") or {}).items()
-                    if k not in ("status", "approved_at", "declined_at")
-                }
-            ):
+        elif job["status"] in ("ESTIMATE_SENT", "CUSTOMER_APPROVED", "CUSTOMER_DECLINED"):
+            if job.get("fact_digest") != digest(estimate_facts(repair)):
                 return "business_facts_changed"
         elif job["status"] == "REPAIR_RESULT":
             if job.get("fact_digest") != digest(repair.get("payment_summary")):

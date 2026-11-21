@@ -27,6 +27,10 @@ INDEX_PLAN = {
         ),
     ],
     "whatsapp_receipts": [([("processed", 1), ("next_check_at", 1)], {})],
+    "whatsapp_action_inbox": [
+        ([("state", 1), ("next_attempt_at", 1)], {}),
+        ([("state", 1), ("lease_until", 1)], {}),
+    ],
     "repair_requests": [([("whatsapp_outbox._id", 1)], {"sparse": True})],
 }
 

@@ -110,6 +110,28 @@ and outbox reconciliation do not change business revision.
 
 ## Configuration and production gates
 
+### Estimate decisions and payment QR (default off)
+
+`WHATSAPP_ESTIMATE_ACTIONS_ENABLED=true` replaces the estimate notice with the
+separately approved actionable template and enables signed inbound Approve/Decline
+processing. It also requires `WHATSAPP_ESTIMATE_ACTION_SECRET` (at least 32 random
+characters) plus exact approved `ESTIMATE_SENT_ACTIONABLE` and `CUSTOMER_DECLINED`
+entries in `WHATSAPP_TEMPLATES_JSON`. Never reuse the Meta app secret or commit this
+action secret. Actions expire after 72 hours and are rejected if the estimate,
+recipient, consent, repair state or originating outbound message no longer matches.
+
+`WHATSAPP_PAYMENT_QR_ENABLED=true` independently selects the approved
+`REPAIR_RESULT_DUE_QR` image-header template for positive verified balances. It
+requires a reviewed `RUSHX_UPI_QR_IMAGE_URL` HTTPS asset and
+`RUSHX_UPI_QR_REVIEWED=true`; otherwise the existing text-only balance template
+remains in use. Zero-balance completion and payment-received messages never use the
+QR variant.
+
+Both gates default false. Before activation, review/create the indexes reported by
+`python -m services.lifecycle_readiness`, confirm the Meta webhook subscribes to
+messages, and use a bounded staging acceptance window. Turning either gate off is
+the immediate feature rollback; it does not disable the established lifecycle.
+
 Use [whatsapp.env.example](whatsapp.env.example) as a non-secret starting point.
 Store credentials in ignored environment files or a secret manager, never browser
 variables, sample files, PRs, logs or screenshots. API and worker share configuration
