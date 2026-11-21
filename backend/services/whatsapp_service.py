@@ -803,7 +803,20 @@ class WhatsAppService:
                 'owner': identity_lease, 'until': self.clock() + timedelta(seconds=120)}}},
             return_document=ReturnDocument.AFTER)
         if not locked_user:
-            await finish('rejected', 'phone_changed')
+            current_user = await self.db.users.find_one({'user_id': user['user_id']})
+            if (not current_user or current_user.get('status', 'active') != 'active'
+                    or current_user.get('phone') != user.get('phone')
+                    or current_user.get('phone_generation', 0) != generation):
+                await finish('rejected', 'phone_changed')
+                return True
+            # Another decision for this user owns the short identity fence.
+            # Preserve this valid action and repeat all eligibility checks later.
+            await self.db.whatsapp_action_inbox.update_one(claim, {
+                '$set': {'state': 'pending', 'next_attempt_at': self.clock() + timedelta(seconds=2),
+                         'outcome': 'identity_lease_contended'},
+                '$inc': {'attempts': -1},
+                '$unset': {'lease': '', 'lease_until': '', 'processed_at': ''},
+            })
             return True
         user = locked_user
 
