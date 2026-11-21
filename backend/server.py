@@ -52,6 +52,7 @@ import math
 import hashlib
 import json
 import base64
+import re
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from decimal import Decimal
 import random
@@ -1180,11 +1181,59 @@ async def safe_validation(request: Request, error: RequestValidationError):
     return await request_validation_exception_handler(request, error)
 
 
+_STAGING_REPAIR_PAYMENT_PATH = re.compile(
+    r"^/api/repairs/(?P<repair_id>[A-Za-z0-9_-]+)/payment(?:/(?:reference|verify))?/?$"
+)
+
+
+async def staging_lifecycle_payment_allowed(path: str) -> bool:
+    """Open only the payment slice required by an active, scoped staging test."""
+    match = _STAGING_REPAIR_PAYMENT_PATH.fullmatch(path)
+    if not match:
+        return False
+    settings = WhatsAppSettings.from_env()
+    if (
+        not settings.enabled
+        or settings.mode != "staging"
+        or not settings.staging_enabled
+        or settings.production_approved
+        or not settings.activation_id
+    ):
+        return False
+    policy = LifecyclePolicy(db, settings)
+    if not await policy.scope(heartbeat=True):
+        return False
+    try:
+        repair = await db.repair_requests.find_one(
+            {"id": match.group("repair_id")},
+            {"user_id": 1, "whatsapp_consent": 1},
+        )
+        user = (
+            await db.users.find_one({"user_id": repair.get("user_id")})
+            if repair
+            else None
+        )
+    except PyMongoError:
+        return False
+    consent = (repair or {}).get("whatsapp_consent") or {}
+    return bool(
+        consent.get("opted_in") is True
+        and consent.get("activation_id") == settings.activation_id
+        and consent.get("scope_id") == policy.scope_id()
+        and consent.get("destination") in settings.staging_recipients
+        and user
+        and preference(repair, user)["state"] == "enabled"
+    )
+
+
 @app.middleware("http")
 async def trusted_origin(request: Request, call_next):
     if auth_settings.environment == "staging" and request.method not in ("GET", "HEAD", "OPTIONS"):
         path = request.scope["path"].lower()
-        if any(segment in path for segment in ("/payment", "/wallet", "/topup")):
+        financial_path = any(
+            segment in path for segment in ("/payment", "/wallet", "/topup")
+        )
+        if financial_path and not await staging_lifecycle_payment_allowed(path):
             return JSONResponse({"detail": "Financial mutations are disabled in staging"}, status_code=403)
     # Server-to-server callers authenticate with their own secret, not a browser Origin.
     if request.method not in ("GET", "HEAD", "OPTIONS") and request.scope["path"] not in ("/api/webhooks/whatsapp", REVALIDATE_PATH):
