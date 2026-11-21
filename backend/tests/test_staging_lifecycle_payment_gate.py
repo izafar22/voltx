@@ -76,28 +76,43 @@ def test_payment_gate_fails_closed(monkeypatch):
         monkeypatch.setenv("APP_ENV", "staging")
         monkeypatch.setenv("DB_NAME", "rushx_staging")
         policy = LifecyclePolicy(db, STAGING_SETTINGS)
-        await db.repair_requests.insert_one(
-            {
-                "id": "rep_test",
-                "user_id": "customer",
+        repair = {
+            "id": "rep_test",
+            "user_id": "customer",
+            "whatsapp_consent": {
+                "opted_in": True,
+                "version": 2,
+                "activation_id": STAGING_SETTINGS.activation_id,
+                "scope_id": policy.scope_id(),
+                "destination": PHONE,
+                "phone_generation": 0,
+            },
+        }
+        user = {
+            "user_id": "customer",
+            "phone": PHONE,
+            "phone_generation": 0,
+            "phone_verified_at": "2026-11-21T00:00:00+00:00",
+        }
+
+        async def reset(consent_change=None, user_change=None):
+            candidate_repair = {
+                **repair,
                 "whatsapp_consent": {
-                    "opted_in": True,
-                    "version": 2,
-                    "activation_id": STAGING_SETTINGS.activation_id,
-                    "scope_id": policy.scope_id(),
-                    "destination": PHONE,
-                    "phone_generation": 0,
+                    **repair["whatsapp_consent"],
+                    **(consent_change or {}),
                 },
             }
-        )
-        await db.users.insert_one(
-            {
-                "user_id": "customer",
-                "phone": PHONE,
-                "phone_generation": 0,
-                "phone_verified_at": "2026-11-21T00:00:00+00:00",
-            }
-        )
+            await db.repair_requests.replace_one(
+                {"id": "rep_test"}, candidate_repair, upsert=True
+            )
+            await db.users.replace_one(
+                {"user_id": "customer"},
+                {**user, **(user_change or {})},
+                upsert=True,
+            )
+
+        await reset()
         with (
             patch.object(server, "db", db),
             patch.object(
@@ -108,17 +123,33 @@ def test_payment_gate_fails_closed(monkeypatch):
             assert not await server.staging_lifecycle_payment_allowed(
                 "/api/repairs/rep_test/payment"
             )
-        await db.repair_requests.update_one(
-            {"id": "rep_test"},
-            {"$set": {"whatsapp_consent.destination": "+919999999999"}},
-        )
+
+        active_scope = AsyncMock(return_value={"active": True})
         with (
             patch.object(server, "db", db),
             patch.object(
                 server.WhatsAppSettings, "from_env", return_value=STAGING_SETTINGS
             ),
-            patch.object(server.LifecyclePolicy, "scope", AsyncMock(return_value={})),
+            patch.object(server.LifecyclePolicy, "scope", active_scope),
         ):
+            await reset({"activation_id": "22222222-2222-4222-8222-222222222222"})
+            assert not await server.staging_lifecycle_payment_allowed(
+                "/api/repairs/rep_test/payment/verify"
+            )
+            await reset({"scope_id": "retired-sender-scope"})
+            assert not await server.staging_lifecycle_payment_allowed(
+                "/api/repairs/rep_test/payment/verify"
+            )
+            other_phone = "+919999999999"
+            await reset({"destination": other_phone}, {"phone": other_phone})
+            assert not await server.staging_lifecycle_payment_allowed(
+                "/api/repairs/rep_test/payment/verify"
+            )
+            await reset(user_change={"phone_generation": 1})
+            assert not await server.staging_lifecycle_payment_allowed(
+                "/api/repairs/rep_test/payment/verify"
+            )
+            await db.repair_requests.delete_one({"id": "rep_test"})
             assert not await server.staging_lifecycle_payment_allowed(
                 "/api/repairs/rep_test/payment/verify"
             )
@@ -128,6 +159,7 @@ def test_payment_gate_fails_closed(monkeypatch):
             assert not await server.staging_lifecycle_payment_allowed(
                 "/api/repairs/other/payment"
             )
+        assert active_scope.await_count == 6
 
     run(scenario())
 
