@@ -179,10 +179,13 @@ def test_signed_webhook_decision_is_sanitized_and_applied_once():
     assert await db.whatsapp_action_inbox.count_documents({"state": "applied"}) == 1
     # Crash-recovery classification: a reclaimed inbox item whose action ID is
     # already in the repair audit remains applied, never becomes stale/rejected.
+    await db.repair_requests.update_one({"id": r["id"]}, {"$set": {"status": "REPAIRING"}})
     await db.whatsapp_action_inbox.update_one({}, {"$set": {
-        "state": "pending", "next_attempt_at": NOW, "processed_at": None}})
+        "state": "pending", "next_attempt_at": NOW, "processed_at": None,
+        "expires_at": NOW - timedelta(seconds=1)}})
     assert await service.apply_estimate_actions() is True
     assert await db.whatsapp_action_inbox.count_documents({"state": "applied"}) == 1
-    assert (await db.repair_requests.find_one({"id": r["id"]}))["revision"] == 5
+    recovered = await db.repair_requests.find_one({"id": r["id"]})
+    assert recovered["status"] == "REPAIRING" and recovered["revision"] == 5
   asyncio.run(scenario())
 
