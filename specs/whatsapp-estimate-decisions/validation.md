@@ -10,7 +10,7 @@ Status: local implementation validation complete; no Meta submission, live send,
 - WhatsApp/lifecycle/auth/profile regression set: `189 passed, 1 deselected` across `test_whatsapp.py`, `test_lifecycle_v3.py`, `test_whatsapp_lifecycle.py`, `test_staging_lifecycle_payment_gate.py`, `test_whatsapp_estimate_actions.py`, `test_auth_lifecycle.py`, and `test_customer_profile.py`. The deselected test is the separately exercised real-Mongo profile concurrency case; this run used disposable mocked MongoDB.
 - Tests use a mocked MongoDB/provider transport and synthetic phone, repair, estimate and QR values. They send no WhatsApp messages.
 
-Covered behavior includes signed payload tamper rejection, ordered approval/decline buttons, webhook signature and duplicate handling, inbox redaction, current-state CAS application, post-commit recovery after expiry/progress, phone-replacement fencing, audit recording, exact reviewed QR header serialization, and text fallback while the QR gate is off.
+Covered behavior includes signed payload tamper rejection, ordered approval/decline buttons, webhook signature and duplicate handling, inbox redaction, current-state CAS application, retryable same-user identity-lease contention, post-commit recovery after expiry/progress, phone-replacement fencing, audit recording, exact reviewed QR header serialization, and text fallback while the QR gate is off.
 
 ## Remaining gates
 

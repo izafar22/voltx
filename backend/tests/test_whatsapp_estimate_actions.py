@@ -169,6 +169,14 @@ def test_signed_webhook_decision_is_sanitized_and_applied_once():
     assert "payload" not in inbox[0] and "from" not in inbox[0] and "text" not in inbox[0]
     await db.whatsapp_action_inbox.update_one({}, {"$set": {"next_attempt_at": NOW}})
     service = WhatsAppService(db, SETTINGS, clock=lambda: NOW)
+    await db.users.update_one({"user_id": VERIFIED["user_id"]}, {"$set": {
+        "whatsapp_decision_lease": {"owner": "other-repair", "until": NOW + timedelta(seconds=60)}}})
+    assert await service.apply_estimate_actions() is True
+    contended = await db.whatsapp_action_inbox.find_one({})
+    assert contended["state"] == "pending" and contended["outcome"] == "identity_lease_contended"
+    assert (await db.repair_requests.find_one({"id": r["id"]}))["status"] == "ESTIMATE_SENT"
+    await db.users.update_one({"user_id": VERIFIED["user_id"]}, {"$unset": {"whatsapp_decision_lease": ""}})
+    await db.whatsapp_action_inbox.update_one({}, {"$set": {"next_attempt_at": NOW}})
     assert await service.apply_estimate_actions() is True
     updated = await db.repair_requests.find_one({"id": r["id"]})
     assert updated["status"] == "CUSTOMER_APPROVED"
