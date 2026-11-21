@@ -1,0 +1,28 @@
+{
+  "ESTIMATE_SENT_ACTIONABLE": {
+    "name": "rushx_estimate_ready_actions_v1",
+    "language": "en",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, the repair estimate for RushX request {{2}} is ready. Estimated repair cost: INR {{3}}. Choose Approve estimate or Decline estimate below. Repair work begins only after approval, subject to technical feasibility.",
+    "parameters": ["customer_name", "repair_number", "estimate_total"],
+    "buttons": ["Approve estimate", "Decline estimate"],
+    "approval_status": "proposed"
+  },
+  "CUSTOMER_DECLINED": {
+    "name": "rushx_estimate_declined_v1",
+    "language": "en",
+    "category": "UTILITY",
+    "body": "Hello {{1}}, your decision to decline the repair estimate for RushX request {{2}} has been recorded. Our team will arrange the appropriate return next step.",
+    "parameters": ["customer_name", "repair_number"],
+    "approval_status": "proposed"
+  },
+  "REPAIR_RESULT_DUE_QR": {
+    "name": "rushx_repair_completed_balance_qr_v1",
+    "language": "en",
+    "category": "UTILITY",
+    "header_format": "IMAGE",
+    "body": "Hello {{1}}, repair work for {{2}} is complete. The outstanding balance is INR {{3}}. Pay the exact amount using the RushX merchant QR above. Payment is complete only after RushX verifies receipt.",
+    "parameters": ["customer_name", "repair_number", "amount_due"],
+    "approval_status": "proposed"
+  }
+}

@@ -1,6 +1,6 @@
 if __package__:
     from .services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter, WhatsAppService
-    from .services.repair_facts import validate_transition_facts, calculated_estimate, money, text_fact, exact_money_input, MONEY_FIELDS
+    from .services.repair_facts import validate_transition_facts, calculated_estimate, estimate_facts, money, text_fact, exact_money_input, MONEY_FIELDS
     from .services.safety_indexes import initialize_safety_indexes
     from .services.payment_repository import MongoPaymentRepository
     from .services.payment_config import public_payment_instructions
@@ -12,7 +12,7 @@ if __package__:
     from .services.studio_cms import studio_router, REVALIDATE_PATH
 else:
     from services.whatsapp_service import Settings as WhatsAppSettings, consent_record, event_for, webhook_router, WebhookAccessLogFilter, WhatsAppService
-    from services.repair_facts import validate_transition_facts, calculated_estimate, money, text_fact, exact_money_input, MONEY_FIELDS
+    from services.repair_facts import validate_transition_facts, calculated_estimate, estimate_facts, money, text_fact, exact_money_input, MONEY_FIELDS
     from services.safety_indexes import initialize_safety_indexes
     from services.payment_repository import MongoPaymentRepository
     from services.payment_config import public_payment_instructions
@@ -26,9 +26,9 @@ else:
 from dotenv import load_dotenv
 from pathlib import Path
 if __package__:
-    from .services.lifecycle_policy import LifecyclePolicy, instruction_preview, preference
+    from .services.lifecycle_policy import LifecyclePolicy, digest, instruction_preview, preference
 else:
-    from services.lifecycle_policy import LifecyclePolicy, instruction_preview, preference
+    from services.lifecycle_policy import LifecyclePolicy, digest, instruction_preview, preference
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -943,6 +943,12 @@ async def update_repair_status(rid: str, body: RepairStatusUpdate, user=Depends(
         upd["estimate.status"] = "DECLINED"
         upd["estimate.declined_at"] = now
     event_id = nid("evt")
+    if target in ("CUSTOMER_APPROVED", "CUSTOMER_DECLINED"):
+        upd["estimate.decision_audit"] = {
+            "channel": "web", "decision": "approve" if target == "CUSTOMER_APPROVED" else "decline",
+            "at": now, "actor": user["user_id"], "action_id": event_id,
+            "estimate_fingerprint": digest(estimate_facts(r)),
+        }
     pushes = {"status_history": {"event_id": event_id, "status": target, "by": user["user_id"], "at": now, "note": body.note}}
     settings = WhatsAppSettings.from_env()
     customer = None

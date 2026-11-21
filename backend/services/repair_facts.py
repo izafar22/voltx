@@ -69,6 +69,22 @@ def estimate_total(repair, published=False):
     return format(computed, ".2f")
 
 
+def estimate_facts(repair):
+    """Immutable published quote facts; decision metadata never changes its digest."""
+    return {
+        key: value
+        for key, value in (repair.get("estimate") or {}).items()
+        if key
+        not in (
+            "status",
+            "approved_at",
+            "declined_at",
+            "decision_audit",
+            "whatsapp_action",
+        )
+    }
+
+
 def amount_due(repair):
     from .payment_service import verified_balance_summary
 

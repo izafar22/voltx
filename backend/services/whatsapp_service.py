@@ -1,6 +1,7 @@
 """RushX notification outbox. No network I/O occurs in repair request handlers."""
 
 import asyncio
+import base64
 import hashlib
 import hmac
 import json
@@ -15,7 +16,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from .payment_config import public_payment_instructions, valid_public_qr_url
-from .repair_facts import estimate_total, amount_due, shipment_details, text_fact
+from .repair_facts import estimate_total, estimate_facts, amount_due, shipment_details, text_fact
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -35,7 +36,10 @@ CATALOG = json.loads(
 )
 STATUS_TEXT = {status: template["body"] for status, template in CATALOG.items()}
 LIFECYCLE_CATALOG = json.loads((Path(__file__).resolve().parents[1] / 'templates' / 'whatsapp_lifecycle_catalog.json').read_text())
-LOGICAL_LIFECYCLE_EVENTS = (set(LIFECYCLE_CATALOG) - {'REPAIR_RESULT_DUE', 'REPAIR_RESULT_CLEAR'}) | {'REPAIR_RESULT'}
+ACTION_CATALOG = json.loads((Path(__file__).resolve().parents[1] / 'templates' / 'whatsapp_estimate_actions_catalog.json').read_text())
+ACTIVE_CATALOG = {**LIFECYCLE_CATALOG, **ACTION_CATALOG}
+LOGICAL_LIFECYCLE_EVENTS = ((set(LIFECYCLE_CATALOG) - {'REPAIR_RESULT_DUE', 'REPAIR_RESULT_CLEAR'})
+                            | {'REPAIR_RESULT', 'CUSTOMER_DECLINED'})
 SCHEMA_VERSION = 2  # Legacy transport fixtures/history; runtime-enabled jobs use lifecycle v3.
 RANK = {"sent": 1, "failed": 2, "delivered": 3, "read": 4}
 
@@ -78,6 +82,9 @@ class Settings:
     staging_recipients: tuple = field(default=(), repr=False)
     staging_sender: str = field(default="", repr=False)
     staging_enabled: bool = False
+    estimate_actions_enabled: bool = False
+    estimate_action_secret: str = field(default="", repr=False)
+    payment_qr_enabled: bool = False
 
     @classmethod
     def from_env(cls):
@@ -94,6 +101,9 @@ class Settings:
                      and bool(os.getenv("WHATSAPP_LIFECYCLE_ACTIVATION_ID", ""))),
             activation_id=os.getenv("WHATSAPP_LIFECYCLE_ACTIVATION_ID", ""),
             staging_enabled=os.getenv("STAGING_LIFECYCLE_TEST_ENABLED", "false").lower() == "true",
+            estimate_actions_enabled=os.getenv("WHATSAPP_ESTIMATE_ACTIONS_ENABLED", "false").lower() == "true",
+            estimate_action_secret=os.getenv("WHATSAPP_ESTIMATE_ACTION_SECRET", ""),
+            payment_qr_enabled=os.getenv("WHATSAPP_PAYMENT_QR_ENABLED", "false").lower() == "true",
             staging_sender=os.getenv("STAGING_LIFECYCLE_PHONE_NUMBER_ID", ""),
             staging_recipients=tuple(x.strip() for x in os.getenv("STAGING_LIFECYCLE_ALLOWED_PHONES", "").split(',') if x.strip()),
             access_token=os.getenv("WHATSAPP_ACCESS_TOKEN", ""),
@@ -115,6 +125,55 @@ class Settings:
                 if x.strip()
             ),
         )
+
+
+def _b64(value):
+    return base64.urlsafe_b64encode(value).decode().rstrip("=")
+
+
+def _unb64(value):
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+def destination_digest(destination):
+    return hashlib.sha256(destination.encode()).hexdigest()[:16]
+
+
+def estimate_action_token(job, decision, settings):
+    if decision not in ("approve", "decline") or len(settings.estimate_action_secret) < 32:
+        raise ConfigurationError()
+    expires = job.get("action_expires_at")
+    if not isinstance(expires, datetime):
+        raise SnapshotError()
+    claims = {"v": 1, "r": hashlib.sha256(job["repair_id"].encode()).hexdigest()[:16], "a": decision,
+              "f": job["fact_digest"][:32], "d": destination_digest(job["destination"]),
+              "e": int(expires.timestamp())}
+    encoded = _b64(json.dumps(claims, sort_keys=True, separators=(",", ":")).encode())
+    signature = _b64(hmac.new(settings.estimate_action_secret.encode(), encoded.encode(), hashlib.sha256).digest())
+    token = f"rx1.{encoded}.{signature}"
+    if len(token) > 256:
+        raise SnapshotError()
+    return token
+
+
+def decode_estimate_action(token, settings):
+    if not isinstance(token, str) or len(token) > 256 or len(settings.estimate_action_secret) < 32:
+        raise SnapshotError()
+    try:
+        prefix, encoded, signature = token.split(".")
+        expected = _b64(hmac.new(settings.estimate_action_secret.encode(), encoded.encode(), hashlib.sha256).digest())
+        if prefix != "rx1" or not hmac.compare_digest(signature, expected):
+            raise ValueError()
+        claims = json.loads(_unb64(encoded))
+        if (set(claims) != {"v", "r", "a", "f", "d", "e"} or claims["v"] != 1
+                or claims["a"] not in ("approve", "decline")
+                or not re.fullmatch(r"[0-9a-f]{16}", claims["r"]) or not re.fullmatch(r"[0-9a-f]{32}", claims["f"])
+                or not re.fullmatch(r"[0-9a-f]{16}", claims["d"])
+                or isinstance(claims["e"], bool) or not isinstance(claims["e"], int)):
+            raise ValueError()
+        return claims
+    except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+        raise SnapshotError() from None
 
 
 def consent_record(opt_in, user, at):
@@ -220,10 +279,12 @@ def lifecycle_event(repair, status, event_id, settings, customer=None, payment_e
         if not facts:
             return None
         values['dispatch_address'] = facts['address']
-    elif status in ('ESTIMATE_SENT', 'CUSTOMER_APPROVED'):
-        facts = {k: v for k, v in (repair.get('estimate') or {}).items() if k not in ('status', 'approved_at', 'declined_at')}
+    elif status in ('ESTIMATE_SENT', 'CUSTOMER_APPROVED', 'CUSTOMER_DECLINED'):
+        facts = estimate_facts(repair)
         if status == 'ESTIMATE_SENT':
             values['estimate_total'] = estimate_total(repair)
+            if settings.estimate_actions_enabled:
+                key = 'ESTIMATE_SENT_ACTIONABLE'
     elif status == 'SHIPPED_TO_CUSTOMER':
         facts = repair.get('return_shipment')
         values.update(shipment_details(repair))
@@ -231,10 +292,13 @@ def lifecycle_event(repair, status, event_id, settings, customer=None, payment_e
         if not payment_event or payment_event.get('type') != 'PaymentReceived':
             return None
         values.update({k: payment_event[k] for k in ('verified_amount', 'safe_reference')})
-    if key not in LIFECYCLE_CATALOG:
+    if (status == 'REPAIR_RESULT' and key == 'REPAIR_RESULT_DUE'
+            and settings.payment_qr_enabled and valid_public_qr_url(settings.payment_qr_url)):
+        key = 'REPAIR_RESULT_DUE_QR'
+    if key not in ACTIVE_CATALOG:
         return None
     at = now()
-    return {'_id': f"{repair['id']}:{status if status in ('REQUESTED', 'REPAIR_RESULT') else event_id}",
+    event = {'_id': f"{repair['id']}:{status if status in ('REQUESTED', 'REPAIR_RESULT') else event_id}",
             'repair_id': repair['id'], 'user_id': repair['user_id'], 'event_id': event_id, 'status': status,
             'schema_version': 3, 'template_key': key, 'values': values,
             'delivery_scope': {'mode': settings.mode, 'phone_number_id': settings.phone_number_id},
@@ -244,6 +308,11 @@ def lifecycle_event(repair, status, event_id, settings, customer=None, payment_e
             'occurred_at': at, 'expires_at': at + timedelta(hours=24),
             'source_revision': (repair.get('revision') or 0) + (0 if status == 'REQUESTED' else 1), 'fact_digest': digest(facts),
             'receipt_id': (payment_event or {}).get('payment_id') if status == 'PAYMENT_RECEIVED' else None}
+    if key == 'ESTIMATE_SENT_ACTIONABLE':
+        event['action_expires_at'] = at + timedelta(hours=72)
+    if key == 'REPAIR_RESULT_DUE_QR':
+        event['qr_image_url'] = settings.payment_qr_url
+    return event
 
 
 def payment_received_notification(repair, event, settings, customer=None):
@@ -269,7 +338,7 @@ def configured_template(status, settings):
     template = (
         settings.templates.get(status) if isinstance(settings.templates, dict) else None
     )
-    catalog = LIFECYCLE_CATALOG if settings.activation_id else CATALOG
+    catalog = ACTIVE_CATALOG if settings.activation_id else CATALOG
     catalog_status = "PAYMENT_PENDING" if status == "PAYMENT_PENDING_QR" else status
     if not isinstance(template, dict) or catalog_status not in catalog:
         raise ConfigurationError()
@@ -328,6 +397,15 @@ def validate_settings(settings):
             raise ConfigurationError() from None
         for key in LIFECYCLE_CATALOG:
             configured_template(key, settings)
+        if settings.estimate_actions_enabled:
+            if len(settings.estimate_action_secret) < 32:
+                raise ConfigurationError()
+            configured_template('ESTIMATE_SENT_ACTIONABLE', settings)
+            configured_template('CUSTOMER_DECLINED', settings)
+        if settings.payment_qr_enabled:
+            if not valid_public_qr_url(settings.payment_qr_url):
+                raise ConfigurationError()
+            configured_template('REPAIR_RESULT_DUE_QR', settings)
     if settings.mode == "staging":
         if os.getenv('APP_ENV') != 'staging':
             raise ConfigurationError()
@@ -374,11 +452,20 @@ def message_payload(job, settings):
         if job.get('status') not in LOGICAL_LIFECYCLE_EVENTS:
             raise SnapshotError()
         key = job.get('template_key', job.get('status'))
-        expected = key if job.get('status') == 'REPAIR_RESULT' and key in ('REPAIR_RESULT_DUE', 'REPAIR_RESULT_CLEAR') else job.get('status')
-        if key != expected or key not in LIFECYCLE_CATALOG:
+        allowed_keys = {
+            'ESTIMATE_SENT': {'ESTIMATE_SENT', 'ESTIMATE_SENT_ACTIONABLE'},
+            'REPAIR_RESULT': {'REPAIR_RESULT_DUE', 'REPAIR_RESULT_CLEAR', 'REPAIR_RESULT_DUE_QR'},
+        }.get(job.get('status'), {job.get('status')})
+        if key not in allowed_keys or key not in ACTIVE_CATALOG:
             raise SnapshotError()
+        if key == 'ESTIMATE_SENT_ACTIONABLE' and not settings.estimate_actions_enabled:
+            raise ConfigurationError()
+        if key == 'CUSTOMER_DECLINED' and not settings.estimate_actions_enabled:
+            raise ConfigurationError()
+        if key == 'REPAIR_RESULT_DUE_QR' and not settings.payment_qr_enabled:
+            raise ConfigurationError()
         values = job.get('values', {})
-        params = LIFECYCLE_CATALOG[key]['parameters']
+        params = ACTIVE_CATALOG[key]['parameters']
         if set(values) != set(params) or any(not text_fact(v, 1024) for v in values.values()):
             raise SnapshotError()
         for name in ('amount_due', 'estimate_total', 'verified_amount'):
@@ -396,6 +483,21 @@ def message_payload(job, settings):
         if template['parameters']:
             body['components'] = [{'type': 'body', 'parameters': [
                 {'type': 'text', 'text': values[p]} for p in template['parameters']]}]
+        if key == 'ESTIMATE_SENT_ACTIONABLE':
+            expires = job.get('action_expires_at')
+            if not isinstance(expires, datetime):
+                raise SnapshotError()
+            body.setdefault('components', []).extend([
+                {'type': 'button', 'sub_type': 'quick_reply', 'index': str(index),
+                 'parameters': [{'type': 'payload', 'payload': estimate_action_token(job, decision, settings)}]}
+                for index, decision in enumerate(('approve', 'decline'))
+            ])
+        if key == 'REPAIR_RESULT_DUE_QR':
+            url = job.get('qr_image_url', '')
+            if url != settings.payment_qr_url or not valid_public_qr_url(url):
+                raise ConfigurationError()
+            body.setdefault('components', []).insert(0, {
+                'type': 'header', 'parameters': [{'type': 'image', 'image': {'link': url}}]})
         return {'messaging_product': 'whatsapp', 'to': destination, 'type': 'template',
                 'template': body, 'biz_opaque_callback_data': job['_id']}
 
@@ -476,6 +578,10 @@ class WhatsAppService:
         await self.db.whatsapp_receipts.create_index(
             [("processed", 1), ("next_check_at", 1)]
         )
+        action_inbox = getattr(self.db, 'whatsapp_action_inbox', None)
+        if action_inbox is not None:
+            await action_inbox.create_index([("state", 1), ("next_attempt_at", 1)])
+            await action_inbox.create_index([("state", 1), ("lease_until", 1)])
 
     async def recover_notification_intents(self, repair_id=None):
         from .lifecycle_policy import LifecyclePolicy
@@ -607,6 +713,101 @@ class WhatsAppService:
                 {"_id": receipt["_id"]}, {"$set": {"processed": True}}
             )
 
+    async def apply_estimate_actions(self):
+        """Apply one signed inbound decision with a revision-fenced repair update."""
+        if not self.settings.estimate_actions_enabled or not self.settings.activation_id:
+            return False
+        from copy import deepcopy
+        from .lifecycle_policy import LifecyclePolicy, digest, preference
+
+        policy = LifecyclePolicy(self.db, self.settings, self.clock)
+        if not await policy.scope(heartbeat=True):
+            return False
+        at, lease = self.clock(), uuid.uuid4().hex
+        action = await self.db.whatsapp_action_inbox.find_one_and_update(
+            {'$or': [
+                {'state': {'$in': ['pending', 'retryable_failure']},
+                 'next_attempt_at': {'$lte': at}},
+                {'state': 'processing', 'lease_until': {'$lte': at}},
+            ]},
+            {'$set': {'state': 'processing', 'lease': lease,
+                      'lease_until': at + timedelta(seconds=120)},
+             '$inc': {'attempts': 1}},
+            sort=[('created_at', 1)], return_document=ReturnDocument.AFTER)
+        if not action:
+            return False
+        claim = {'_id': action['_id'], 'state': 'processing', 'lease': lease}
+
+        async def finish(state, outcome):
+            await self.db.whatsapp_action_inbox.update_one(claim, {
+                '$set': {'state': state, 'outcome': outcome, 'processed_at': self.clock()},
+                '$unset': {'lease': '', 'lease_until': ''},
+            })
+
+        expires = action.get('expires_at')
+        if not isinstance(expires, datetime):
+            await finish('rejected', 'invalid_action')
+            return True
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires <= at:
+            await finish('rejected', 'action_expired')
+            return True
+        job = await self.db.whatsapp_jobs.find_one({
+            'message_id': action.get('source_message_id'),
+            'status': 'ESTIMATE_SENT', 'template_key': 'ESTIMATE_SENT_ACTIONABLE',
+            'destination': {'$exists': True},
+            'state': {'$in': ['sent', 'delivered', 'read']},
+            'activation_id': self.settings.activation_id,
+        })
+        if (not job or hashlib.sha256(job['repair_id'].encode()).hexdigest()[:16] != action.get('repair_digest')
+                or destination_digest(job['destination']) != action.get('destination_digest')
+                or destination_digest(job['destination']) != action.get('sender_digest')):
+            await finish('rejected', 'source_not_eligible')
+            return True
+        repair = await self.db.repair_requests.find_one({'id': job['repair_id']})
+        user = await self.db.users.find_one({'user_id': (repair or {}).get('user_id')})
+        if (not repair or not user or user.get('status', 'active') != 'active'
+                or preference(repair, user)['state'] != 'enabled'
+                or repair.get('status') != 'ESTIMATE_SENT'
+                or (repair.get('estimate') or {}).get('status') != 'SENT'
+                or not digest(estimate_facts(repair)).startswith(action.get('fact_digest', ''))
+                or not job.get('fact_digest', '').startswith(action.get('fact_digest', ''))):
+            await finish('rejected', 'decision_stale')
+            return True
+        target = 'CUSTOMER_APPROVED' if action['decision'] == 'approve' else 'CUSTOMER_DECLINED'
+        event_id = 'evt_' + uuid.uuid4().hex
+        decided_at = at.isoformat()
+        audit = {'channel': 'whatsapp', 'decision': action['decision'], 'at': decided_at,
+                 'actor': repair['user_id'], 'action_id': action['_id'],
+                 'estimate_fingerprint': job['fact_digest']}
+        next_repair = deepcopy(repair)
+        next_repair['status'] = target
+        next_repair.setdefault('estimate', {})['status'] = (
+            'APPROVED' if target == 'CUSTOMER_APPROVED' else 'DECLINED')
+        next_repair['estimate']['approved_at' if target == 'CUSTOMER_APPROVED' else 'declined_at'] = decided_at
+        next_repair['estimate']['decision_audit'] = audit
+        event = await policy.event(next_repair, target, event_id, customer=user)
+        pushes = {'status_history': {'event_id': event_id, 'status': target,
+            'by': repair['user_id'], 'at': decided_at,
+            'note': 'Recorded from authenticated WhatsApp estimate action'}}
+        if event:
+            pushes['whatsapp_outbox'] = event
+        set_values = {'status': target, 'updated_at': decided_at,
+                      'estimate.status': next_repair['estimate']['status'],
+                      'estimate.decision_audit': audit}
+        set_values['estimate.approved_at' if target == 'CUSTOMER_APPROVED'
+                   else 'estimate.declined_at'] = decided_at
+        result = await self.db.repair_requests.update_one(
+            {'id': repair['id'], 'revision': repair.get('revision', 0),
+             'status': 'ESTIMATE_SENT', 'estimate.status': 'SENT'},
+            {'$set': set_values, '$push': pushes, '$inc': {'revision': 1}})
+        if not result.modified_count:
+            await finish('rejected', 'decision_raced')
+            return True
+        await finish('applied', target.lower())
+        return True
+
     async def metrics(self):
         at = self.clock()
         states = (
@@ -657,6 +858,10 @@ class WhatsAppService:
             {"state": "dead_letter", "error_code": "configuration_invalid"}
         )
         readiness = {}
+        action_counts = {}
+        if self.settings.estimate_actions_enabled:
+            action_counts = {state: await self.db.whatsapp_action_inbox.count_documents({'state': state})
+                             for state in ('pending', 'processing', 'applied', 'rejected')}
         if self.settings.activation_id:
             from .lifecycle_policy import LifecyclePolicy
             policy = LifecyclePolicy(self.db, self.settings, self.clock)
@@ -664,6 +869,7 @@ class WhatsAppService:
                          'worker_healthy': bool(await policy.scope(heartbeat=True))}
         return {
             **readiness,
+            "estimate_actions": action_counts,
             "counts": counts,
             "oldest_pending_seconds": lag,
             "expired_leases": expired,
@@ -1014,6 +1220,7 @@ class WhatsAppService:
                         'activation_id': self.settings.activation_id}, {'$set': {'heartbeat_at': self.clock()}})
                 await self.reconcile()
                 await self.apply_receipts()
+                await self.apply_estimate_actions()
                 if stop is not None and stop.is_set():
                     break
                 busy = await self.process_one()
@@ -1065,6 +1272,7 @@ def webhook_router(db_provider, settings_provider=Settings.from_env):
             if data.get("object") != "whatsapp_business_account":
                 return {"ok": True}
             receipts = []
+            actions = []
             for entry in data.get("entry", []):
                 for change in entry.get("changes", []):
                     value = change.get("value", {})
@@ -1123,6 +1331,35 @@ def webhook_router(db_provider, settings_provider=Settings.from_env):
                                 ),
                             }
                         )
+                    if settings.estimate_actions_enabled:
+                        for message in value.get('messages', []):
+                            if len(actions) >= 100:
+                                raise HTTPException(413, 'Too many webhook actions')
+                            if message.get('type') != 'button':
+                                continue
+                            payload = (message.get('button') or {}).get('payload')
+                            sender, inbound_id = message.get('from'), message.get('id')
+                            context_id = (message.get('context') or {}).get('id')
+                            if (not isinstance(sender, str) or not re.fullmatch(r'[1-9][0-9]{7,14}', sender)
+                                    or not isinstance(inbound_id, str) or not 0 < len(inbound_id) <= 512
+                                    or not isinstance(context_id, str) or not 0 < len(context_id) <= 512):
+                                raise ValueError()
+                            try:
+                                claims = decode_estimate_action(payload, settings)
+                            except SnapshotError:
+                                continue
+                            sender_hash = destination_digest('+' + sender)
+                            if sender_hash != claims['d']:
+                                continue
+                            actions.append({
+                                '_id': hashlib.sha256(inbound_id.encode()).hexdigest(),
+                                'repair_digest': claims['r'], 'decision': claims['a'],
+                                'fact_digest': claims['f'], 'destination_digest': claims['d'],
+                                'expires_at': datetime.fromtimestamp(claims['e'], timezone.utc),
+                                'source_message_id': context_id, 'sender_digest': sender_hash,
+                                'state': 'pending', 'attempts': 0, 'created_at': now(),
+                                'next_attempt_at': now(),
+                            })
         except (ValueError, TypeError, KeyError, AttributeError):
             raise HTTPException(400, "Invalid webhook payload")
         for receipt in receipts:
@@ -1132,7 +1369,13 @@ def webhook_router(db_provider, settings_provider=Settings.from_env):
                 )
             except DuplicateKeyError:
                 pass
-        # Durable inbox only; processing is independent, and inbound messages never trigger replies.
+        for action in actions:
+            try:
+                await db_provider().whatsapp_action_inbox.update_one(
+                    {'_id': action['_id']}, {'$setOnInsert': action}, upsert=True)
+            except DuplicateKeyError:
+                pass
+        # Durable inbox only; business transitions are independent of webhook acknowledgement.
         return {"ok": True}
 
     return router
