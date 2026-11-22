@@ -88,6 +88,14 @@ def test_reviewed_staging_qr_requires_exact_isolated_asset_gate(safe_env):
         ),
     })
     validate_staging_environment(safe_env)
+    for unsafe_url in (
+        "https://staging.evchargerrepair.in:8443/payment-assets/qr.jpeg",
+        "https://staging.evchargerrepair.in/payment-assets/../qr.jpeg",
+        "https://staging.evchargerrepair.in/payment-assets/%2e%2e/qr.jpeg",
+    ):
+        safe_env["RUSHX_UPI_QR_IMAGE_URL"] = unsafe_url
+        with pytest.raises(RuntimeError):
+            validate_staging_environment(safe_env)
 
 
 @pytest.mark.parametrize("otp_mode,expose,origins", [

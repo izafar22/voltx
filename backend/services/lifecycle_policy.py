@@ -106,8 +106,8 @@ class LifecyclePolicy:
         ):
             return None
         if s.mode == "staging":
-            if s.staging_continuous:
-                if scope.get("continuous") is not True:
+            if scope.get("continuous") is True:
+                if not s.staging_continuous:
                     return None
             else:
                 until = scope.get("test_until")

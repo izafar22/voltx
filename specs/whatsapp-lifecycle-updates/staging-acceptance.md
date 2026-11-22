@@ -1,6 +1,9 @@
 # WhatsApp lifecycle staging acceptance
 
-Status: IN_PROGRESS. Operator verification date: 2026-11-20. No lifecycle test messages have been sent and no test window has started.
+Status: IN_PROGRESS. On 2026-11-21 the authorized positive-balance acceptance
+journey delivered all eight lifecycle jobs on their first attempt. The activation
+was then paused and the worker stopped. On 2026-11-20, before that acceptance run,
+no lifecycle test messages had been sent and no test window had started.
 
 Update 2026-11-22: the owner requested continuously functioning staging rather than
 a bounded acceptance-only window and attested that the supplied PhonePe QR belongs

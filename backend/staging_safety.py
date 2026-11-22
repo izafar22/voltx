@@ -57,8 +57,9 @@ def validate_staging_environment(env=None):
             env.get("WHATSAPP_PAYMENT_QR_ENABLED", "false").lower() != "true"
             or env.get("WHATSAPP_ENABLED", "false").lower() != "true"
             or qr.scheme != "https"
-            or (qr.hostname or "").lower() != "staging.evchargerrepair.in"
+            or qr.netloc.lower() != "staging.evchargerrepair.in"
             or not qr.path.startswith("/payment-assets/")
+            or any(unquote(segment) in (".", "..") for segment in qr.path.split("/"))
             or qr.query
             or qr.fragment
         ):

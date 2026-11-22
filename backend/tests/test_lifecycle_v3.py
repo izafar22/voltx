@@ -779,6 +779,16 @@ def test_explicit_continuous_staging_scope_does_not_require_expiry(monkeypatch):
             {"_id": policy.scope_id()}, {"$set": {"continuous": False}}
         )
         assert not await policy.scope()
+        await db.whatsapp_control.update_one(
+            {"_id": policy.scope_id()},
+            {
+                "$set": {
+                    "continuous": False,
+                    "test_until": datetime.now(timezone.utc) + timedelta(minutes=10),
+                }
+            },
+        )
+        assert await policy.scope()
 
     run(scenario)
 
