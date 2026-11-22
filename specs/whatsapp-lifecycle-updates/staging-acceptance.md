@@ -2,6 +2,15 @@
 
 Status: IN_PROGRESS. Operator verification date: 2026-11-20. No lifecycle test messages have been sent and no test window has started.
 
+Update 2026-11-22: the owner requested continuously functioning staging rather than
+a bounded acceptance-only window and attested that the supplied PhonePe QR belongs
+to the legitimate RushX sole proprietorship/current GST identity even though it
+displays the proprietor's legal name. The image remains staging-only. The three new
+Utility templates (actionable estimate, decline acknowledgement and balance-due QR)
+were submitted through Meta and were PENDING immediately after submission. Continuous
+activation and both new feature gates must remain off until the code change is
+reviewed/deployed and the exact templates are independently verified APPROVED.
+
 ## Scope and authorization
 
 The owner requested end-to-end completion and explicitly approved staging-only worker/index setup and a 60-minute test window, starting only after template approval and readiness pass. The sole approved recipient is recorded privately in staging configuration (ending 7681); no full recipient number or credentials belong in this document. Production deployment/activation and messages to other recipients are outside this authorization.

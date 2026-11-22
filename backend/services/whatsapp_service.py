@@ -82,6 +82,7 @@ class Settings:
     staging_recipients: tuple = field(default=(), repr=False)
     staging_sender: str = field(default="", repr=False)
     staging_enabled: bool = False
+    staging_continuous: bool = False
     estimate_actions_enabled: bool = False
     estimate_action_secret: str = field(default="", repr=False)
     payment_qr_enabled: bool = False
@@ -101,6 +102,9 @@ class Settings:
                      and bool(os.getenv("WHATSAPP_LIFECYCLE_ACTIVATION_ID", ""))),
             activation_id=os.getenv("WHATSAPP_LIFECYCLE_ACTIVATION_ID", ""),
             staging_enabled=os.getenv("STAGING_LIFECYCLE_TEST_ENABLED", "false").lower() == "true",
+            staging_continuous=os.getenv(
+                "STAGING_LIFECYCLE_CONTINUOUS_ENABLED", "false"
+            ).lower() == "true",
             estimate_actions_enabled=os.getenv("WHATSAPP_ESTIMATE_ACTIONS_ENABLED", "false").lower() == "true",
             estimate_action_secret=os.getenv("WHATSAPP_ESTIMATE_ACTION_SECRET", ""),
             payment_qr_enabled=os.getenv("WHATSAPP_PAYMENT_QR_ENABLED", "false").lower() == "true",

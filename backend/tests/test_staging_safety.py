@@ -52,6 +52,44 @@ def test_production_configuration_not_changed(safe_env):
     validate_staging_environment(safe_env)
 
 
+def test_continuous_staging_requires_isolated_lifecycle_gates(safe_env):
+    safe_env["STAGING_LIFECYCLE_CONTINUOUS_ENABLED"] = "true"
+    with pytest.raises(RuntimeError):
+        validate_staging_environment(safe_env)
+    safe_env.update({
+        "WHATSAPP_ENABLED": "true",
+        "WHATSAPP_LIFECYCLE_ENABLED": "true",
+        "STAGING_LIFECYCLE_TEST_ENABLED": "true",
+        "WHATSAPP_MODE": "staging",
+        "WHATSAPP_LIFECYCLE_ACTIVATION_ID": "11111111-1111-4111-8111-111111111111",
+        "STAGING_LIFECYCLE_PHONE_NUMBER_ID": "123456789",
+        "WHATSAPP_PHONE_NUMBER_ID": "123456789",
+        "STAGING_LIFECYCLE_ALLOWED_PHONES": "+919876543210",
+    })
+    validate_staging_environment(safe_env)
+
+
+def test_reviewed_staging_qr_requires_exact_isolated_asset_gate(safe_env):
+    safe_env["RUSHX_UPI_QR_REVIEWED"] = "true"
+    with pytest.raises(RuntimeError):
+        validate_staging_environment(safe_env)
+    safe_env.update({
+        "WHATSAPP_ENABLED": "true",
+        "WHATSAPP_LIFECYCLE_ENABLED": "true",
+        "STAGING_LIFECYCLE_TEST_ENABLED": "true",
+        "WHATSAPP_MODE": "staging",
+        "WHATSAPP_LIFECYCLE_ACTIVATION_ID": "11111111-1111-4111-8111-111111111111",
+        "STAGING_LIFECYCLE_PHONE_NUMBER_ID": "123456789",
+        "WHATSAPP_PHONE_NUMBER_ID": "123456789",
+        "STAGING_LIFECYCLE_ALLOWED_PHONES": "+919876543210",
+        "WHATSAPP_PAYMENT_QR_ENABLED": "true",
+        "RUSHX_UPI_QR_IMAGE_URL": (
+            "https://staging.evchargerrepair.in/payment-assets/rushx-merchant-qr.jpeg"
+        ),
+    })
+    validate_staging_environment(safe_env)
+
+
 @pytest.mark.parametrize("otp_mode,expose,origins", [
     ("demo", False, ("https://staging.evchargerrepair.in",)),
     ("provider", True, ("https://staging.evchargerrepair.in",)),

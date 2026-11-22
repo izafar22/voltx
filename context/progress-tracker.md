@@ -42,3 +42,11 @@ CI second run: shadow assertions passed; icon assertions exposed `.rx-public a {
 | IN_PROGRESS | WhatsApp repair form layout hotfix (post-1.0.4) | `hotfix/whatsapp-consent-grid-layout` restores the prior two-column grid for the disabled Coming Soon checkbox/label after the 1.0.4 production screenshot showed severe text wrapping. Preserves `whatsapp_opt_in: false`. JSX regression assertion updated; unit tests/build and rendered layout intentionally not run at preparation time. PR review and release approval pending. |
 
 | IN_PROGRESS | RushX 1.0.6 checkbox alignment hotfix | `hotfix/whatsapp-checkbox-alignment-1.0.6`: screenshot after 1.0.5 showed disabled WhatsApp checkbox lower than label. Remove `mt-1` and apply `self-start`; keep grid and consent opt-out. DOM regression assertion added; tests, CI and browser rendering not yet verified. Merge/release/deploy require separate approval. |
+## 2026-11-22 — continuous staging WhatsApp follow-up
+
+- Prepared an explicit continuous-staging lifecycle gate; the existing bounded
+  1–120 minute acceptance window remains the default.
+- Added a fail-closed exception for an operator-reviewed sole-proprietor merchant QR
+  hosted under the isolated staging payment-asset path. Production behavior is unchanged.
+- Submitted the actionable estimate, estimate-declined and balance-due QR Utility
+  templates to Meta; all three were pending at the time of submission.
