@@ -92,6 +92,7 @@ def test_reviewed_staging_qr_requires_exact_isolated_asset_gate(safe_env):
         "https://staging.evchargerrepair.in:8443/payment-assets/qr.jpeg",
         "https://staging.evchargerrepair.in/payment-assets/../qr.jpeg",
         "https://staging.evchargerrepair.in/payment-assets/%2e%2e/qr.jpeg",
+        "https://staging.evchargerrepair.in/payment-assets/%2e%2e%2fqr.jpeg",
     ):
         safe_env["RUSHX_UPI_QR_IMAGE_URL"] = unsafe_url
         with pytest.raises(RuntimeError):

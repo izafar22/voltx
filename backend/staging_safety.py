@@ -53,13 +53,14 @@ def validate_staging_environment(env=None):
         raise RuntimeError("Continuous staging lifecycle requires WhatsApp delivery gates")
     if env.get("RUSHX_UPI_QR_REVIEWED", "false").lower() == "true":
         qr = urlsplit(env.get("RUSHX_UPI_QR_IMAGE_URL", ""))
+        decoded_path = unquote(qr.path)
         if (
             env.get("WHATSAPP_PAYMENT_QR_ENABLED", "false").lower() != "true"
             or env.get("WHATSAPP_ENABLED", "false").lower() != "true"
             or qr.scheme != "https"
             or qr.netloc.lower() != "staging.evchargerrepair.in"
             or not qr.path.startswith("/payment-assets/")
-            or any(unquote(segment) in (".", "..") for segment in qr.path.split("/"))
+            or any(segment in (".", "..") for segment in decoded_path.split("/"))
             or qr.query
             or qr.fragment
         ):
