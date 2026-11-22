@@ -747,6 +747,52 @@ def test_staging_window_expiry_fails_closed_with_matching_sender_and_allowlist(
     run(scenario)
 
 
+def test_explicit_continuous_staging_scope_does_not_require_expiry(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "staging")
+    monkeypatch.setenv(
+        "MONGO_URL",
+        "mongodb+srv://rushx_staging_app:synthetic@voltx-staging.ovofwvn.mongodb.net",
+    )
+    monkeypatch.setenv("DB_NAME", "rushx_staging")
+    monkeypatch.setenv("OTP_MODE", "provider")
+    monkeypatch.setenv("EXPOSE_DEMO_OTP", "false")
+    monkeypatch.setenv("CORS_ORIGINS", "https://staging.evchargerrepair.in")
+    monkeypatch.setenv("WHATSAPP_ENABLED", "false")
+    staged = replace(
+        ACTIVE,
+        mode="staging",
+        production_approved=False,
+        staging_enabled=True,
+        staging_continuous=True,
+        staging_sender=ACTIVE.phone_number_id,
+        staging_recipients=(USER["phone"],),
+    )
+
+    async def scenario(db):
+        policy, _ = await fixture(db, staged)
+        await db.whatsapp_control.update_one(
+            {"_id": policy.scope_id()},
+            {"$set": {"continuous": True, "test_until": None}},
+        )
+        assert await policy.scope()
+        await db.whatsapp_control.update_one(
+            {"_id": policy.scope_id()}, {"$set": {"continuous": False}}
+        )
+        assert not await policy.scope()
+        await db.whatsapp_control.update_one(
+            {"_id": policy.scope_id()},
+            {
+                "$set": {
+                    "continuous": False,
+                    "test_until": datetime.now(timezone.utc) + timedelta(minutes=10),
+                }
+            },
+        )
+        assert await policy.scope()
+
+    run(scenario)
+
+
 @pytest.mark.parametrize("real", [False, True])
 def test_per_repair_dispatch_fence_orders_receipt_before_return_notice(real):
     async def scenario(db):

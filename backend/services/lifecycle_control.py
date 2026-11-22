@@ -17,7 +17,9 @@ from .lifecycle_readiness import missing_indexes, report
 from .whatsapp_service import Settings, validate_settings
 
 
-async def change(db, settings, action, reviewed=False, test_window=0):
+async def change(
+    db, settings, action, reviewed=False, test_window=0, continuous_staging=False
+):
     policy = LifecyclePolicy(db, settings)
     if action == "inspect":
         result = await report(db, settings)
@@ -73,12 +75,17 @@ async def change(db, settings, action, reviewed=False, test_window=0):
     else:
         raise ValueError("Unsupported control action")
     test_until = None
+    continuous = False
     if settings.mode == "staging":
-        if not 1 <= test_window <= 120:
+        continuous = continuous_staging and settings.staging_continuous
+        if continuous_staging and not settings.staging_continuous:
+            raise ValueError("Continuous staging requires its explicit environment gate")
+        if not continuous and not 1 <= test_window <= 120:
             raise ValueError(
                 "Staging activation requires a 1-120 minute authorized window"
             )
-        test_until = at + timedelta(minutes=test_window)
+        if not continuous:
+            test_until = at + timedelta(minutes=test_window)
     expected = {"_id": policy.scope_id()}
     if previous:
         expected.update(
@@ -97,6 +104,7 @@ async def change(db, settings, action, reviewed=False, test_window=0):
         "changed_at": at,
         "changed_by_uid": os.getuid(),
         "test_until": test_until,
+        "continuous": continuous,
     }
     if action == "activate":
         fields.update(activated_at=at, heartbeat_at=None)
@@ -122,6 +130,7 @@ async def main():
     )
     parser.add_argument("--confirm-reviewed-scope-and-backlog", action="store_true")
     parser.add_argument("--test-window-minutes", type=int, default=0)
+    parser.add_argument("--continuous-staging", action="store_true")
     args = parser.parse_args()
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
     try:
@@ -137,6 +146,7 @@ async def main():
             args.action,
             args.confirm_reviewed_scope_and_backlog,
             args.test_window_minutes,
+            args.continuous_staging,
         )
         print(json.dumps(result))
         return 0

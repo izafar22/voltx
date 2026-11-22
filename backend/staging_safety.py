@@ -49,8 +49,22 @@ def validate_staging_environment(env=None):
                 or not 1 <= len(recipients) <= 10 or len(recipients) != len(set(recipients))
                 or any(not re.fullmatch(r'\+91[6-9][0-9]{9}', p) for p in recipients)):
             raise RuntimeError('Staging lifecycle messages require the isolated authorized test gate')
-    if env.get("RUSHX_UPI_QR_REVIEWED", "false").lower() != "false":
-        raise RuntimeError("Staging forbids approved merchant QR")
+    elif env.get("STAGING_LIFECYCLE_CONTINUOUS_ENABLED", "false").lower() != "false":
+        raise RuntimeError("Continuous staging lifecycle requires WhatsApp delivery gates")
+    if env.get("RUSHX_UPI_QR_REVIEWED", "false").lower() == "true":
+        qr = urlsplit(env.get("RUSHX_UPI_QR_IMAGE_URL", ""))
+        decoded_path = unquote(qr.path)
+        if (
+            env.get("WHATSAPP_PAYMENT_QR_ENABLED", "false").lower() != "true"
+            or env.get("WHATSAPP_ENABLED", "false").lower() != "true"
+            or qr.scheme != "https"
+            or qr.netloc.lower() != "staging.evchargerrepair.in"
+            or not qr.path.startswith("/payment-assets/")
+            or any(segment in (".", "..") for segment in decoded_path.split("/"))
+            or qr.query
+            or qr.fragment
+        ):
+            raise RuntimeError("Staging merchant QR requires the reviewed isolated asset gate")
     if env.get("CMS_REVALIDATE_SECRET", ""):
         raise RuntimeError("Staging must not use a CMS revalidation secret")
     if env.get("CORS_ORIGINS") != "https://staging.evchargerrepair.in":

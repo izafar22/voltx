@@ -106,13 +106,17 @@ class LifecyclePolicy:
         ):
             return None
         if s.mode == "staging":
-            until = scope.get("test_until")
-            if not isinstance(until, datetime):
-                return None
-            if until.tzinfo is None:
-                until = until.replace(tzinfo=timezone.utc)
-            if until <= self.clock():
-                return None
+            if scope.get("continuous") is True:
+                if not s.staging_continuous:
+                    return None
+            else:
+                until = scope.get("test_until")
+                if not isinstance(until, datetime):
+                    return None
+                if until.tzinfo is None:
+                    until = until.replace(tzinfo=timezone.utc)
+                if until <= self.clock():
+                    return None
         if heartbeat:
             at = scope.get("heartbeat_at")
             if not isinstance(at, datetime):
