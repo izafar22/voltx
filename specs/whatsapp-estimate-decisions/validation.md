@@ -1,6 +1,8 @@
 # WhatsApp estimate decisions — validation
 
-Status: local implementation validation complete; no Meta submission, live send, deployment or runtime configuration change performed.
+Status: deployed and activated on staging. All three Meta templates are approved;
+the first actionable estimate sends exposed the provider payload-length defect
+documented below. The compact-token fix is locally validated and pending review/deploy.
 
 ## Evidence
 
@@ -14,8 +16,15 @@ Covered behavior includes signed payload tamper rejection, ordered approval/decl
 
 ## Remaining gates
 
-1. Review the PR and exact-head CI.
-2. Obtain separate approval to submit/audit the three new Meta templates.
-3. Provision the action secret and reviewed QR asset through operator-owned secret/configuration paths.
-4. Review/create the declared indexes, then conduct separately approved staging acceptance.
-5. Production activation and deployment require an explicit release approval and rollback plan.
+1. Review the compact-token PR and exact-head CI, then deploy it to staging.
+2. Repeat a real staging estimate send and button press through the allowlisted account.
+3. Production activation and deployment require an explicit release approval and rollback plan.
+## 2026-11-22 staging provider rejection follow-up
+
+The first live actionable estimate jobs selected the correct template but Meta
+rejected both with HTTP 400 / error 132005. A controlled replay returned
+“Translated text too long”; body values were short while both signed quick-reply
+payloads were 210 characters. The `rx2` format retains the bound repair, decision,
+estimate fingerprint, destination and expiry with a 128-bit HMAC tag while reducing
+the complete payload below 128 characters. Canonical Base64 and tamper regressions
+pass. A fresh real staging send and button press remain required after deployment.
