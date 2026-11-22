@@ -71,6 +71,11 @@ with `--continuous-staging`; the existing staging sender/recipient isolation and
 heartbeat checks still apply. A reviewed staging QR is accepted only from the exact
 staging `/payment-assets/` HTTPS origin while the independent QR-message gate is on.
 
+Estimate quick replies use the compact `rx2` action token: fixed-width repair,
+estimate and recipient digests plus decision and expiry, authenticated with a
+truncated 128-bit HMAC tag. Canonical URL-safe Base64 encoding keeps the complete
+button payload below Meta's 128-character limit and rejects alternate textual encodings.
+
 `whatsapp_service.py` adds default-off actionable estimate templates, compact HMAC-bound quick-reply payloads, a signed-webhook `whatsapp_action_inbox`, and worker-side revision-fenced approval/decline transitions. The worker revalidates the originating outbound message, current consent/phone, estimate fingerprint, expiry and repair state before changing the repair. Web and WhatsApp decisions share an audit shape. A separate default-off gate selects a reviewed HTTPS merchant-QR image-header template only for a verified positive balance; the existing text template remains the fallback. New indexes are declared in the read-only lifecycle readiness plan. This branch does not submit Meta templates, change runtime configuration, send messages or deploy.
 
 Phone replacement and WhatsApp decision commit share a short user-document identity lease. The worker acquires and refreshes the lease only for the current phone generation before the repair CAS; phone-link completion requires that no live decision lease exists. This storage fence prevents an old-phone action from committing across a concurrent phone replacement without requiring a cross-document transaction. An expired lease is recoverable after a worker interruption.
