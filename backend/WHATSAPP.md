@@ -143,7 +143,8 @@ and MongoDB database. Separate test and production databases/apps/credentials.
 | WHATSAPP_MODE | Defaults test; production must be selected explicitly. |
 | WHATSAPP_ACCESS_TOKEN | Scoped Meta access token, initially the test environment token. |
 | WHATSAPP_PHONE_NUMBER_ID | Selected sender ID, not a mobile number. |
-| WHATSAPP_TEST_PHONE_NUMBER_ID | Independently configured Meta test sender ID; must equal the selected sender in test mode and differ in production. |
+| WHATSAPP_PRODUCTION_PHONE_NUMBER_ID | Independently reviewed production sender ID; production requires an exact match with the selected sender. |
+| WHATSAPP_TEST_PHONE_NUMBER_ID | Independently configured Meta test sender ID; required only in test mode and must equal the selected sender there. |
 | WHATSAPP_TEST_RECIPIENTS | Explicit allowlist of consenting Meta test recipients in E.164. |
 | WHATSAPP_VERIFY_TOKEN | Random operator-provisioned GET verification token. |
 | META_APP_SECRET | HMAC key for POST webhook authentication. |

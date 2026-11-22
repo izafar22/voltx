@@ -380,16 +380,20 @@ def test_malformed_or_unapproved_templates_fail_closed(key, value):
     run(scenario)
 
 
-def test_production_requires_manual_gate_all_eight_approvals_and_sender_isolation():
+def test_production_requires_manual_gate_all_eight_approvals_and_exact_sender_binding():
     production = replace(
-        SETTINGS, mode="production", phone_number_id="99999", production_approved=True
+        SETTINGS,
+        mode="production",
+        phone_number_id="99999",
+        production_phone_number_id="99999",
+        production_approved=True,
     )
     validate_settings(production)
     for bad in [
         replace(production, production_approved=False),
-        replace(production, phone_number_id=SETTINGS.test_phone_number_id),
+        replace(production, phone_number_id="88888"),
         replace(SETTINGS, phone_number_id="99999"),
-        replace(production, test_phone_number_id=""),
+        replace(production, production_phone_number_id=""),
     ]:
         with pytest.raises(ConfigurationError):
             validate_settings(bad)

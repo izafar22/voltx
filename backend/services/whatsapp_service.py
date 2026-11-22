@@ -70,6 +70,7 @@ class Settings:
     access_token: str = field(default="", repr=False)
     phone_number_id: str = field(default="", repr=False)
     test_phone_number_id: str = field(default="", repr=False)
+    production_phone_number_id: str = field(default="", repr=False)
     production_approved: bool = False
     verify_token: str = field(default="", repr=False)
     app_secret: str = field(default="", repr=False)
@@ -111,6 +112,9 @@ class Settings:
             access_token=os.getenv("WHATSAPP_ACCESS_TOKEN", ""),
             phone_number_id=os.getenv("WHATSAPP_PHONE_NUMBER_ID", ""),
             test_phone_number_id=os.getenv("WHATSAPP_TEST_PHONE_NUMBER_ID", ""),
+            production_phone_number_id=os.getenv(
+                "WHATSAPP_PRODUCTION_PHONE_NUMBER_ID", ""
+            ),
             production_approved=os.getenv(
                 "WHATSAPP_PRODUCTION_APPROVED", "false"
             ).lower()
@@ -411,7 +415,6 @@ def validate_settings(settings):
         or not re.fullmatch(r"v[0-9]+\.[0-9]+", settings.api_version)
         or not settings.app_secret
         or not settings.verify_token
-        or (settings.mode != "staging" and not re.fullmatch(r"[0-9]+", settings.test_phone_number_id))
     ):
         raise ConfigurationError()
     if settings.activation_id:
@@ -447,6 +450,8 @@ def validate_settings(settings):
         validate_staging_environment()
     elif settings.mode == "test":
         if (
+            not re.fullmatch(r"[0-9]+", settings.test_phone_number_id)
+            or
             settings.phone_number_id != settings.test_phone_number_id
             or not settings.test_recipients
         ):
@@ -459,7 +464,8 @@ def validate_settings(settings):
     elif settings.mode == "production":
         if (
             not settings.production_approved
-            or settings.phone_number_id == settings.test_phone_number_id
+            or not re.fullmatch(r"[0-9]+", settings.production_phone_number_id)
+            or settings.phone_number_id != settings.production_phone_number_id
         ):
             raise ConfigurationError()
         for status in CATALOG:

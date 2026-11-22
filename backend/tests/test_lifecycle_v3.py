@@ -1380,7 +1380,7 @@ def test_active_templates_require_the_exact_audited_locale_and_keep_legacy_local
     validate_settings(SETTINGS)
 
 
-def test_non_staging_modes_still_require_independent_meta_test_sender(monkeypatch):
+def test_test_and_production_modes_require_their_exact_sender_bindings(monkeypatch):
     with pytest.raises(ConfigurationError):
         validate_settings(replace(ACTIVE, test_phone_number_id=""))
     monkeypatch.setenv("APP_ENV", "production")
@@ -1391,8 +1391,18 @@ def test_non_staging_modes_still_require_independent_meta_test_sender(monkeypatc
                 mode="production",
                 production_approved=True,
                 test_phone_number_id="",
+                production_phone_number_id="",
             )
         )
+    validate_settings(
+        replace(
+            ACTIVE,
+            mode="production",
+            production_approved=True,
+            test_phone_number_id="",
+            production_phone_number_id=ACTIVE.phone_number_id,
+        )
+    )
 
 
 def test_staging_webhook_keeps_only_known_dispatched_stage_receipts_even_when_paused():
