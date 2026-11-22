@@ -196,4 +196,3 @@ def test_signed_webhook_decision_is_sanitized_and_applied_once():
     recovered = await db.repair_requests.find_one({"id": r["id"]})
     assert recovered["status"] == "REPAIRING" and recovered["revision"] == 5
   asyncio.run(scenario())
-
