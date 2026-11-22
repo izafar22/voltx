@@ -2,12 +2,14 @@
 
 import asyncio
 import base64
+import binascii
 import hashlib
 import hmac
 import json
 import logging
 import os
 import re
+import struct
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -149,34 +151,54 @@ def estimate_action_token(job, decision, settings):
     expires = job.get("action_expires_at")
     if not isinstance(expires, datetime):
         raise SnapshotError()
-    claims = {"v": 1, "r": hashlib.sha256(job["repair_id"].encode()).hexdigest()[:16], "a": decision,
-              "f": job["fact_digest"][:32], "d": destination_digest(job["destination"]),
-              "e": int(expires.timestamp())}
-    encoded = _b64(json.dumps(claims, sort_keys=True, separators=(",", ":")).encode())
-    signature = _b64(hmac.new(settings.estimate_action_secret.encode(), encoded.encode(), hashlib.sha256).digest())
-    token = f"rx1.{encoded}.{signature}"
-    if len(token) > 256:
+    try:
+        payload = struct.pack(
+            ">8sB16s8sI",
+            bytes.fromhex(hashlib.sha256(job["repair_id"].encode()).hexdigest()[:16]),
+            0 if decision == "approve" else 1,
+            bytes.fromhex(job["fact_digest"][:32]),
+            bytes.fromhex(destination_digest(job["destination"])),
+            int(expires.timestamp()),
+        )
+    except (KeyError, TypeError, ValueError, OverflowError, struct.error):
+        raise SnapshotError() from None
+    signature = hmac.new(
+        settings.estimate_action_secret.encode(), payload, hashlib.sha256
+    ).digest()[:16]
+    token = f"rx2.{_b64(payload)}.{_b64(signature)}"
+    if len(token) > 128:
         raise SnapshotError()
     return token
 
 
 def decode_estimate_action(token, settings):
-    if not isinstance(token, str) or len(token) > 256 or len(settings.estimate_action_secret) < 32:
+    if not isinstance(token, str) or len(token) > 128 or len(settings.estimate_action_secret) < 32:
         raise SnapshotError()
     try:
         prefix, encoded, signature = token.split(".")
-        expected = _b64(hmac.new(settings.estimate_action_secret.encode(), encoded.encode(), hashlib.sha256).digest())
-        if prefix != "rx1" or not hmac.compare_digest(signature, expected):
+        payload = _unb64(encoded)
+        supplied = _unb64(signature)
+        if _b64(payload) != encoded or _b64(supplied) != signature:
             raise ValueError()
-        claims = json.loads(_unb64(encoded))
-        if (set(claims) != {"v", "r", "a", "f", "d", "e"} or claims["v"] != 1
-                or claims["a"] not in ("approve", "decline")
-                or not re.fullmatch(r"[0-9a-f]{16}", claims["r"]) or not re.fullmatch(r"[0-9a-f]{32}", claims["f"])
-                or not re.fullmatch(r"[0-9a-f]{16}", claims["d"])
-                or isinstance(claims["e"], bool) or not isinstance(claims["e"], int)):
+        expected = hmac.new(
+            settings.estimate_action_secret.encode(), payload, hashlib.sha256
+        ).digest()[:16]
+        if prefix != "rx2" or not hmac.compare_digest(supplied, expected):
             raise ValueError()
-        return claims
-    except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+        repair, decision, facts, destination, expires = struct.unpack(
+            ">8sB16s8sI", payload
+        )
+        if decision not in (0, 1):
+            raise ValueError()
+        return {
+            "v": 2,
+            "r": repair.hex(),
+            "a": "approve" if decision == 0 else "decline",
+            "f": facts.hex(),
+            "d": destination.hex(),
+            "e": expires,
+        }
+    except (ValueError, TypeError, struct.error, binascii.Error):
         raise SnapshotError() from None
 
 

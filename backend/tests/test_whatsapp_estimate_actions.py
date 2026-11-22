@@ -76,7 +76,7 @@ def test_actionable_payload_has_ordered_signed_buttons_and_tamper_rejected():
     claims = [decode_estimate_action(button["parameters"][0]["payload"], SETTINGS) for button in buttons]
     assert [claim["a"] for claim in claims] == ["approve", "decline"]
     token = buttons[0]["parameters"][0]["payload"]
-    assert len(token) <= 256
+    assert token.startswith("rx2.") and len(token) <= 128
     with pytest.raises(SnapshotError):
         decode_estimate_action(token[:-1] + ("A" if token[-1] != "A" else "B"), SETTINGS)
 
