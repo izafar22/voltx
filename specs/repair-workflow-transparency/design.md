@@ -252,6 +252,10 @@ must use public explanatory copy and must not change production template content
 
 ## Approval record
 
+- 2026-11-24: owner fixed the hero headline “One transparent loop—from fault to
+  return.” at the restrained reference scale. Large typography is reserved for the
+  lifecycle stage names and selected-stage content rather than enlarging the hero.
+
 - 2026-11-24: owner clarified that the lifecycle stage labels themselves must be
   prominent and the experience must feel continuously alive. The ring therefore
   uses large direct stage names, a breathing core and status, travelling light,
