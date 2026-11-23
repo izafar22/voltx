@@ -252,6 +252,15 @@ must use public explanatory copy and must not change production template content
 
 ## Approval record
 
+- 2026-11-23: owner requested a larger, more contemporary typography treatment.
+  The approved refinement keeps the RushX design-system families—variable Outfit
+  for display, variable Manrope for reading text and IBM Plex Mono for identifiers—
+  while increasing the headline, stage title, message, control and detail scales.
+  Modernity comes from optical sizing, tighter display tracking, balanced wrapping,
+  generous spacing and clearer weight contrast, not from introducing an unrelated
+  fashion font. Small mono labels remain supporting metadata and never carry the
+  primary meaning alone.
+
 - 2026-11-23: owner approved freezing the RushX Lifecycle Ring animation and
   requested removal of the separate “Every stage explained in plain language”
   section. The design is ready for implementation task planning; implementation,
