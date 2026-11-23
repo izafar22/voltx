@@ -71,24 +71,7 @@ while applying:
 Visual glass effects are enhancement only. Content, controls and contrast must
 remain usable when backdrop filtering is unsupported.
 
-## Supporting concept: RushX System Journey
-
-The homepage contains a compact, three-dimensional system map. A stylized charger
-travels along a luminous RushX path through four grouped stations:
-
-1. **Request & acceptance** — enquiry received, then explicitly accepted for
-   inspection with hand-off instructions.
-2. **Inspect & estimate** — receipt, diagnosis and the published estimate.
-3. **Approve, repair & test** — the customer decision visibly unlocks only the
-   approved repair path.
-4. **Payment & return** — verified balance/payment followed by actual return
-   dispatch.
-
-Selecting a station focuses it and updates a companion customer-view panel. The
-panel pairs a compact RushX dashboard state with an illustrative WhatsApp bubble.
-The overview never auto-advances. A clear link opens the complete journey.
-
-The full How it works page expands the map into all eight customer milestones:
+The approved ring presents all eight customer milestones:
 
 | Stage | Visual event | Customer-facing message or action |
 |---|---|---|
@@ -267,20 +250,13 @@ must use public explanatory copy and must not change production template content
   represented before task planning.
 - Owner approves one visual direction before implementation tasks are written.
 
-## Alternatives represented in the prototype
-
-- **Lifecycle Ring** — recommended. All eight stages remain visible while the
-  selected stage and matching WhatsApp preview advance in a pausable loop.
-- **Guided Journey** — linear alternative. The full eight-stage rail, spatial charger
-  path, next-action explanation and switchable dashboard/WhatsApp preview are
-  visible in one coherent website section.
-- **System Map** — a simpler alternative that groups the workflow into four large
-  phases and is strongest for homepage comprehension, but provides less immediate
-  detail than Guided Journey.
-
 ## Approval record
 
 - 2026-11-23: owner approved freezing the RushX Lifecycle Ring animation and
   requested removal of the separate “Every stage explained in plain language”
   section. The design is ready for implementation task planning; implementation,
   merge and deployment remain separately gated.
+- 2026-11-23: owner approved the final spatial/glass Lifecycle Ring shown in the
+  review screenshots and requested removal of all other design sections and
+  alternatives. Only the ring, selected-stage detail and booking/tracking call to
+  action remain in the implementation scope.
