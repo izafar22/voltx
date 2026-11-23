@@ -33,7 +33,7 @@ provider configuration, customer data or backend workflow logic.
 | Requirements | APPROVED | Final requirements approved 2026-11-23 |
 | Visual design | FINAL APPROVED | Lifecycle Ring and canonical logo finalized 2026-11-24 |
 | Task plan | APPROVED | Owner authorized implementation 2026-11-24 |
-| Runtime implementation | COMPLETE | RWT-01 through RWT-09 implemented and locally validated; PR handoff remains |
+| Runtime implementation | COMPLETE | RWT-01 through RWT-10 implemented, locally validated and handed off in PR #82 |
 | PR review and merge | NOT AUTHORIZED | Passing CI, review findings resolved and explicit merge approval |
 | Staging deployment | NOT AUTHORIZED | Normal staging CD after authorized merge; verify exact active revisions |
 | Production promotion | NOT AUTHORIZED | Separate release selection, exact-SHA approval and deployment verification |
@@ -51,7 +51,7 @@ provider configuration, customer data or backend workflow logic.
 | RWT-07 | Public copy, Delhi/NCR metadata and crawlable content | RWT-01, RWT-06 | DONE |
 | RWT-08 | Unit, accessibility and interaction regression coverage | RWT-02 through RWT-07 | DONE |
 | RWT-09 | Browser, performance and fallback acceptance | RWT-05 through RWT-08 | DONE |
-| RWT-10 | Context, validation evidence and implementation PR | RWT-01 through RWT-09 | IN PROGRESS |
+| RWT-10 | Context, validation evidence and implementation PR | RWT-01 through RWT-09 | DONE |
 
 ## RWT-01 — Baseline audit and frozen content contract
 
