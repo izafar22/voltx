@@ -183,8 +183,12 @@ class AuthService:
 
         now = self.clock()
 
-        # Maximum 30 OTP requests per IP per hour
-        await self.limit("ip:" + ip, 30, 3600)
+        # Production and staging retain the reviewed 30/hour IP ceiling. The
+        # disposable test API runs the integration suite through one loopback
+        # address, so it needs enough headroom to exercise independent users;
+        # phone cooldown and per-phone limits remain unchanged in every mode.
+        ip_maximum = 100 if self.settings.environment == "test" else 30
+        await self.limit("ip:" + ip, ip_maximum, 3600)
 
         # Maximum 5 OTP requests per phone number per hour
         await self.limit("phone:" + phone, 5, 3600)

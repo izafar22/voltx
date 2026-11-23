@@ -35,7 +35,8 @@ const change = (id, value) => act(() => {
   node.dispatchEvent(new Event(node.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));
 });
 const submit = () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-const fill = () => { change('brand-input', ' ABB '); change('model-input', 'Terra AC'); change('type-select', 'NOT_SURE'); change('description-input', 'Stops after a few seconds.'); };
+const fillMeasurements = () => { change('weight-input', '8.5'); change('length-input', '42'); };
+const fill = () => { change('brand-input', ' ABB '); change('model-input', 'Terra AC'); change('type-select', 'NOT_SURE'); fillMeasurements(); change('description-input', 'Stops after a few seconds.'); };
 beforeEach(() => {
   Object.defineProperty(global, "crypto", { value: { randomUUID: jest.fn(() => "creation-key") }, configurable: true });
   global.IS_REACT_ACT_ENVIRONMENT = true; jest.clearAllMocks(); mockRole = 'customer'; mockChargers = [];
@@ -55,7 +56,7 @@ test('readable single-page sections, labels and mobile stacking', () => {
 });
 test('inline errors associate with controls, focus first field and clear on correction', () => {
   render(); act(() => submit()); expect(mockPost).not.toHaveBeenCalled(); expect(document.activeElement).toBe(el('brand-input'));
-  expect(container.querySelectorAll('[role="alert"]')).toHaveLength(3);
+  expect(container.querySelectorAll('[role="alert"]')).toHaveLength(5);
   expect(el('brand-input').getAttribute('aria-invalid')).toBe('true');
   expect(el('brand-input').getAttribute('aria-describedby')).toBe('brand-error');
   change('brand-input', ' '); expect(container.querySelector('#brand-error')).not.toBeNull();
@@ -68,16 +69,16 @@ test('source selection communicates state and empty registered source offers rec
 });
 test('registered charger selection preserves payload and details', async () => {
   mockRole = 'owner'; mockChargers = [{ charger_id: 'VOLTX1', name: 'Home charger', connector: 'Type 2', max_power_kw: 7.4 }]; render(); click('source-mine');
-  change('my-charger-select', 'VOLTX1'); change('description-input', 'Not working');
+  change('my-charger-select', 'VOLTX1'); fillMeasurements(); change('description-input', 'Not working');
   expect(el('selected-charger-info').textContent).toContain('Home charger');
-  await act(async () => submit()); expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'STATION_OWNER', charger_id: 'VOLTX1', problem_description: 'Not working', reported_category: null, photos: [], whatsapp_opt_in: false, idempotency_key: 'creation-key' });
+  await act(async () => submit()); expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'STATION_OWNER', charger_id: 'VOLTX1', charger_info: { weight_kg: 8.5, length_cm: 42 }, problem_description: 'Not working', reported_category: null, photos: [], whatsapp_opt_in: false, idempotency_key: 'creation-key' });
 });
 test('review separates description and successful submission preserves contract and navigation', async () => {
   render(); fill(); change('category-select', 'Not charging');
   expect([...el('review-section').querySelectorAll('dt')].map(n => n.textContent)).toEqual(['Charger', 'Problem', 'Description', 'Photos', 'Pickup address', 'Delivery address']);
   expect(el('review-section').textContent).toContain('Terra AC');
   await act(async () => submit());
-  expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'RETAIL', problem_description: 'Stops after a few seconds.', reported_category: 'Not charging', photos: [], whatsapp_opt_in: false, idempotency_key: 'creation-key', charger_info: { brand: 'ABB', model: 'Terra AC', charger_type: null, serial_number: null, power_rating: null, purchase_date: null } });
+  expect(mockPost).toHaveBeenCalledWith('/repairs', { customer_type: 'RETAIL', problem_description: 'Stops after a few seconds.', reported_category: 'Not charging', photos: [], whatsapp_opt_in: false, idempotency_key: 'creation-key', charger_info: { brand: 'ABB', model: 'Terra AC', charger_type: null, serial_number: null, power_rating: null, purchase_date: null, weight_kg: 8.5, length_cm: 42 } });
   expect(mockPatch).not.toHaveBeenCalled();
   expect(el('repair-confirmation').textContent).toContain('Please do not ship your charger yet');
   expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ['repairs-mine'] });
@@ -85,13 +86,24 @@ test('review separates description and successful submission preserves contract 
   click('view-repair-btn'); expect(mockNavigate).toHaveBeenLastCalledWith('/repairs/r1'); click('back-dashboard-btn'); expect(mockNavigate).toHaveBeenLastCalledWith('/app');
 });
 test('blank charger model submits null without blocking repair creation', async () => {
-  render(); change('brand-input', 'ABB'); change('type-select', 'AC'); change('description-input', 'Not powering on');
+  render(); change('brand-input', 'ABB'); change('type-select', 'AC'); fillMeasurements(); change('description-input', 'Not powering on');
   expect(el('model-input').value).toBe('');
   await act(async () => submit());
   expect(mockPost).toHaveBeenCalledWith('/repairs', expect.objectContaining({
     charger_info: expect.objectContaining({ brand: 'ABB', model: null, charger_type: 'AC' }),
   }));
   expect(el('repair-confirmation')).not.toBeNull();
+});
+test('weight and length are required positive measurements', async () => {
+  render(); change('brand-input', 'ABB'); change('type-select', 'AC'); change('description-input', 'Not powering on');
+  await act(async () => submit());
+  expect(mockPost).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(el('weight-input'));
+  expect(container.querySelector('#weight_kg-error').textContent).toContain('up to 500 kg');
+  expect(container.querySelector('#length_cm-error').textContent).toContain('up to 500 cm');
+  change('weight-input', '8.5'); change('length-input', '42');
+  await act(async () => submit());
+  expect(mockPost.mock.calls[0][1].charger_info).toEqual(expect.objectContaining({ weight_kg: 8.5, length_cm: 42 }));
 });
 test('duplicate submissions are blocked and failures allow retry', async () => {
   let reject; mockPost.mockImplementationOnce(() => new Promise((resolve, fail) => { reject = fail; })); render(); fill();

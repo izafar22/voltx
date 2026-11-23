@@ -44,3 +44,9 @@ Production candidate selectively applies PR #69 to the live frontend baseline `1
 | Status | Work item | Evidence / next action |
 |---|---|---|
 | IN_PROGRESS | Eight-message WhatsApp repair lifecycle, actionable estimate approval, payment QR, and policy pages | Release branch `release_20261123_version1.2.0` is based on the verified production frontend/backend SHA `479d2ee1e7337bd3db46a898d7a6ffb53887a994`. It selectively includes PRs #74, #75, #76, #78 and #80; staging-only PRs #77 and #79 are excluded. Run exact-head CI, inspect its packaged artifacts, audit production Meta/configuration prerequisites, and obtain owner approval of the exact SHA before deployment. See `docs/WHATSAPP_LIFECYCLE_PRODUCTION_RELEASE.md`. |
+
+## Charger physical details production candidate — 2026-11-23
+
+| Status | Work item | Evidence / next action |
+|---|---|---|
+| IN_PROGRESS | Charger weight and longest-side length during repair booking | PR #81 merged to `repair-mvp` and staging release `817827b-549` is verified for both frontend and backend. Production candidate `release_20261123_version1.3.0` selectively applies PR #81 to the verified live production baseline `81e8226`; exact-head CI and owner approval remain required before production deployment. |

@@ -18,9 +18,11 @@ def login_session(api, phone, name=None):
     session = requests.Session()
     session.headers['Origin'] = ORIGIN
     requested = session.post(api+'/auth/request-otp', json={'phone':phone}, timeout=30)
-    # Two xdist workers may both need a seeded role; honor the real cooldown.
+    # The live-test API is shared by two xdist workers. Honor the server's
+    # advertised cooldown with a boundary margin; an exact sleep can arrive in
+    # the same rounded second and receive another 429.
     if requested.status_code == 429 and requested.headers.get('Retry-After') == '60':
-        time.sleep(60)
+        time.sleep(61)
         requested = session.post(api+'/auth/request-otp', json={'phone':phone}, timeout=30)
     assert requested.status_code == 200, 'OTP request failed: '+str(requested.status_code)
     response = session.post(api+'/auth/verify-otp', json={'phone':phone,'challenge_id':requested.json()['challenge_id'],'otp':'123456'}, timeout=30)
