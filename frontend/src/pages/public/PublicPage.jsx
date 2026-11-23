@@ -25,16 +25,16 @@ const nav = [
 ];
 const meta = {
   "/": [
-    "EV charger repair, thoughtfully assessed",
-    "Independent, multi-brand EV charger repair enquiries. Explore RushX services in Delhi NCR, Mumbai and eligible courier-based enquiries across India.",
+    "Transparent EV charger repair in Delhi NCR",
+    "See how RushX records each EV charger repair milestone in Delhi NCR, from enquiry and inspection acceptance to estimate approval and return.",
   ],
   "/services": [
     "EV charger repair services",
     "Explore PCB, AC charger, DC fast charger and power-electronics repair enquiries, including symptoms and technical eligibility.",
   ],
   "/how-it-works": [
-    "How the repair process works",
-    "From your first enquiry to technical acceptance, quotation, approved repair, testing and return: understand the RushX repair process.",
+    "How EV charger repair works in Delhi NCR",
+    "Follow RushX's transparent EV charger repair system in Delhi NCR: inspection acceptance, diagnosis, estimate approval, testing, payment and return milestones.",
   ],
   "/about": [
     "About our repair-first mission",
@@ -204,11 +204,11 @@ export default function PublicPage() {
           >
             <h2 id="coverage-heading">Where we consider enquiries</h2>
             <p>
-              Delhi NCR and Mumbai, plus eligible courier enquiries across
-              India. Technical acceptance, logistics and safe transport must be
-              confirmed first; wait for shipping instructions. Bengaluru
-              expansion is planned, not currently offered. Nationwide onsite
-              service is not guaranteed.
+              This acquisition phase serves Delhi and the National Capital
+              Region. Technical acceptance, logistics and safe transport must
+              be confirmed first; wait for approved hand-off or shipping
+              instructions. Doorstep collection, fixed service radius and
+              nationwide onsite service are not promised.
             </p>
           </section>
           <p className="rx-story-global-note">

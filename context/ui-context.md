@@ -17,3 +17,13 @@ Homepage hero now uses responsive `rushx-workshop-{320,640,1280}.webp` assets vi
 
 ## UI acceptance
 Check at 320, 375, 768 and 1280 px where practical; both themes; keyboard access, focus, semantic labels, error/empty/loading states, mobile overflow and image layout shift. Avoid unrelated redesigns. Preserve login, OTP, repair forms, and protected routes. Run existing frontend build, unit and browser tests; distinguish executed tests from recommendations.
+
+## Repair workflow transparency (2026-11-24, feature branch)
+
+`LifecycleRing.jsx` is the single production presentation for the public eight-stage
+repair journey on `/` and `/how-it-works`; its reviewed content lives in
+`lifecycleData.js`. It uses semantic React, CSS and SVG with native stage buttons,
+one synchronized illustrative message and one selected-stage detail panel. The
+loop pauses for explicit control, hover, focus, off-screen/hidden state and reduced
+motion. Do not reintroduce the removed stage grid or build a second hard-coded
+journey. This implementation is locally validated but not a deployment claim.

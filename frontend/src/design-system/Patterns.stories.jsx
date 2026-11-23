@@ -1,11 +1,11 @@
 import React from "react";
 import {
-  RepairJourney,
   FAQ,
   ServiceCard,
 } from "../components/patterns/RepairPatterns";
 import { RepairStatus } from "../components/patterns/RepairStatus";
-import { services, steps, faqs } from "../pages/public/content";
+import { services, faqs } from "../pages/public/content";
+import { LifecycleRing } from "../pages/public/storytelling/LifecycleRing";
 import { REPAIR_STATUS_LABEL } from "../lib/repairStatus";
 export default {
   title: "Patterns/Repair",
@@ -49,10 +49,9 @@ export const Services = {
 };
 export const Journey = {
   render: () => (
-    <section>
-      <h2 className="ds-heading">A clear path forward</h2>
-      <RepairJourney steps={steps} />
-    </section>
+    <div className="rx-wrap">
+      <LifecycleRing headingLevel="h1" />
+    </div>
   ),
 };
 export const Questions = {

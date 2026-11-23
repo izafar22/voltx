@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, ArrowUpRight, Check, Zap } from "lucide-react";
-import { services, steps } from "../content";
+import { services } from "../content";
 import { StoryImage } from "./StoryImage";
+import { LifecycleRing } from "./LifecycleRing";
 import "./StoryPages.css";
 
 export function RepairLink({
@@ -86,29 +87,7 @@ export function HomeStory() {
           ))}
         </div>
       </section>
-      <section className="rx-story-next">
-        <StoryImage
-          asset="testing"
-          caption="Fictional workbench. No test result or certification is depicted."
-        />
-        <div>
-          <p className="rx-eyebrow">A clear decision, before repair</p>
-          <h2>
-            Understand the fault.
-            <br />
-            Approve the next step.
-          </h2>
-          <p>
-            Technical acceptance comes first. After inspection, review the
-            proposed scope and quotation before authorizing work. Repair and
-            testing follow the agreed scope.
-          </p>
-          <div className="rx-story-link-row">
-            <TextLink to="/how-it-works">See the five steps</TextLink>
-            <TextLink to="/about">Why RushX</TextLink>
-          </div>
-        </div>
-      </section>
+      <LifecycleRing compact headingLevel="h2" />
     </div>
   );
 }
@@ -167,48 +146,7 @@ export function ServicesStory() {
 export function JourneyStory() {
   return (
     <div className="rx-wrap">
-      <Intro
-        label="RushX / How it works"
-        title="Your repair journey, without the guesswork."
-      >
-        Five steps from first enquiry to return, with technical acceptance and
-        your approval built in.
-      </Intro>
-      <p className="rx-story-disclosure">
-        AI-generated fictional scenes explain the journey; they are not
-        photographs of RushX staff, facilities or actual customer repairs.
-      </p>
-      <ol className="rx-story-journey">
-        {steps.map(([title, text], i) => (
-          <li key={title}>
-            <StoryImage asset={`step${i + 1}`} />
-            <div>
-              <span className="rx-story-number">0{i + 1}</span>
-              <h2>{title}</h2>
-              <p>{text}</p>
-              {i === 0 && (
-                <>
-                  <p className="rx-small">
-                    Do not open or energize equipment to gather information.
-                  </p>
-                  <RepairLink />
-                </>
-              )}
-              {i === 2 && (
-                <p className="rx-small">
-                  Charges and any warranty terms are specific to your quotation.
-                </p>
-              )}
-              {i === 4 && (
-                <p className="rx-small">
-                  Wait for technical acceptance and shipping instructions before
-                  sending anything.
-                </p>
-              )}
-            </div>
-          </li>
-        ))}
-      </ol>
+      <LifecycleRing headingLevel="h1" />
       <aside className="rx-story-safety">
         <p>
           Repair is not guaranteed. Model compatibility, fault condition, parts

@@ -5,6 +5,7 @@ export const Logo = ({ compact = false }) => (
   <div
     className="flex items-center gap-2"
     data-testid="logo"
+    role={compact ? "img" : undefined}
     aria-label={compact ? PRODUCT_NAME : undefined}
   >
     <img className="h-8 w-8" src={rushxMark} alt="" aria-hidden="true" />

@@ -68,8 +68,8 @@ test("all four narratives use distinct assets, real routes, and one page heading
       expect(a.getAttribute("href")).toBe("/repairs/new");
     expect(el.querySelectorAll(".rx-final")).toHaveLength(0);
   }
-  expect(used).toHaveLength(12);
-  expect(new Set(used).size).toBe(12);
+  expect(used).toHaveLength(6);
+  expect(new Set(used).size).toBe(6);
 });
 test("only homepage hero and About lead are eager; all scenes reserve geometry and have meaningful alt", () => {
   for (const Page of [HomeStory, ServicesStory, JourneyStory, AboutStory]) {
@@ -87,17 +87,25 @@ test("only homepage hero and About lead are eager; all scenes reserve geometry a
     }
   }
 });
-test("five journey steps retain acceptance, approval, safe shipping and quotation limitations", () => {
+test("eight-stage journey retains acceptance, approval, account fallback and dispatch boundaries", () => {
   render(JourneyStory);
-  expect(el.querySelectorAll("ol > li")).toHaveLength(5);
-  for (const text of [
-    "technical acceptance",
-    "authorize",
-    "Warranty terms",
-    "shipping instructions",
-    "Do not open",
-  ])
-    expect(el.textContent.toLowerCase()).toContain(text.toLowerCase());
+  const stages = [...el.querySelectorAll("[data-stage]")];
+  expect(stages).toHaveLength(8);
+  expect(stages.map((stage) => stage.textContent)).toEqual(expect.arrayContaining([
+    expect.stringContaining("Request"),
+    expect.stringContaining("Accepted"),
+    expect.stringContaining("Estimate"),
+    expect.stringContaining("Payment"),
+    expect.stringContaining("Returned"),
+  ]));
+  act(() => stages[1].dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  expect(el.textContent).toContain("Accepted for inspection");
+  act(() => stages[3].dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  expect(el.textContent).toContain("Your decision");
+  expect(el.textContent).toContain("RushX account");
+  act(() => stages[7].dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  expect(el.textContent).toContain("Return dispatched");
+  expect(el.textContent).toContain("Illustrative preview");
   expect(el.textContent).not.toMatch(/₹|12,500|guaranteed repair/i);
 });
 test("every approved runtime asset matches its review manifest, is local WebP, and stays within budget", () => {

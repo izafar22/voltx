@@ -92,6 +92,33 @@ for (const pathname of pages)
     });
     expect(errors).toEqual([]);
   });
+test("repair lifecycle is selectable, pausable and truthful", async ({ page }) => {
+  await page.goto("/how-it-works");
+  const lifecycle = page.locator(".rx-lifecycle");
+  await expect(lifecycle.locator("[data-stage]")).toHaveCount(8);
+  await expect(page.getByRole("heading", { name: "A repair system you can see, trust, and follow." })).toBeVisible();
+  await lifecycle.locator('[data-stage="estimate"]').click();
+  await expect(lifecycle.getByRole("heading", { name: "Estimate ready" })).toBeVisible();
+  await expect(lifecycle.getByText("Demonstration only")).toBeVisible();
+  await lifecycle.getByRole("button", { name: "Pause loop" }).click();
+  await expect(lifecycle.getByRole("button", { name: "Play loop" })).toHaveAttribute("aria-pressed", "true");
+  await lifecycle.getByRole("button", { name: "Next stage" }).click();
+  await expect(lifecycle.getByRole("heading", { name: "Approval recorded" })).toBeVisible();
+  await expect(lifecycle.getByText("Illustrative preview")).toBeVisible();
+  await expect(lifecycle.getByRole("link", { name: /Book a repair/i })).toHaveAttribute("href", "/repairs/new");
+  await expect(lifecycle.getByRole("link", { name: "Track a repair" })).toHaveAttribute("href", "/repairs");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test("reduced motion keeps the lifecycle stable", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/how-it-works");
+  const lifecycle = page.locator(".rx-lifecycle");
+  await expect(lifecycle.locator('[data-stage="request"]')).toHaveAttribute("aria-pressed", "true");
+  await page.waitForTimeout(3800);
+  await expect(lifecycle.locator('[data-stage="request"]')).toHaveAttribute("aria-pressed", "true");
+  await lifecycle.locator('[data-stage="returned"]').click();
+  await expect(lifecycle.getByRole("heading", { name: "Return dispatched" })).toBeVisible();
+});
 for (const pathname of ["/privacy-policy", "/data-deletion"])
   test(`${pathname} remains readable and accessible in dark theme`, async ({ page }, info) => {
     await page.goto(pathname);
@@ -380,9 +407,9 @@ test("Google entry remains same-origin and resumes the pending repair after call
   await expect(page.locator("h1")).toContainText(/repair/i);
 });
 for (const [route, count] of [
-  ["/", 2],
+  ["/", 1],
   ["/services", 4],
-  ["/how-it-works", 5],
+  ["/how-it-works", 0],
   ["/about", 1],
 ])
   for (const theme of ["light", "dark"])
