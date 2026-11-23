@@ -1,10 +1,10 @@
 # Repair workflow transparency — visual design
 
-Status: REVISED DESIGN FOR OWNER REVIEW. Based on the approved requirements at
-commit `183f6f4`. Revised on 2026-11-23 after owner feedback requesting greater
+Status: DESIGN APPROVED. Based on the approved requirements at commit `183f6f4`.
+Revised and approved on 2026-11-23 after owner feedback requesting greater
 interactivity, simpler workflow comprehension and exact Storybook consistency.
-This document and its prototype do not authorize implementation, dependency
-changes, merge or deployment.
+The Lifecycle Ring direction is frozen for task planning. This approval does not
+authorize implementation, dependency changes, merge or deployment.
 
 ## Design objective
 
@@ -36,6 +36,22 @@ motion disables automatic advancement.
 
 The circular motion is an explanatory presentation of the service lifecycle; it
 must not imply that every real repair advances automatically or continuously.
+
+### Frozen design decisions
+
+- Use the circular eight-stage RushX Lifecycle Ring as the primary visual.
+- Advance through the stages as a continuous explanatory loop.
+- Show the relevant illustrative WhatsApp pop-up at the active stage.
+- Pause on pointer hover and keyboard focus; provide visible Pause/Play and direct
+  stage controls for touch and keyboard users.
+- Keep every stage directly selectable and retain previous/next navigation.
+- Follow the canonical RushX Storybook logo, Outfit/Manrope/IBM Plex Mono type,
+  semantic tokens, controls and light/dark themes.
+- Do not add the separate “Every stage explained in plain language” grid shown in
+  an earlier prototype. It repeats the ring and makes the page unnecessarily long.
+- Preserve SEO/accessibility through semantic stage buttons, the selected-stage
+  heading and description, server-visible page copy and appropriate metadata,
+  rather than a duplicate visible eight-card section.
 
 ## Supporting concept: RushX System Journey
 
@@ -160,9 +176,10 @@ one place. This is preferred over hiding the milestones behind a decorative scen
 
 ## Search visibility design
 
-The animated ring is progressive enhancement, not the source of searchable
-content. The page must render a visible semantic section below or alongside the
-visual containing all eight stage headings and concise descriptions. The page also
+The animated ring is progressive enhancement, not canvas-only content. All eight
+stage names are real semantic controls in the DOM and the selected stage uses a
+real heading and paragraph. Supporting introductory copy explains the service in
+visible HTML without repeating the ring as a second eight-stage grid. The page also
 needs a unique Delhi/NCR-focused title and description, one descriptive H1,
 crawlable anchor links for booking/tracking, and inclusion in the public sitemap.
 
@@ -242,3 +259,10 @@ must use public explanatory copy and must not change production template content
 - **System Map** — a simpler alternative that groups the workflow into four large
   phases and is strongest for homepage comprehension, but provides less immediate
   detail than Guided Journey.
+
+## Approval record
+
+- 2026-11-23: owner approved freezing the RushX Lifecycle Ring animation and
+  requested removal of the separate “Every stage explained in plain language”
+  section. The design is ready for implementation task planning; implementation,
+  merge and deployment remain separately gated.
