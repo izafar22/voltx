@@ -44,6 +44,8 @@ for (const theme of ['light', 'dark']) {
     const data = await fixture(page, theme);
     await page.goto('/repairs/new');
     await page.getByTestId('brand-input').fill('Test brand');
+    await page.getByTestId('weight-input').fill('8.5');
+    await page.getByTestId('length-input').fill('42');
     await page.getByTestId('description-input').fill('Synthetic charging fault');
     await page.getByTestId('type-select').click();
     await page.getByRole('option', { name: 'AC Charger', exact: true }).click();
@@ -69,6 +71,8 @@ for (const theme of ['light', 'dark']) {
     const data = await fixture(page, theme, 'customer', false);
     await page.goto('/repairs/new');
     await page.getByTestId('brand-input').fill('Draft brand');
+    await page.getByTestId('weight-input').fill('8.5');
+    await page.getByTestId('length-input').fill('42');
     await page.getByTestId('description-input').fill('Preserve this synthetic draft');
     await page.getByTestId('type-select').click();
     await page.getByRole('option', { name: 'AC Charger', exact: true }).click();
@@ -80,6 +84,8 @@ for (const theme of ['light', 'dark']) {
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect(data.sent).toEqual([]); // Portal verification submits must not create the repair.
     await expect(page.getByTestId('brand-input')).toHaveValue('Draft brand');
+    await expect(page.getByTestId('weight-input')).toHaveValue('8.5');
+    await expect(page.getByTestId('length-input')).toHaveValue('42');
     await expect(page.getByTestId('description-input')).toHaveValue('Preserve this synthetic draft');
     await expect(page.getByRole('checkbox', { name: 'Send me WhatsApp updates about this repair' })).toBeEnabled();
     expect(data.errors).toEqual([]);
