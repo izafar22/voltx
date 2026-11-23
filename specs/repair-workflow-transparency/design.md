@@ -1,10 +1,11 @@
 # Repair workflow transparency — visual design
 
-Status: DESIGN APPROVED. Based on the approved requirements at commit `183f6f4`.
-Revised and approved on 2026-11-23 after owner feedback requesting greater
-interactivity, simpler workflow comprehension and exact Storybook consistency.
-The Lifecycle Ring direction is frozen for task planning. This approval does not
-authorize implementation, dependency changes, merge or deployment.
+Status: FINAL DESIGN APPROVED. Based on the approved requirements at commit
+`183f6f4`. Finalized by the owner on 2026-11-24 after review of the trust-led
+headline, prominent lifecycle labels, living motion language and canonical RushX
+logo. The Lifecycle Ring direction is frozen for implementation task planning.
+This approval does not authorize implementation, dependency changes, merge or
+deployment.
 
 ## Design objective
 
@@ -251,6 +252,13 @@ must use public explanatory copy and must not change production template content
 - Owner approves one visual direction before implementation tasks are written.
 
 ## Approval record
+
+- 2026-11-24: owner finalized the complete visual design. No additional content
+  section or visual direction is in scope. Implementation must preserve readable
+  mobile stage labels, Pause/Play, hover/focus pausing, reduced-motion behavior,
+  the canonical assets in `frontend/src/assets/brand/`, and the performance budgets
+  in this document. Motion must remain smooth and supplemental rather than delaying
+  the heading, lifecycle facts or booking/tracking actions.
 
 - 2026-11-24: owner replaced the graphic-led hero wording with the trust-led
   headline “A repair system you can see, trust, and follow.” The supporting copy
