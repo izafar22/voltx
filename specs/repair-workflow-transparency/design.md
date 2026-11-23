@@ -1,8 +1,10 @@
 # Repair workflow transparency — visual design
 
-Status: DESIGN FOR OWNER REVIEW. Based on the approved requirements at commit
-`183f6f4`. This document and its prototype do not authorize implementation,
-dependency changes, merge or deployment.
+Status: REVISED DESIGN FOR OWNER REVIEW. Based on the approved requirements at
+commit `183f6f4`. Revised on 2026-11-23 after owner feedback requesting greater
+interactivity, simpler workflow comprehension and exact Storybook consistency.
+This document and its prototype do not authorize implementation, dependency
+changes, merge or deployment.
 
 ## Design objective
 
@@ -55,8 +57,15 @@ as automatic WhatsApp milestones.
 ## Visual language
 
 - Preserve the existing RushX logo exactly.
-- Use the current editorial type, neutral dark/light surfaces and RushX green as
-  the single active-system signal.
+- Follow the canonical Storybook foundations rather than introducing a campaign
+  sub-brand: Outfit for headings, Manrope for body copy, IBM Plex Mono for stage
+  identifiers, Lucide-style 1.5-stroke icons, the 32px rounded-square Zap mark,
+  semantic neutral surfaces and the existing charging/brand colour roles.
+- Use the existing `--radius`, `--radius-card`, `--shadow-card`, 44px minimum
+  control height and shared light/dark semantic roles. The implementation must
+  consume the actual tokens and components rather than copying visual values.
+- Use RushX green as the single active-system signal. Retain exact WhatsApp green
+  only inside the illustrative WhatsApp channel preview.
 - Use a simplified, brand-led charger model rather than a specific manufacturer
   product. It must look recognizable without making a compatibility claim.
 - Build spatial depth with perspective, layered planes, soft environmental light
@@ -77,6 +86,12 @@ as automatic WhatsApp milestones.
 - Previous/next controls are optional on mobile; direct stage buttons remain.
 - “See the complete journey” links to `/how-it-works`.
 - “Book a repair” links to `/repairs/new`; “Track a repair” links to `/repairs`.
+
+The revised recommended prototype also offers an eight-stage direct-selection
+rail. This lets a visitor understand the complete workflow at a glance, select any
+milestone, move with Previous/Next controls, switch between RushX dashboard and
+WhatsApp views, and see charger location plus the next responsible actor update in
+one place. This is preferred over hiding the milestones behind a decorative scene.
 
 ### How it works
 
@@ -184,9 +199,9 @@ must use public explanatory copy and must not change production template content
 
 ## Alternatives represented in the prototype
 
-- **System Journey** — recommended spatial path with a focused charger station and
-  synchronized customer-view panel.
-- **Repair Rail** — a lighter, editorial track suited to SVG/CSS implementation.
-- **Signal Orbit** — a more expressive circular system showing dashboard and
-  WhatsApp signals around the charger; strongest as a campaign visual, less direct
-  for the full eight-stage explanation.
+- **Guided Journey** — recommended. The full eight-stage rail, spatial charger
+  path, next-action explanation and switchable dashboard/WhatsApp preview are
+  visible in one coherent website section.
+- **System Map** — a simpler alternative that groups the workflow into four large
+  phases and is strongest for homepage comprehension, but provides less immediate
+  detail than Guided Journey.
