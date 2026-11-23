@@ -20,7 +20,24 @@ The design must communicate four facts within the first screen:
 3. Repair begins only after the customer approves the estimate.
 4. Optional WhatsApp milestones complement the authoritative RushX dashboard.
 
-## Recommended concept: RushX System Journey
+## Recommended concept: RushX Lifecycle Ring
+
+The revised recommendation is a circular eight-stage lifecycle ring. It makes the
+complete process visible at once while focusing one milestone at a time. The ring
+advances continuously as an explanatory loop, displays the applicable illustrative
+WhatsApp update beside the active stage and pauses whenever a pointer hovers over
+the experience or keyboard focus enters it. A visible Pause/Play control provides
+the equivalent behavior for touch users and anyone who does not hover.
+
+Every stage is a real semantic button. A customer may select any stage directly or
+use previous/next controls. Manual selection updates the ring progress, stage
+description, charger location, next responsible actor and WhatsApp preview. Reduced
+motion disables automatic advancement.
+
+The circular motion is an explanatory presentation of the service lifecycle; it
+must not imply that every real repair advances automatically or continuously.
+
+## Supporting concept: RushX System Journey
 
 The homepage contains a compact, three-dimensional system map. A stylized charger
 travels along a luminous RushX path through four grouped stations:
@@ -87,6 +104,10 @@ as automatic WhatsApp milestones.
 - “See the complete journey” links to `/how-it-works`.
 - “Book a repair” links to `/repairs/new`; “Track a repair” links to `/repairs`.
 
+For the approved circular direction, the homepage may use the complete ring if it
+fits the measured performance and layout budgets; otherwise it uses a simplified
+four-phase ring linking to the full eight-stage How it works page.
+
 The revised recommended prototype also offers an eight-stage direct-selection
 rail. This lets a visitor understand the complete workflow at a glance, select any
 milestone, move with Previous/Next controls, switch between RushX dashboard and
@@ -136,6 +157,20 @@ one place. This is preferred over hiding the milestones behind a decorative scen
 - A static SVG/CSS illustration presents the same selected-stage state if WebGL is
   unsupported, loading fails, data saving is active or the device is below the
   implementation-approved capability threshold.
+
+## Search visibility design
+
+The animated ring is progressive enhancement, not the source of searchable
+content. The page must render a visible semantic section below or alongside the
+visual containing all eight stage headings and concise descriptions. The page also
+needs a unique Delhi/NCR-focused title and description, one descriptive H1,
+crawlable anchor links for booking/tracking, and inclusion in the public sitemap.
+
+Do not place essential lifecycle copy only in canvas, SVG text, CSS-generated
+content or a hidden interaction state. Google advises expressing visual content in
+text form and using semantic HTML because canvas-rendered content is not indexed as
+page text. Structured data may be evaluated separately, but must describe verified
+business facts and is not a substitute for visible useful content.
 
 ## Proposed implementation medium
 
@@ -199,7 +234,9 @@ must use public explanatory copy and must not change production template content
 
 ## Alternatives represented in the prototype
 
-- **Guided Journey** — recommended. The full eight-stage rail, spatial charger
+- **Lifecycle Ring** — recommended. All eight stages remain visible while the
+  selected stage and matching WhatsApp preview advance in a pausable loop.
+- **Guided Journey** — linear alternative. The full eight-stage rail, spatial charger
   path, next-action explanation and switchable dashboard/WhatsApp preview are
   visible in one coherent website section.
 - **System Map** — a simpler alternative that groups the workflow into four large
