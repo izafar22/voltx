@@ -252,6 +252,13 @@ must use public explanatory copy and must not change production template content
 
 ## Approval record
 
+- 2026-11-24: owner clarified that the lifecycle stage labels themselves must be
+  prominent and the experience must feel continuously alive. The ring therefore
+  uses large direct stage names, a breathing core and status, travelling light,
+  a softly floating active stage, and an arriving WhatsApp bubble. Hover, focus,
+  the explicit Pause control and reduced-motion preference stop all ambient motion;
+  animation never changes the recorded facts or hides the semantic controls.
+
 - 2026-11-23: owner requested a larger, more contemporary typography treatment.
   The approved refinement keeps the RushX design-system families—variable Outfit
   for display, variable Manrope for reading text and IBM Plex Mono for identifiers—
