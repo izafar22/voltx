@@ -252,8 +252,13 @@ must use public explanatory copy and must not change production template content
 
 ## Approval record
 
-- 2026-11-24: owner fixed the hero headline “One transparent loop—from fault to
-  return.” at the restrained reference scale. Large typography is reserved for the
+- 2026-11-24: owner replaced the graphic-led hero wording with the trust-led
+  headline “A repair system you can see, trust, and follow.” The supporting copy
+  reinforces that important decisions are recorded and visible through the RushX
+  account and optional WhatsApp milestones.
+
+- 2026-11-24: owner fixed the hero headline at the restrained reference scale.
+  Large typography is reserved for the
   lifecycle stage names and selected-stage content rather than enlarging the hero.
 
 - 2026-11-24: owner clarified that the lifecycle stage labels themselves must be
