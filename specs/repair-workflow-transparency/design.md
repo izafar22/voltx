@@ -53,6 +53,24 @@ must not imply that every real repair advances automatically or continuously.
   heading and description, server-visible page copy and appropriate metadata,
   rather than a duplicate visible eight-card section.
 
+### Approved visual refinement direction
+
+The frozen structure may use a premium spatial interface treatment inspired by
+the clarity and motion discipline associated with modern iOS interfaces, without
+copying Apple assets, controls or typography. Retain the RushX Storybook identity
+while applying:
+
+- translucent, softly blurred layers with readable contrast in both themes;
+- restrained depth, environmental glow and soft shadows instead of heavy borders;
+- spring-like but non-bouncy stage selection and ring-progress transitions;
+- rounded anchored WhatsApp bubbles that move smoothly to the active stage;
+- pill-shaped Pause/Play and navigation controls with clear focus states;
+- generous spacing and a stronger hierarchy around the selected milestone; and
+- a complete reduced-motion treatment that removes automatic and spring motion.
+
+Visual glass effects are enhancement only. Content, controls and contrast must
+remain usable when backdrop filtering is unsupported.
+
 ## Supporting concept: RushX System Journey
 
 The homepage contains a compact, three-dimensional system map. A stylized charger
