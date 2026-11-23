@@ -1,5 +1,7 @@
 """Profile boundaries, identity linking and repair snapshots on disposable databases."""
 import asyncio
+import hashlib
+import json
 import os
 import secrets
 from contextlib import ExitStack
@@ -85,10 +87,59 @@ def test_repair_physical_measurements_are_persisted_and_bounded():
         assert response.status_code == 200
         assert response.json()['charger_info']['weight_kg'] == 8.5
         assert response.json()['charger_info']['length_cm'] == 42
+        await db.chargers.insert_one({
+            'charger_id': 'TEST-REGISTERED', 'owner_id': 'customer',
+            'name': 'Registered charger', 'max_power_kw': 7.4,
+        })
+        registered = await browser.post('/api/repairs', json={
+            'charger_id': 'TEST-REGISTERED',
+            'charger_info': {'weight_kg': 9, 'length_cm': 45},
+            'problem_description': 'Registered charger repair',
+        })
+        assert registered.status_code == 200
+        assert registered.json()['charger_info']['power_rating'] == '7.4 kW'
+        assert registered.json()['charger_info']['weight_kg'] == 9
+        assert registered.json()['charger_info']['length_cm'] == 45
         assert (await browser.post('/api/repairs', json={
             'charger_info': {'brand': 'Test', 'weight_kg': 0, 'length_cm': 501},
             'problem_description': 'Invalid measurements',
         })).status_code == 422
+    run(scenario)
+
+
+def test_repair_retry_accepts_pre_measurement_fingerprint():
+    async def scenario(auth, db, browser, clock):
+        user = await sign_in(auth, db, browser)
+        idempotency_key = 'legacy-measurement-retry'
+        legacy_payload = {
+            'customer_type': 'RETAIL',
+            'charger_id': None,
+            'charger_info': {
+                'brand': 'Legacy', 'model': None, 'serial_number': None,
+                'charger_type': None, 'power_rating': None,
+            },
+            'problem_description': 'Legacy retry',
+            'reported_category': None,
+            'photos': None,
+            'whatsapp_opt_in': False,
+        }
+        creation_key = hashlib.sha256(json.dumps([user['user_id'], idempotency_key]).encode()).hexdigest()
+        creation_fingerprint = hashlib.sha256(json.dumps(legacy_payload, sort_keys=True).encode()).hexdigest()
+        await db.repair_requests.insert_one({
+            'id': 'legacy-repair', 'repair_request_number': 'REP-LEGACY',
+            'user_id': user['user_id'], 'status': 'REQUESTED',
+            'charger_info': {'brand': 'Legacy'}, 'status_history': [],
+            'creation_key': creation_key,
+            'creation_fingerprint': creation_fingerprint,
+        })
+        response = await browser.post('/api/repairs', json={
+            'idempotency_key': idempotency_key,
+            'charger_info': {'brand': 'Legacy'},
+            'problem_description': 'Legacy retry',
+        })
+        assert response.status_code == 200
+        assert response.json()['id'] == 'legacy-repair'
+        assert await db.repair_requests.count_documents({'creation_key': creation_key}) == 1
     run(scenario)
 
 

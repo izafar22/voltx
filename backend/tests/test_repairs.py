@@ -56,11 +56,15 @@ def test_create_repair_for_existing_charger_retains_relationship():
     h, _ = new_customer()
     r = requests.post(f"{BASE}/repairs", headers=h, json={
         "charger_id": "IND000001", "customer_type": "RETAIL",
+        "charger_info": {"weight_kg": 9, "length_cm": 45},
         "problem_description": "Connector damaged"})
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["charger_id"] == "IND000001"  # relationship retained, not duplicated
     assert d["charger_info"].get("brand")  # auto-filled from existing charger
+    assert d["charger_info"].get("power_rating")
+    assert d["charger_info"]["weight_kg"] == 9
+    assert d["charger_info"]["length_cm"] == 45
 
 
 def test_invalid_charger_type_rejected():
