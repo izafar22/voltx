@@ -50,3 +50,11 @@ CI second run: shadow assertions passed; icon assertions exposed `.rx-public a {
   hosted under the isolated staging payment-asset path. Production behavior is unchanged.
 - Submitted the actionable estimate, estimate-declined and balance-due QR Utility
   templates to Meta; all three were pending at the time of submission.
+
+## 2026-11-23 — repair booking physical details
+
+- IN_PROGRESS: `feature/charger-physical-details` adds required charger weight (kg)
+  and longest-side length (cm) fields to the booking form. The API fields remain
+  optional for existing clients and records. Focused frontend validation/payload
+  tests (14) and backend persistence/bounds test (1) pass; the production frontend
+  build also succeeds. PR review and staging acceptance remain; not deployed.

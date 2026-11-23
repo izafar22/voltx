@@ -49,7 +49,7 @@ export default function RepairNew() {
   const deliveryId = addressSelection.delivery !== undefined ? addressSelection.delivery : profile?.delivery_id;
   const [source, setSource] = useState("other");
   const [chargerId, setChargerId] = useState("");
-  const [info, setInfo] = useState({ brand: "", model: "", charger_type: "", serial_number: "", power_rating: "", purchase_date: "" });
+  const [info, setInfo] = useState({ brand: "", model: "", charger_type: "", serial_number: "", power_rating: "", purchase_date: "", weight_kg: "", length_cm: "" });
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState([]);
@@ -103,6 +103,10 @@ export default function RepairNew() {
       if (!info.brand.trim()) nextErrors.brand = "Brand is required";
       if (!info.charger_type) nextErrors.charger_type = "Please select a charger type";
     }
+    const weight = Number(info.weight_kg);
+    const length = Number(info.length_cm);
+    if (!info.weight_kg || !Number.isFinite(weight) || weight <= 0 || weight > 500) nextErrors.weight_kg = "Enter a weight greater than 0 and up to 500 kg";
+    if (!info.length_cm || !Number.isFinite(length) || length <= 0 || length > 500) nextErrors.length_cm = "Enter a length greater than 0 and up to 500 cm";
     if (!description.trim()) nextErrors.description = "Please describe the problem";
     setErrors(nextErrors);
     const firstInvalid = Object.keys(nextErrors)[0];
@@ -130,6 +134,7 @@ export default function RepairNew() {
       if (deliveryId) payload.delivery_address_id = deliveryId;
       if (source === "mine") {
         payload.charger_id = chargerId;
+        payload.charger_info = { weight_kg: weight, length_cm: length };
       } else {
         payload.charger_info = {
           brand: info.brand.trim(), model: info.model.trim() || null,
@@ -137,6 +142,8 @@ export default function RepairNew() {
           serial_number: info.serial_number.trim() || null,
           power_rating: info.power_rating.trim() || null,
           purchase_date: info.purchase_date || null,
+          weight_kg: weight,
+          length_cm: length,
         };
       }
       if (creationRetry.current?.uncertain && creationRetry.current.actorId === user?.user_id) {
@@ -256,6 +263,16 @@ export default function RepairNew() {
             <div className="space-y-2"><Label htmlFor="power_rating">Power rating (optional)</Label><Input id="power_rating" data-testid="power-input" value={info.power_rating} onChange={(e) => updateInfo("power_rating", e.target.value)} placeholder="e.g. 7.4 kW" /></div>
             <div className="space-y-2"><Label htmlFor="purchase_date">Purchase date (optional)</Label><Input id="purchase_date" data-testid="purchase-input" type="date" value={info.purchase_date} onChange={(e) => updateInfo("purchase_date", e.target.value)} /></div>
           </div>}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-2"><Label htmlFor="weight_kg">Charger weight (kg) *</Label>
+              <Input {...fieldProps("weight_kg", "weight-help")} data-testid="weight-input" type="number" inputMode="decimal" min="0.1" max="500" step="0.1" value={info.weight_kg} onChange={(e) => updateInfo("weight_kg", e.target.value)} />
+              <p id="weight-help" className="text-sm text-muted-foreground">Enter the charger’s approximate weight, excluding packaging.</p>{fieldError("weight_kg")}
+            </div>
+            <div className="space-y-2"><Label htmlFor="length_cm">Charger length (cm) *</Label>
+              <Input {...fieldProps("length_cm", "length-help")} data-testid="length-input" type="number" inputMode="decimal" min="0.1" max="500" step="0.1" value={info.length_cm} onChange={(e) => updateInfo("length_cm", e.target.value)} />
+              <p id="length-help" className="text-sm text-muted-foreground">Measure the charger’s longest side, excluding packaging.</p>{fieldError("length_cm")}
+            </div>
+          </div>
         </section>
         <section className="repair-section" aria-labelledby="problem-heading">
           <h2 id="problem-heading">3. Tell us what’s wrong</h2>
@@ -293,7 +310,7 @@ export default function RepairNew() {
         <section className="repair-section" aria-labelledby="review-heading">
           <h2 id="review-heading">{user?.role === 'customer' ? '6' : '5'}. Review and submit</h2>
           <dl className="rounded-xl border border-border bg-secondary/20 p-5 sm:p-6 space-y-5 text-base break-words" data-testid="review-section">
-            <div><dt className="text-sm font-medium text-muted-foreground mb-1">Charger</dt><dd>{source === "mine" ? (selected ? `${selected.charger_id} — ${selected.name}` : "No charger selected") : [info.brand, info.model, TYPE_OPTIONS.find((t) => t.value === info.charger_type)?.label].filter(Boolean).join(" · ") || "Charger details not added yet"}</dd>{source === "other" && info.serial_number && <dd className="mt-1 text-sm text-muted-foreground">Serial number: {info.serial_number}</dd>}</div>
+            <div><dt className="text-sm font-medium text-muted-foreground mb-1">Charger</dt><dd>{source === "mine" ? (selected ? `${selected.charger_id} — ${selected.name}` : "No charger selected") : [info.brand, info.model, TYPE_OPTIONS.find((t) => t.value === info.charger_type)?.label].filter(Boolean).join(" · ") || "Charger details not added yet"}</dd>{source === "other" && info.serial_number && <dd className="mt-1 text-sm text-muted-foreground">Serial number: {info.serial_number}</dd>}<dd className="mt-1 text-sm text-muted-foreground">{info.weight_kg || "—"} kg · {info.length_cm || "—"} cm long</dd></div>
             <div><dt className="text-sm font-medium text-muted-foreground mb-1">Problem</dt><dd>{category || "No category selected"}</dd></div>
             <div><dt className="text-sm font-medium text-muted-foreground mb-1">Description</dt><dd className="whitespace-pre-wrap">{description || "No description added yet"}</dd></div>
             <div><dt className="text-sm font-medium text-muted-foreground mb-1">Photos</dt><dd>{photos.length} attached</dd></div>

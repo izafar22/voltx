@@ -75,6 +75,23 @@ def test_profile_auth_allowlist_and_persistence():
     run(scenario)
 
 
+def test_repair_physical_measurements_are_persisted_and_bounded():
+    async def scenario(auth, db, browser, clock):
+        await sign_in(auth, db, browser)
+        response = await browser.post('/api/repairs', json={
+            'charger_info': {'brand': 'Test', 'weight_kg': 8.5, 'length_cm': 42},
+            'problem_description': 'Test repair',
+        })
+        assert response.status_code == 200
+        assert response.json()['charger_info']['weight_kg'] == 8.5
+        assert response.json()['charger_info']['length_cm'] == 42
+        assert (await browser.post('/api/repairs', json={
+            'charger_info': {'brand': 'Test', 'weight_kg': 0, 'length_cm': 501},
+            'problem_description': 'Invalid measurements',
+        })).status_code == 422
+    run(scenario)
+
+
 def test_address_crud_concurrency_and_defaults_real_mongo():
     async def scenario(auth, db, browser, clock):
         await sign_in(auth, db, browser)

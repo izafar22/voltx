@@ -610,6 +610,8 @@ class ChargerInfo(BaseModel):
     serial_number: Optional[str] = None
     charger_type: Optional[str] = None
     power_rating: Optional[str] = None
+    weight_kg: Optional[float] = Field(None, gt=0, le=500, allow_inf_nan=False)
+    length_cm: Optional[float] = Field(None, gt=0, le=500, allow_inf_nan=False)
 
 
 class RepairCreate(BaseModel):

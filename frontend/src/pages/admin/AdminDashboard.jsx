@@ -476,6 +476,7 @@ function RepairDetailPanel({ id, onBack, custById, chargerById }) {
             )}
             {r.charger_info?.serial_number && <p className="text-xs text-muted-foreground font-mono mt-0.5">SN {r.charger_info.serial_number}</p>}
             {r.charger_info?.power_rating && <p className="text-xs text-muted-foreground">{r.charger_info.power_rating}</p>}
+            {(r.charger_info?.weight_kg || r.charger_info?.length_cm) && <p className="text-xs text-muted-foreground">{[r.charger_info?.weight_kg && `${r.charger_info.weight_kg} kg`, r.charger_info?.length_cm && `${r.charger_info.length_cm} cm long`].filter(Boolean).join(" · ")}</p>}
           </div>
           <div className="md:col-span-2">
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Problem{r.reported_category ? ` — ${r.reported_category}` : ""}</p>
