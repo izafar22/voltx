@@ -31,7 +31,7 @@ def new_customer():
 def test_create_retail_repair_unregistered():
     h, _ = new_customer()
     r = requests.post(f"{BASE}/repairs", headers=h, json={
-        "customer_type": "RETAIL", "charger_info": {"brand": "Delta", "model": "AC Mini", "charger_type": "AC"},
+        "customer_type": "RETAIL", "charger_info": {"brand": "Delta", "model": "AC Mini", "charger_type": "AC", "weight_kg": 8.5, "length_cm": 42},
         "problem_description": "Not powering on"})
     assert r.status_code == 200, r.text
     d = r.json()
@@ -39,6 +39,8 @@ def test_create_retail_repair_unregistered():
     assert d["charger_id"] is None
     assert d["repair_request_number"].startswith("REP-")
     assert d["charger_info"]["brand"] == "Delta"
+    assert d["charger_info"]["weight_kg"] == 8.5
+    assert d["charger_info"]["length_cm"] == 42
     assert "id" in d and d["id"].startswith("rep_")
 
 
@@ -54,11 +56,15 @@ def test_create_repair_for_existing_charger_retains_relationship():
     h, _ = new_customer()
     r = requests.post(f"{BASE}/repairs", headers=h, json={
         "charger_id": "IND000001", "customer_type": "RETAIL",
+        "charger_info": {"weight_kg": 9, "length_cm": 45},
         "problem_description": "Connector damaged"})
     assert r.status_code == 200, r.text
     d = r.json()
     assert d["charger_id"] == "IND000001"  # relationship retained, not duplicated
     assert d["charger_info"].get("brand")  # auto-filled from existing charger
+    assert d["charger_info"].get("power_rating")
+    assert d["charger_info"]["weight_kg"] == 9
+    assert d["charger_info"]["length_cm"] == 45
 
 
 def test_invalid_charger_type_rejected():
@@ -67,6 +73,14 @@ def test_invalid_charger_type_rejected():
         "charger_info": {"brand": "ABB", "charger_type": "SOLAR"},
         "problem_description": "Weird noise"})
     assert r.status_code == 400
+
+
+def test_invalid_charger_measurements_rejected():
+    h, _ = new_customer()
+    r = requests.post(f"{BASE}/repairs", headers=h, json={
+        "charger_info": {"brand": "ABB", "weight_kg": 0, "length_cm": 501},
+        "problem_description": "Weird noise"})
+    assert r.status_code == 422
 
 
 def test_missing_problem_description_rejected():

@@ -37,6 +37,8 @@ Authenticated linking operations in `auth_service.py` and `google_oidc.py` bind 
 
 Repair creation accepts optional pickup/delivery address IDs, resolves them against the customer profile and embeds location snapshots. Existing idempotent retries return the original repair before resolving mutable saved addresses. Repair-response redaction also applies to the new location fields.
 
+Repair `charger_info` accepts optional positive `weight_kg` and `length_cm` measurements (bounded at 500 in their respective units) for backward compatibility with existing API clients and records. The customer booking UI requires both measurements for new submissions and sends them for registered and unregistered chargers; customer and admin repair detail views display stored values.
+
 `/app/profile` uses CustomerShell and shared profile/address/verification components. The repair form adds optional selectors and an inline address dialog to retain its draft. Profile data is held in memory, not local storage. See `specs/customer-profile/validation.md` for evidence and remaining staging acceptance. This describes feature-branch code, not verified deployment.
 
 ## WhatsApp lifecycle source audit (2026-11-19)

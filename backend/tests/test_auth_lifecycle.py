@@ -163,6 +163,21 @@ def test_wrong_expired_attempt_limits_and_cooldown():
     run(scenario)
 
 
+def test_otp_ip_limit_headroom_is_test_only():
+    async def scenario(service, db, browser, clock):
+        from unittest.mock import AsyncMock
+        service.limit = AsyncMock(wraps=service.limit)
+        await service.request_otp('+919876543210', 'shared-test-loopback')
+        assert service.limit.await_args_list[0].args == ('ip:shared-test-loopback', 100, 3600)
+
+        production = AuthService(db, AuthSettings(SECRET, 'production', 'provider', False, ('https://rushx.example',)))
+        production.provider = service.provider
+        production.limit = AsyncMock(wraps=production.limit)
+        await production.request_otp('+919876543211', 'production-client')
+        assert production.limit.await_args_list[0].args == ('ip:production-client', 30, 3600)
+    run(scenario)
+
+
 def test_concurrent_registration_creates_one_account_and_wallet():
     async def scenario(service, db, browser, clock):
         token = (await verify(browser, await challenge(browser))).json()['registration_token']

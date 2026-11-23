@@ -115,6 +115,8 @@ function RepairDetailView({ id }) {
                 <span className="text-muted-foreground">Type</span><span className="text-right">{r.charger_info?.charger_type || "—"}</span>
                 {r.charger_info?.serial_number && <><span className="text-muted-foreground">Serial</span><span className="text-right">{r.charger_info.serial_number}</span></>}
                 {r.charger_info?.power_rating && <><span className="text-muted-foreground">Power</span><span className="text-right">{r.charger_info.power_rating}</span></>}
+                {r.charger_info?.weight_kg && <><span className="text-muted-foreground">Weight</span><span className="text-right">{r.charger_info.weight_kg} kg</span></>}
+                {r.charger_info?.length_cm && <><span className="text-muted-foreground">Length</span><span className="text-right">{r.charger_info.length_cm} cm</span></>}
               </div>
             </div>
 

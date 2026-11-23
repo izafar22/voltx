@@ -610,6 +610,8 @@ class ChargerInfo(BaseModel):
     serial_number: Optional[str] = None
     charger_type: Optional[str] = None
     power_rating: Optional[str] = None
+    weight_kg: Optional[float] = Field(None, gt=0, le=500, allow_inf_nan=False)
+    length_cm: Optional[float] = Field(None, gt=0, le=500, allow_inf_nan=False)
 
 
 class RepairCreate(BaseModel):
@@ -782,6 +784,10 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user), requ
     payload = body.model_dump(exclude={"idempotency_key"})
     if payload.get('whatsapp_binding') is None:
         payload.pop('whatsapp_binding', None)
+    charger_payload = payload.get('charger_info') or {}
+    for key in ('weight_kg', 'length_cm'):
+        if charger_payload.get(key) is None:
+            charger_payload.pop(key, None)
     for key in ('pickup_address_id', 'delivery_address_id'):
         if payload[key] is None:
             payload.pop(key)
@@ -807,7 +813,8 @@ async def create_repair(body: RepairCreate, user=Depends(get_current_user), requ
         for key in ("brand", "model"):
             if not text_fact(info.get(key)):
                 info[key] = c.get("name")
-        info.setdefault("power_rating", f"{c.get('max_power_kw')} kW")
+        if not text_fact(info.get("power_rating")):
+            info["power_rating"] = f"{c.get('max_power_kw')} kW"
     else:
         if not text_fact(info.get("brand")):
             raise HTTPException(status_code=400, detail="Charger brand is required for an unregistered charger")
