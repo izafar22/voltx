@@ -96,7 +96,7 @@ test("eight-stage journey retains acceptance, approval, account fallback and dis
     expect.stringContaining("Accepted"),
     expect.stringContaining("Estimate"),
     expect.stringContaining("Payment"),
-    expect.stringContaining("Returned"),
+    expect.stringContaining("Dispatched"),
   ]));
   act(() => stages[1].dispatchEvent(new MouseEvent("click", { bubbles: true })));
   expect(el.textContent).toContain("Accepted for inspection");

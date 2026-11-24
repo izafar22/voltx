@@ -17,25 +17,28 @@ evidence does not claim merge, staging deployment or production deployment.
 
 ## Executed checks
 
-- Frontend unit suite: **20 suites, 206 tests passed**.
-- Focused lifecycle React suites: **3 suites, 44 tests passed**.
-- Production frontend build: **passed**; main JS 382.47 kB gzip and main CSS
-  24.7 kB gzip.
-- Storybook static build: **passed** (existing bundle-size warnings only).
-- Storybook browser accessibility/visual suite: **163/163 passed** at 375 and
-  1280 px in light and dark themes.
-- Focused lifecycle Playwright coverage: **8/8 passed** at 320, 375, 768 and
-  1280 px, including reduced motion.
-- Full application Playwright first run: **148 passed, 24 failed**. Every failure
-  identified the same canonical-logo ARIA regression. The wrapper was corrected
-  to expose an image role when compact.
-- Rerun of all affected customer-profile and unified public accessibility cases:
-  **32/32 passed** at 320, 375, 768 and 1280 px after rebuilding the production
-  artifact.
-- CMS/SEO route contract: **35 passed** with a sanitized local test environment;
-  deprecation warnings only.
-- Mobile and desktop production renders inspected at 375 and 1280 px; no
-  horizontal document overflow or clipped lifecycle controls observed.
+All paths below are relative to the repository root. Commands and results in this
+section were retained from the local runs; no live credentials were used.
+
+| Working directory | Exact command | Result |
+| --- | --- | --- |
+| `frontend` | `CI=true yarn test --watchAll=false --runInBand` | 20 suites / 206 tests passed after the review fixes |
+| `frontend` | `CI=true yarn test --watchAll=false --runInBand src/pages/public/storytelling/LifecycleRing.test.jsx src/pages/public/storytelling/StoryPages.test.jsx` | 2 suites / 7 tests passed after the review fixes; covers manual-only announcements and the dispatch label |
+| `frontend` | `yarn build` | Passed after the review fixes; main JS 382.56 kB gzip and main CSS 24.77 kB gzip |
+| `frontend/e2e` | `npx playwright test public.spec.cjs --grep "repair lifecycle is selectable\|reduced motion keeps"` | 8/8 passed after the review fixes at 320, 375, 768 and 1280 px; includes a geometric no-stage-overlap assertion |
+| `frontend` | `yarn build-storybook` | Passed after the review fixes; existing bundle-size warnings only |
+| `frontend/e2e` | `npx playwright test --config storybook.playwright.config.cjs` | 163/163 passed after the review fixes at 375 and 1280 px in both themes |
+| `backend` | `MONGO_URL='mongodb://127.0.0.1:27017' DB_NAME='rushx_test' JWT_SECRET='test-only-secret-not-for-runtime-000000000' APP_ENV='test' PYTHONPATH="$PWD" ../.venv/bin/pytest -q tests/test_studio_cms.py tests/test_seo_files.py` | 35 passed after the SEO service-area correction; deprecation warnings only |
+
+Before review, `npm test` from `frontend/e2e` produced 148 passes and 24 failures,
+all caused by the same compact-logo ARIA issue. After correcting the wrapper and
+rebuilding, `npx playwright test customer-profile.spec.cjs public.spec.cjs --grep
+"customer profile|unified home"` from `frontend/e2e` passed 32/32 affected cases.
+Those earlier runs preceded the six review fixes above; the post-review commands
+in the table are the authoritative current evidence.
+
+Mobile and desktop production renders were also inspected at 375 and 1280 px;
+no horizontal document overflow or clipped lifecycle controls was observed.
 
 ## Operational boundary
 

@@ -61,8 +61,10 @@ test("renders eight semantic stages and synchronizes selected detail", () => {
 });
 
 test("auto-advances, explicit pause wins, and next/previous wrap", () => {
+  const liveSummary = container.querySelector('[aria-live="polite"]');
   act(() => jest.advanceTimersByTime(3600));
   expect(container.querySelector('[data-stage="accepted"]').getAttribute("aria-pressed")).toBe("true");
+  expect(liveSummary.textContent).toBe("");
   const pause = [...container.querySelectorAll("button")].find((button) => button.textContent.includes("Pause loop"));
   click(pause);
   act(() => jest.advanceTimersByTime(7200));
@@ -70,6 +72,7 @@ test("auto-advances, explicit pause wins, and next/previous wrap", () => {
   expect(pause.getAttribute("aria-pressed")).toBe("true");
   click(container.querySelector('[aria-label="Previous lifecycle stage"]'));
   expect(container.querySelector('[data-stage="request"]').getAttribute("aria-pressed")).toBe("true");
+  expect(liveSummary.textContent).toContain("Milestone 1 of 8: Request received");
   click(container.querySelector('[aria-label="Previous lifecycle stage"]'));
   expect(container.querySelector('[data-stage="returned"]').getAttribute("aria-pressed")).toBe("true");
 });

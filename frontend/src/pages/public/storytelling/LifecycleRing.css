@@ -54,8 +54,9 @@
 .rx-lifecycle-track circle { fill: none; stroke: var(--line); stroke-width: 0.55; }
 .rx-lifecycle-track .rx-lifecycle-progress { stroke: var(--life-green); stroke-width: 1.15; stroke-linecap: round; stroke-dasharray: 263.9; transition: stroke-dashoffset 0.7s cubic-bezier(.22,1,.36,1); filter: drop-shadow(0 0 3px hsl(var(--accent) / 0.7)); animation: rx-life-track 2.6s ease-in-out infinite; }
 .rx-lifecycle-core { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 31%; aspect-ratio: 1; z-index: 2; border-radius: 50%; border: 1px solid var(--line); background: linear-gradient(145deg, hsl(var(--card) / 0.95), hsl(var(--brand-surface) / 0.74)); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; box-shadow: 0 22px 60px hsl(0 0% 0% / 0.28); animation: rx-life-core 4.5s ease-in-out infinite; }
-.rx-lifecycle-core img { width: 46px; height: 46px; margin-bottom: 8px; animation: rx-life-device 2.8s ease-in-out infinite; }
-.rx-lifecycle-core strong { font: 700 22px var(--font-display); }
+.rx-lifecycle-core [data-testid="logo"] { flex-direction: column; gap: 6px; margin-bottom: 3px; animation: rx-life-device 2.8s ease-in-out infinite; }
+.rx-lifecycle-core [data-testid="logo"] img { width: 46px; height: 46px; }
+.rx-lifecycle-core [data-testid="logo"] span { color: var(--ink); font: 700 22px var(--font-display); }
 .rx-lifecycle-core span { color: var(--muted); font-size: 11px; }
 .rx-lifecycle-core b { margin-top: 7px; color: hsl(var(--brand-foreground)); font: 600 11px var(--font-code); }
 .rx-lifecycle-node { position: absolute; left: var(--stage-x); top: var(--stage-y); transform: translate(-50%, -50%); width: 116px; min-height: 82px; padding: 10px; z-index: 4; border: 1px solid var(--line); border-radius: 17px; background: hsl(var(--card) / 0.88); color: var(--ink); box-shadow: 0 9px 26px hsl(0 0% 0% / 0.16); backdrop-filter: blur(18px); transition: transform .4s cubic-bezier(.22,1.2,.36,1), background .25s, border-color .25s; }
@@ -64,7 +65,7 @@
 .rx-lifecycle-node.is-complete { background: hsl(var(--brand-surface) / 0.82); border-color: var(--life-green-line); }
 .rx-lifecycle-node.is-selected { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); box-shadow: 0 0 0 6px hsl(var(--accent) / 0.1), 0 18px 40px hsl(0 0% 0% / 0.28); animation: rx-life-stage 2.25s ease-in-out infinite; }
 .rx-lifecycle-node.is-selected::after { content: ""; position: absolute; width: 9px; height: 9px; right: 10px; top: 10px; border-radius: 50%; background: var(--life-green); animation: rx-life-signal 1.8s ease-out infinite; }
-.rx-lifecycle-message { position: absolute; left: 57%; top: 17%; width: min(290px, 48%); z-index: 6; padding: 16px; border: 1px solid hsl(var(--brand-border) / 0.7); border-radius: 20px 20px 6px 20px; background: hsl(var(--brand-surface) / 0.94); box-shadow: 0 20px 55px hsl(0 0% 0% / 0.27); backdrop-filter: blur(20px); animation: rx-life-message 3.4s ease-in-out infinite; }
+.rx-lifecycle-message { position: absolute; left: 50%; top: 27%; transform: translateX(-50%); width: min(270px, 44%); z-index: 6; padding: 16px; border: 1px solid hsl(var(--brand-border) / 0.7); border-radius: 20px 20px 6px 20px; background: hsl(var(--brand-surface) / 0.94); box-shadow: 0 20px 55px hsl(0 0% 0% / 0.27); backdrop-filter: blur(20px); pointer-events: none; animation: rx-life-message 3.4s ease-in-out infinite; }
 .rx-lifecycle-message > div { display: flex; align-items: center; gap: 9px; }
 .rx-lifecycle-message > div > p { margin: 0; display: flex; flex-direction: column; }
 .rx-lifecycle-message-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; color: white; background: rgb(37 211 102); }
@@ -110,7 +111,7 @@
 @keyframes rx-life-device { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
 @keyframes rx-life-stage { 0%,100% { transform: translate(-50%,-50%) scale(1.06); } 50% { transform: translate(-50%,-54%) scale(1.09); } }
 @keyframes rx-life-signal { 0% { box-shadow: 0 0 0 0 hsl(var(--accent) / .5); } 80%,100% { box-shadow: 0 0 0 13px hsl(var(--accent) / 0); } }
-@keyframes rx-life-message { 0%,100% { transform: translateY(0) rotate(-.25deg); } 50% { transform: translateY(-6px) rotate(.35deg); } }
+@keyframes rx-life-message { 0%,100% { transform: translateX(-50%) translateY(0) rotate(-.25deg); } 50% { transform: translateX(-50%) translateY(-6px) rotate(.35deg); } }
 @keyframes rx-life-typing { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
 @media (max-width: 900px) {
   .rx-lifecycle-intro { grid-template-columns: 1fr; gap: 22px; }
@@ -127,23 +128,23 @@
   .rx-lifecycle-heading { align-items: flex-start; flex-direction: column; }
   .rx-public .rx-lifecycle-heading h2 { font-size: 2.2rem; }
   .rx-lifecycle-layout { margin-inline: -12px; padding: 14px; border-radius: 18px; }
-  .rx-lifecycle-orbit { min-height: 500px; aspect-ratio: auto; }
-  .rx-lifecycle-track { inset: 15% 7%; width: 86%; height: 72%; }
-  .rx-lifecycle-core { width: 34%; top: 50%; }
-  .rx-lifecycle-core img { width: 36px; height: 36px; }
-  .rx-lifecycle-core strong { font-size: 18px; }
+  .rx-lifecycle-orbit { min-height: 700px; aspect-ratio: auto; }
+  .rx-lifecycle-track { inset: 75px 7% auto; width: 86%; height: 360px; }
+  .rx-lifecycle-core { width: 34%; top: 250px; }
+  .rx-lifecycle-core [data-testid="logo"] img { width: 36px; height: 36px; }
+  .rx-lifecycle-core [data-testid="logo"] span { font-size: 18px; }
   .rx-lifecycle-node { width: 84px; min-height: 64px; padding: 7px; border-radius: 14px; }
-  .rx-lifecycle-node[data-stage="request"] { --stage-x: 50% !important; --stage-y: 5% !important; }
-  .rx-lifecycle-node[data-stage="accepted"] { --stage-x: 76% !important; --stage-y: 17% !important; }
-  .rx-lifecycle-node[data-stage="received"] { --stage-x: 86% !important; --stage-y: 43% !important; }
-  .rx-lifecycle-node[data-stage="estimate"] { --stage-x: 78% !important; --stage-y: 75% !important; }
-  .rx-lifecycle-node[data-stage="approved"] { --stage-x: 50% !important; --stage-y: 91% !important; }
-  .rx-lifecycle-node[data-stage="result"] { --stage-x: 22% !important; --stage-y: 75% !important; }
-  .rx-lifecycle-node[data-stage="payment"] { --stage-x: 14% !important; --stage-y: 43% !important; }
-  .rx-lifecycle-node[data-stage="returned"] { --stage-x: 24% !important; --stage-y: 17% !important; }
+  .rx-lifecycle-node[data-stage="request"] { --stage-x: 50% !important; --stage-y: 25px !important; }
+  .rx-lifecycle-node[data-stage="accepted"] { --stage-x: 76% !important; --stage-y: 85px !important; }
+  .rx-lifecycle-node[data-stage="received"] { --stage-x: 86% !important; --stage-y: 215px !important; }
+  .rx-lifecycle-node[data-stage="estimate"] { --stage-x: 78% !important; --stage-y: 375px !important; }
+  .rx-lifecycle-node[data-stage="approved"] { --stage-x: 50% !important; --stage-y: 455px !important; }
+  .rx-lifecycle-node[data-stage="result"] { --stage-x: 22% !important; --stage-y: 375px !important; }
+  .rx-lifecycle-node[data-stage="payment"] { --stage-x: 14% !important; --stage-y: 215px !important; }
+  .rx-lifecycle-node[data-stage="returned"] { --stage-x: 24% !important; --stage-y: 85px !important; }
   .rx-lifecycle-node span { font-size: 13px; }
   .rx-lifecycle-node small { font-size: 9px; }
-  .rx-lifecycle-message { left: 5%; top: 22%; width: 70%; padding: 12px; }
+  .rx-lifecycle-message { left: 5%; top: 520px; width: 90%; padding: 12px; animation-name: rx-life-message-mobile; }
   .rx-public .rx-lifecycle-message > p { font-size: 11px; }
   .rx-lifecycle-message small { font-size: 8px; }
   .rx-lifecycle-detail { padding: 22px; }
@@ -152,6 +153,7 @@
   .rx-lifecycle-actions { padding: 24px; }
   .rx-public .rx-lifecycle-actions h2 { font-size: 2.25rem; }
 }
+@keyframes rx-life-message-mobile { 0%,100% { transform: translateY(0) rotate(-.25deg); } 50% { transform: translateY(-6px) rotate(.35deg); } }
 @media (prefers-reduced-motion: reduce) {
   .rx-lifecycle *, .rx-lifecycle::before, .rx-lifecycle *::before, .rx-lifecycle *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }

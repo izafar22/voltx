@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, MessageCircle, Pause, Play } from "lucide-react";
 import { Link } from "react-router-dom";
-import rushxMark from "../../../assets/brand/rushx-mark.svg";
+import { Logo } from "../../../components/Logo";
 import { lifecycleStages } from "./lifecycleData";
 import "./LifecycleRing.css";
 
@@ -38,6 +38,7 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
   const [documentHidden, setDocumentHidden] = useState(
     () => typeof document !== "undefined" && document.hidden,
   );
+  const [manualAnnouncement, setManualAnnouncement] = useState("");
   const rootRef = useRef(null);
   const reducedMotion = useReducedMotion();
   const paused =
@@ -74,7 +75,13 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
     return () => window.clearInterval(timer);
   }, [paused]);
 
-  const select = (next) => setIndex((next + lifecycleStages.length) % lifecycleStages.length);
+  const select = (next) => {
+    const selectedIndex = (next + lifecycleStages.length) % lifecycleStages.length;
+    setIndex(selectedIndex);
+    setManualAnnouncement(
+      `Milestone ${selectedIndex + 1} of ${lifecycleStages.length}: ${lifecycleStages[selectedIndex].title}`,
+    );
+  };
   const focusLeaves = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false);
   };
@@ -138,8 +145,7 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
             />
           </svg>
           <div className="rx-lifecycle-core" aria-hidden="true">
-            <img src={rushxMark} alt="" />
-            <strong>RushX</strong>
+            <Logo />
             <span>Repair lifecycle</span>
             <b>{String(index + 1).padStart(2, "0")} / 08</b>
           </div>
@@ -167,7 +173,10 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
           </aside>
         </div>
 
-        <article className="rx-lifecycle-detail" aria-live="polite" aria-atomic="true">
+        <p className="sr-only" aria-live="polite" aria-atomic="true">
+          {manualAnnouncement}
+        </p>
+        <article className="rx-lifecycle-detail">
           <div className="rx-lifecycle-meta">
             <span>Milestone {String(index + 1).padStart(2, "0")}</span>
             <span className="rx-lifecycle-recorded">● {stage.decision ? "Your decision" : "Recorded"}</span>

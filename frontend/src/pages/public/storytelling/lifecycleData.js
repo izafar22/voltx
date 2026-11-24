@@ -89,7 +89,7 @@ export const lifecycleStages = [
   },
   {
     id: "returned",
-    short: "Returned",
+    short: "Dispatched",
     title: "Return dispatched",
     description:
       "Courier and tracking facts appear when the charger is actually dispatched.",

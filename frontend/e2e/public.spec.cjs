@@ -105,6 +105,15 @@ test("repair lifecycle is selectable, pausable and truthful", async ({ page }) =
   await lifecycle.getByRole("button", { name: "Next stage" }).click();
   await expect(lifecycle.getByRole("heading", { name: "Approval recorded" })).toBeVisible();
   await expect(lifecycle.getByText("Illustrative preview")).toBeVisible();
+  const messageOverlapsStages = await lifecycle.evaluate((root) => {
+    const message = root.querySelector(".rx-lifecycle-message").getBoundingClientRect();
+    return [...root.querySelectorAll("[data-stage]")].filter((node) => {
+      const stage = node.getBoundingClientRect();
+      return message.left < stage.right && message.right > stage.left &&
+        message.top < stage.bottom && message.bottom > stage.top;
+    }).map((node) => node.dataset.stage);
+  });
+  expect(messageOverlapsStages).toEqual([]);
   await expect(lifecycle.getByRole("link", { name: /Book a repair/i })).toHaveAttribute("href", "/repairs/new");
   await expect(lifecycle.getByRole("link", { name: "Track a repair" })).toHaveAttribute("href", "/repairs");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
