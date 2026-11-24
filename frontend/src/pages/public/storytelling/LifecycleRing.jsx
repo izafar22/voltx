@@ -40,9 +40,10 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
   );
   const [manualAnnouncement, setManualAnnouncement] = useState("");
   const rootRef = useRef(null);
+  const pointerFrame = useRef(null);
   const reducedMotion = useReducedMotion();
-  const paused =
-    explicitPaused || hovered || focusWithin || !visible || documentHidden || reducedMotion;
+  const motionPaused = explicitPaused || !visible || documentHidden || reducedMotion;
+  const paused = motionPaused || hovered || focusWithin;
   const stage = lifecycleStages[index];
   const Heading = headingLevel;
   const progress = useMemo(
@@ -75,6 +76,8 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
     return () => window.clearInterval(timer);
   }, [paused]);
 
+  useEffect(() => () => window.cancelAnimationFrame(pointerFrame.current), []);
+
   const select = (next) => {
     const selectedIndex = (next + lifecycleStages.length) % lifecycleStages.length;
     setIndex(selectedIndex);
@@ -85,14 +88,33 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
   const focusLeaves = (event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false);
   };
+  const reactToPointer = (event) => {
+    if (reducedMotion || !rootRef.current) return;
+    const orbit = rootRef.current.querySelector(".rx-lifecycle-orbit");
+    if (!orbit) return;
+    const bounds = orbit.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 10;
+    const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 10;
+    window.cancelAnimationFrame(pointerFrame.current);
+    pointerFrame.current = window.requestAnimationFrame(() => {
+      orbit.style.setProperty("--life-pointer-x", `${x.toFixed(2)}px`);
+      orbit.style.setProperty("--life-pointer-y", `${y.toFixed(2)}px`);
+    });
+  };
+  const settlePointer = () => {
+    const orbit = rootRef.current?.querySelector(".rx-lifecycle-orbit");
+    orbit?.style.setProperty("--life-pointer-x", "0px");
+    orbit?.style.setProperty("--life-pointer-y", "0px");
+  };
 
   return (
     <section
-      className={`rx-lifecycle${compact ? " is-compact" : ""}${paused ? " is-paused" : ""}`}
+      className={`rx-lifecycle${compact ? " is-compact" : ""}${motionPaused ? " is-paused" : ""}`}
       aria-labelledby={`lifecycle-title-${compact ? "home" : "full"}`}
       ref={rootRef}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => { setHovered(false); settlePointer(); }}
+      onPointerMove={reactToPointer}
       onFocus={() => setFocusWithin(true)}
       onBlur={focusLeaves}
     >
@@ -133,6 +155,7 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
 
       <div className="rx-lifecycle-layout">
         <div className="rx-lifecycle-orbit" aria-label="Eight-stage repair lifecycle">
+          <span className="rx-lifecycle-signal-path" aria-hidden="true"><i /></span>
           <svg className="rx-lifecycle-track" viewBox="0 0 100 100" aria-hidden="true">
             <circle cx="50" cy="50" r="42" pathLength="263.9" />
             <circle
@@ -145,9 +168,14 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
             />
           </svg>
           <div className="rx-lifecycle-core" aria-hidden="true">
+            <span className="rx-lifecycle-core-halo" />
             <Logo />
             <span>Repair lifecycle</span>
             <b>{String(index + 1).padStart(2, "0")} / 08</b>
+            <span className="rx-lifecycle-presence">
+              <i /><i /><i />
+              <em>Live status</em>
+            </span>
           </div>
           {lifecycleStages.map((item, itemIndex) => (
             <button
