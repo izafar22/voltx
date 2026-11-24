@@ -443,7 +443,7 @@ LLMS_SUMMARY = (
     "DC fast chargers, charger PCBs and control boards, and power-electronics modules."
 )
 LLMS_FACTS = (
-    "Service area: Delhi NCR and Mumbai, plus eligible courier-based enquiries from across India. Bengaluru is planned, not offered yet.",
+    "Service area: Delhi and the National Capital Region. Availability, hand-off and logistics are confirmed after RushX reviews the repair request.",
     "Every repair starts with an enquiry and a technical assessment; work begins only after inspection, a quotation and the customer's approval.",
     "Not every charger can be repaired: feasibility depends on model, fault, condition, parts and safe testing. Replacement may be recommended.",
     "RushX is not an authorized manufacturer service centre and does not claim manufacturer authorization.",

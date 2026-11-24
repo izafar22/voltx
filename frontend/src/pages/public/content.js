@@ -82,7 +82,7 @@ export const faqs = [
   ],
   [
     "Where is service available?",
-    "We consider enquiries in Delhi NCR and Mumbai, plus eligible courier-based enquiries from across India. Availability and logistics must be confirmed during assessment. Bengaluru expansion is planned and is not currently offered.",
+    "This customer-acquisition phase serves Delhi and the National Capital Region. Availability, hand-off and logistics must be confirmed after RushX reviews the repair request.",
   ],
   [
     "Should I send my charger straight away?",

@@ -11,6 +11,13 @@ WhatsApp: `backend/services/whatsapp_service.py` contains provider configuration
 
 Frontend public storytelling lives under `frontend/src/pages/public/storytelling/`; assets under `frontend/public/assets/visual-storytelling/`.
 
+The public repair-lifecycle explainer is presentation-only. `lifecycleData.js`
+provides eight fictional, crawlable stage records to `LifecycleRing.jsx`; the
+component has no API, authentication, payment, repair mutation or WhatsApp provider
+hook. CSS/SVG supplies the visual ring and ambient motion, while React owns stage
+selection and independent pause reasons. Homepage and How-it-works reuse this one
+contract so public explanations cannot drift.
+
 ## Operational boundaries
 Oracle production has independently selected frontend and backend releases. Use the read-only check in `AGENTS.md` to verify the active frontend release directory, backend working directory and service PID. See `docs/ORACLE_PRODUCTION_DEPLOYMENT.md` for the dated hosting snapshot. Production database bootstrap, index checks and admin provisioning require operator-approved runbooks.
 

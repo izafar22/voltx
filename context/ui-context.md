@@ -6,8 +6,24 @@ React 18 frontend under `frontend/`, React Router, shared public-storytelling co
 ## Visual direction
 Preserve RushX identity, editorial typography, green accent and light/dark theme behavior already present in the app. Homepage headline: **Repair when possible. Replace when necessary.** Primary journey: **Request a repair**; supporting navigation includes services and educational pages.
 
+## Canonical logo
+The owner-confirmed RushX logo source is `frontend/src/assets/brand/rushx-mark.svg`.
+React UI must reuse `frontend/src/components/Logo.jsx`; do not redraw the bolt or
+substitute a Lucide icon. Full geometry, colour, wordmark and spacing rules are in
+`docs/BRAND_ASSETS.md`.
+
 ## Images and claims
 Homepage hero now uses responsive `rushx-workshop-{320,640,1280}.webp` assets via the storytelling asset registry. Preserve meaningful alt text, dimensions/aspect ratios, responsive loading, and accessible contrast. The source/provenance must be verified before making any real-world workshop or technician claim. Other conceptual scenes must not be presented as actual facilities, diagnostics, certifications, or results. Consult `docs/visual-storytelling/asset-manifest.json` and `frontend/src/pages/public/storytelling/assets.json`.
 
 ## UI acceptance
 Check at 320, 375, 768 and 1280 px where practical; both themes; keyboard access, focus, semantic labels, error/empty/loading states, mobile overflow and image layout shift. Avoid unrelated redesigns. Preserve login, OTP, repair forms, and protected routes. Run existing frontend build, unit and browser tests; distinguish executed tests from recommendations.
+
+## Repair workflow transparency (2026-11-24, feature branch)
+
+`LifecycleRing.jsx` is the single production presentation for the public eight-stage
+repair journey on `/` and `/how-it-works`; its reviewed content lives in
+`lifecycleData.js`. It uses semantic React, CSS and SVG with native stage buttons,
+one synchronized illustrative message and one selected-stage detail panel. The
+loop pauses for explicit control, hover, focus, off-screen/hidden state and reduced
+motion. Do not reintroduce the removed stage grid or build a second hard-coded
+journey. This implementation is locally validated but not a deployment claim.
