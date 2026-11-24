@@ -163,7 +163,11 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
               <span>{item.short}</span>
             </button>
           ))}
-          <aside className="rx-lifecycle-message" aria-label="Illustrative WhatsApp milestone">
+          <aside
+            className="rx-lifecycle-message"
+            aria-label="Illustrative WhatsApp milestone"
+            key={`message-${stage.id}`}
+          >
             <div>
               <span className="rx-lifecycle-message-icon"><MessageCircle aria-hidden="true" /></span>
               <p><strong>RushX</strong><small>WhatsApp milestone <i aria-hidden="true">• • •</i></small></p>
@@ -176,7 +180,7 @@ export function LifecycleRing({ compact = false, headingLevel = "h2" }) {
         <p className="sr-only" aria-live="polite" aria-atomic="true">
           {manualAnnouncement}
         </p>
-        <article className="rx-lifecycle-detail">
+        <article className="rx-lifecycle-detail" key={`detail-${stage.id}`}>
           <div className="rx-lifecycle-meta">
             <span>Milestone {String(index + 1).padStart(2, "0")}</span>
             <span className="rx-lifecycle-recorded">● {stage.decision ? "Your decision" : "Recorded"}</span>
