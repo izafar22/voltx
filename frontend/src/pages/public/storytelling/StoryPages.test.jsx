@@ -68,8 +68,8 @@ test("all four narratives use distinct assets, real routes, and one page heading
       expect(a.getAttribute("href")).toBe("/repairs/new");
     expect(el.querySelectorAll(".rx-final")).toHaveLength(0);
   }
-  expect(used).toHaveLength(6);
-  expect(new Set(used).size).toBe(6);
+  expect(used).toHaveLength(12);
+  expect(new Set(used).size).toBe(12);
 });
 test("only homepage hero and About lead are eager; all scenes reserve geometry and have meaningful alt", () => {
   for (const Page of [HomeStory, ServicesStory, JourneyStory, AboutStory]) {
@@ -87,10 +87,18 @@ test("only homepage hero and About lead are eager; all scenes reserve geometry a
     }
   }
 });
-test("eight-stage journey retains acceptance, approval, account fallback and dispatch boundaries", () => {
+test("original five-step journey remains before the additive eight-stage lifecycle", () => {
   render(JourneyStory);
+  const originalSteps = [...el.querySelectorAll(".rx-story-journey > li")];
+  expect(originalSteps).toHaveLength(5);
+  expect(originalSteps[0].textContent).toContain("Tell us about the fault");
+  expect(originalSteps[4].textContent).toContain("Return & documentation");
   const stages = [...el.querySelectorAll("[data-stage]")];
   expect(stages).toHaveLength(8);
+  expect(
+    originalSteps[4].compareDocumentPosition(stages[0])
+      & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
   expect(stages.map((stage) => stage.textContent)).toEqual(expect.arrayContaining([
     expect.stringContaining("Request"),
     expect.stringContaining("Accepted"),
