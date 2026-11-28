@@ -416,9 +416,9 @@ test("Google entry remains same-origin and resumes the pending repair after call
   await expect(page.locator("h1")).toContainText(/repair/i);
 });
 for (const [route, count] of [
-  ["/", 1],
+  ["/", 2],
   ["/services", 4],
-  ["/how-it-works", 0],
+  ["/how-it-works", 5],
   ["/about", 1],
 ])
   for (const theme of ["light", "dark"])

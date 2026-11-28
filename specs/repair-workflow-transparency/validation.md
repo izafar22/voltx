@@ -30,6 +30,16 @@ section were retained from the local runs; no live credentials were used.
 | `frontend/e2e` | `npx playwright test --config storybook.playwright.config.cjs` | 163/163 passed after the review fixes at 375 and 1280 px in both themes |
 | `backend` | `MONGO_URL='mongodb://127.0.0.1:27017' DB_NAME='rushx_test' JWT_SECRET='test-only-secret-not-for-runtime-000000000' APP_ENV='test' PYTHONPATH="$PWD" ../.venv/bin/pytest -q tests/test_studio_cms.py tests/test_seo_files.py` | 35 passed after the SEO service-area correction; deprecation warnings only |
 
+The additive-layout correction was revalidated on 2026-11-28. The browser
+storytelling expectations now cover both restored homepage images and all five
+restored `/how-it-works` images instead of the superseded replacement layout.
+
+| Working directory | Exact command | Result |
+| --- | --- | --- |
+| `frontend` | `CI=true yarn test StoryPages.test.jsx --watchAll=false --runInBand` | 1 suite / 4 tests passed |
+| `frontend` | `yarn build` | Passed; main JS 383.42 kB gzip and main CSS 25.19 kB gzip |
+| `frontend/e2e` | `npx playwright test public.spec.cjs` | 116/116 passed at 320, 375, 768 and 1280 px |
+
 Before review, `npm test` from `frontend/e2e` produced 148 passes and 24 failures,
 all caused by the same compact-logo ARIA issue. After correcting the wrapper and
 rebuilding, `npx playwright test customer-profile.spec.cjs public.spec.cjs --grep
