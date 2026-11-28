@@ -182,6 +182,8 @@ Sources: [`AGENTS.md`](https://github.com/izafar22/voltx/blob/144e1236f93b6dac1c
 
 ## 11. New-chat resume protocol
 
+Discovery addendum (2026-11-28): SEO-000 findings and integration-base reconciliation are maintained in [the canonical SEO discovery](../specs/seo-digital-marketing/discovery.md). Read its revision/provenance and next action when resuming SEO. It is CONDITIONAL PASS pending independent review, with no SEO implementation started; this pointer does not refresh the historical deployment snapshot above.
+
 Paste this into a new chat in the **RushX EV Charger Repair ChatGPT Project**:
 
 > Continue RushX from the attached `RUSHX_PROJECT_STATE.md`. Read the dated checkpoint first, then GitHub `AGENTS.md` and all six `context/` files, and inspect the latest relevant commits/PRs. Distinguish deployed production SHA from current `repair-mvp` HEAD. State (1) production version and verification date, (2) completed work, (3) pending work, (4) risks, and (5) the next safe action. Do not change GitHub, staging, production, secrets, or live data without explicit authorization. Update this handover only with evidence, and mark assumptions.

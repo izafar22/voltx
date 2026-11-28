@@ -10,6 +10,10 @@ Each spec contains:
 
 Finalize requirements first, then review the design where needed, then prepare and review implementation tasks before implementing them. Record approval dates and keep task status consistent with actual evidence. Link to these documents from context and PRs rather than keeping duplicate copies in `docs/`.
 
+## Discovery workstreams
+
+- [SEO and digital marketing — SEO-000 discovery](seo-digital-marketing/discovery.md): reconciled against `repair-mvp`; CONDITIONAL PASS pending independent review. Requirements, design and execution tasks are not yet prepared or approved.
+
 ## Specs
 
 | Spec | Requirements | Design | Tasks |
