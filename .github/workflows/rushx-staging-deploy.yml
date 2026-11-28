@@ -1,0 +1,62 @@
+name: RushX staging deployment (isolated host only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: "40-character commit SHA from a successful quality-gate run"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: rushx-staging-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-22.04
+    environment: staging
+    timeout-minutes: 20
+    steps:
+      - name: Verify staging configuration and candidate SHA
+        env:
+          SHA: ${{ inputs.candidate_sha }}
+          STAGING_HOST: ${{ vars.RUSHX_STAGING_HOST }}
+          PROD_HOST: ${{ vars.ORACLE_HOST }}
+          STAGING_URL: ${{ vars.RUSHX_STAGING_URL }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          : "${STAGING_HOST:?Configure isolated staging host}"
+          : "${PROD_HOST:?Configure production host guard}"
+          : "${STAGING_URL:?Configure staging URL}"
+          [[ "$STAGING_HOST" != "$PROD_HOST" ]] || { echo "Staging must use a separate host"; exit 1; }
+          [[ "$STAGING_URL" == https://* ]] || { echo "Staging requires HTTPS"; exit 1; }
+          [[ "$STAGING_URL" != *evchargerrepair.in ]] || { echo "Do not use production hostname"; exit 1; }
+      - name: Verify candidate quality gates passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.candidate_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request
+          repo, sha = os.environ["REPO"], os.environ["SHA"]
+          url = f"https://api.github.com/repos/{repo}/actions/runs?head_sha={sha}&per_page=100"
+          req = urllib.request.Request(url, headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"], "Accept": "application/vnd.github+json"})
+          with urllib.request.urlopen(req, timeout=20) as response:
+              runs = json.load(response)["workflow_runs"]
+          passed = any(run["name"] == "RushX CD quality gates" and run["status"] == "completed" and run["conclusion"] == "success" for run in runs)
+          if not passed:
+              raise SystemExit("No successful candidate quality-gate run; refusing staging deployment")
+          print("Verified successful quality-gate run for", sha)
+          PY
+      - name: Staging deployment pending infrastructure provisioning
+        run: |
+          echo "STAGING NOT DEPLOYED: separate host, HTTPS, isolated backend/database and release service must be provisioned and reviewed."
+          exit 1

@@ -1,0 +1,117 @@
+name: RushX CD quality gates
+
+on:
+  pull_request:
+    branches: [repair-mvp]
+  push:
+    branches: [repair-mvp]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rushx-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  frontend:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Verify deployment and rollback regression tests
+        run: bash scripts/test-oracle-frontend-deploy.sh
+      - name: Install locked dependencies
+        working-directory: frontend
+        run: |
+          corepack enable
+          yarn install --frozen-lockfile
+      - name: Unit tests
+        working-directory: frontend
+        run: CI=true yarn test --watchAll=false
+      - name: Production build
+        working-directory: frontend
+        run: CI=true yarn build
+      - name: Validate build output
+        run: |
+          test -s frontend/build/index.html
+          test -n "$(find frontend/build/static/js -type f -name '*.js' -size +0c -print -quit)"
+          test -n "$(find frontend/build/static/css -type f -name '*.css' -size +0c -print -quit)"
+      - name: Package immutable artifact
+        run: |
+          tar -C frontend/build -czf rushx-frontend.tar.gz .
+          sha256sum rushx-frontend.tar.gz > rushx-frontend.tar.gz.sha256
+      - name: Upload verified artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rushx-frontend-${{ github.sha }}
+          path: |
+            rushx-frontend.tar.gz
+            rushx-frontend.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  security:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check dependency vulnerabilities
+        working-directory: frontend
+        run: |
+          corepack enable
+          yarn install --frozen-lockfile
+          python3 ../scripts/check-frontend-audit.py
+
+  staging-browser:
+    name: Staging browser validation (isolated)
+    needs: frontend
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: rushx-frontend-${{ github.sha }}
+          path: candidate
+      - name: Verify packaged artifact integrity
+        run: |
+          cd candidate
+          sha256sum --check rushx-frontend.tar.gz.sha256
+          mkdir -p ../frontend/build
+          tar -tzf rushx-frontend.tar.gz | grep -q './index.html'
+          tar -xzf rushx-frontend.tar.gz -C ../frontend/build --no-same-owner --no-same-permissions
+          test -s ../frontend/build/index.html
+      - name: Install isolated browser test dependencies
+        working-directory: frontend/e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Run browser regression suite against candidate artifact
+        working-directory: frontend/e2e
+        run: npm test
+      - name: Upload browser test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rushx-staging-browser-results-${{ github.run_id }}
+          path: frontend/e2e/test-results
+          if-no-files-found: ignore
